@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/* ---- Design tokens (Tailwind v4 @theme → utilities like bg-surface, text-muted) ---- */
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-2: #f4f5f8;
+  --color-surface-3: #eceef4;
+  --color-line: #e6e8ef;
+  --color-line-2: #d6dae3;
+  --color-fg: #14161d;
+  --color-muted: #565d6e;
+  --color-faint: #878d9d;
+
+  --color-accent: #6d5ef8;
+  --color-accent-2: #5a49f5;
+  --color-accent-soft: #efedff;
+  --color-teal: #0d9488;
+  --color-teal-soft: #e3f6f2;
+  --color-danger: #e23b54;
+  --color-warn: #c2820a;
+
+  --radius-xl2: 18px;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1100px 600px at 100% -10%, rgba(124, 108, 255, 0.07), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(13, 148, 136, 0.05), transparent 55%),
+    var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* thin, themed scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-2) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line-2);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* utilities */
+.gradient-text {
+  background: linear-gradient(92deg, var(--color-accent-2), var(--color-teal));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(20, 22, 29, 0.05),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise 0.28s ease both;
+}
