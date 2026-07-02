@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
 import { HERO, HERO_CHIPS, HERO_PROMPT, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
+import { DEMO_CONTENT, generatedSrc, type DemoItem } from "@/lib/demo-content";
 
 const APP = "/app";
 
@@ -96,7 +97,7 @@ function Header() {
         <Brand />
         <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
           <a href="#features" className="transition-colors hover:text-fg">Features</a>
-          <a href="#how" className="transition-colors hover:text-fg">How it works</a>
+          <a href="#usecases" className="transition-colors hover:text-fg">Use cases</a>
           <a href="#showcase" className="transition-colors hover:text-fg">Showcase</a>
           <a href="#pricing" className="transition-colors hover:text-fg">Pricing</a>
         </nav>
@@ -269,6 +270,72 @@ function Steps() {
               <h3 className="mt-4 text-lg font-semibold">{s.title}</h3>
               <p className="mt-2 text-[14px] leading-relaxed text-muted">{s.body}</p>
             </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DemoCard({ d }: { d: DemoItem }) {
+  const src = generatedSrc(d.id);
+  const vertical = d.aspect === "9:16";
+  return (
+    <div className="flex flex-col overflow-hidden rounded-[var(--radius-xl2)] border border-line bg-surface">
+      <div
+        className={cn("relative w-full overflow-hidden", vertical ? "aspect-[3/4]" : "aspect-video")}
+        style={{ background: `linear-gradient(135deg, ${d.accent}22, ${d.accent}08 60%, transparent)` }}
+      >
+        {src ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video src={src} autoPlay muted loop playsInline className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2">
+            <span
+              className="flex h-12 w-12 items-center justify-center rounded-2xl text-white"
+              style={{ backgroundColor: d.accent }}
+            >
+              <Clapperboard size={22} />
+            </span>
+            <span className="text-[12px] font-medium text-muted">{d.aspect} · Seedance</span>
+          </div>
+        )}
+        <span className="absolute left-2.5 top-2.5">
+          <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
+            {d.tag}
+          </Badge>
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="text-[15px] font-semibold">{d.title}</h3>
+        <p className="mt-2 flex-1 rounded-xl border border-line bg-surface-2 p-2.5 text-[12.5px] leading-relaxed text-muted">
+          “{d.prompt}”
+        </p>
+        <Link
+          href={`/app?prompt=${encodeURIComponent(d.prompt)}`}
+          className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent-2 transition-colors hover:text-accent"
+        >
+          <Wand2 size={14} /> Try this prompt <ArrowRight size={14} />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function UseCases() {
+  return (
+    <section id="usecases" className="border-y border-line bg-surface-2/40">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Every format, one prompt</h2>
+          <p className="mt-3 text-[17px] text-muted">
+            Vertical UGC ads, product films, fashion, brand spots — these are the exact prompts.
+            Tap one to open it in the studio and make it yours.
+          </p>
+        </div>
+        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {DEMO_CONTENT.map((d) => (
+            <DemoCard key={d.id} d={d} />
           ))}
         </div>
       </div>
@@ -492,6 +559,7 @@ export function Landing() {
         <ModelBand />
         <Features />
         <Steps />
+        <UseCases />
         <Showcase />
         <Pricing />
         <FinalCTA />

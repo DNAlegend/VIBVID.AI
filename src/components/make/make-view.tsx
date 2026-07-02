@@ -94,6 +94,9 @@ export function MakeView() {
       setPicks((p) => ({ ...seed, ...p }));
       setShowAssets(true);
     }
+    // "Try this prompt" links from the landing page arrive as ?prompt=…
+    const linked = new URLSearchParams(window.location.search).get("prompt");
+    if (linked) setPrompt(linked);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

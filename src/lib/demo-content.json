@@ -1,0 +1,52 @@
+{
+  "demos": [
+    {
+      "id": "ugc-skincare",
+      "tag": "UGC Ad",
+      "title": "Skincare testimonial",
+      "aspect": "9:16",
+      "accent": "#d6457a",
+      "prompt": "UGC-style ad: a young woman in a sunlit bathroom holds a glass serum bottle up to the camera and talks excitedly, iPhone selfie framing, ring-light catchlights in her eyes, authentic creator energy"
+    },
+    {
+      "id": "ugc-unboxing",
+      "tag": "UGC Ad",
+      "title": "Sneaker unboxing",
+      "aspect": "9:16",
+      "accent": "#c2820a",
+      "prompt": "Overhead unboxing video: hands lift limited-edition sneakers out of a box on a wooden desk, tissue paper crinkles, warm afternoon light, satisfying slow reveal"
+    },
+    {
+      "id": "ugc-food",
+      "tag": "Food",
+      "title": "Smoothie bowl pour",
+      "aspect": "9:16",
+      "accent": "#0d9488",
+      "prompt": "POV food reel: thick berry smoothie pours into a ceramic bowl, granola sprinkled on top in slow motion, bright morning kitchen, appetizing macro detail"
+    },
+    {
+      "id": "product-earbuds",
+      "tag": "Product",
+      "title": "Earbuds hero shot",
+      "aspect": "16:9",
+      "accent": "#6d5ef8",
+      "prompt": "Studio product film: matte-black wireless earbuds rotate on a glass pedestal, dramatic rim lighting, dust particles drifting through the light beam"
+    },
+    {
+      "id": "fashion-gown",
+      "tag": "Fashion",
+      "title": "Runway gown walk",
+      "aspect": "16:9",
+      "accent": "#d6457a",
+      "prompt": "Fashion film: a model in a flowing crimson evening gown walks toward camera through a mirrored hallway, slow motion, cinematic lighting"
+    },
+    {
+      "id": "brand-city",
+      "tag": "Brand film",
+      "title": "City rise reveal",
+      "aspect": "16:9",
+      "accent": "#22d3ee",
+      "prompt": "Aerial brand film: a drone rises over a neon-lit city at dusk revealing the skyline, cinematic teal and magenta color grade"
+    }
+  ]
+}
