@@ -130,6 +130,8 @@ interface StoreState {
   hasHydrated: boolean;
   /** Signed-in Supabase user id, or null in local demo mode. */
   cloudUser: string | null;
+  /** Opens the sign-in modal (rendered by the app shell) from anywhere. */
+  authOpen: boolean;
   credits: number;
   videos: VideoJob[];
   assets: Asset[];
@@ -142,6 +144,7 @@ interface StoreState {
   draftRefAssetId: string | null;
 
   setHasHydrated: (v: boolean) => void;
+  setAuthOpen: (v: boolean) => void;
 
   // cloud session
   hydrateFromCloud: (userId: string) => Promise<void>;
@@ -330,6 +333,7 @@ export const useStore = create<StoreState>()(
     (set, get) => ({
       hasHydrated: false,
       cloudUser: null,
+      authOpen: false,
       credits: STARTING_CREDITS,
       videos: [],
       assets: seedAssets(),
@@ -339,6 +343,7 @@ export const useStore = create<StoreState>()(
       draftRefAssetId: null,
 
       setHasHydrated: (v) => set({ hasHydrated: v }),
+      setAuthOpen: (v) => set({ authOpen: v }),
 
       hydrateFromCloud: async (userId) => {
         setCloudUser(userId);

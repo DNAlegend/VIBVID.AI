@@ -72,7 +72,11 @@ export function MakeView() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
   const cloudUser = useStore((s) => s.cloudUser);
+  const setAuthOpen = useStore((s) => s.setAuthOpen);
   const resultRef = useRef<HTMLDivElement>(null);
+  // Real backend configured but visitor not signed in → route them to auth
+  // instead of quietly simulating (a sample clip reads as broken generation).
+  const needsSignIn = cloudConfigured && !cloudUser;
 
   // Consume drafts handed over from Assets ("Use in Make") or Library ("Remix").
   useEffect(() => {
@@ -316,25 +320,31 @@ export function MakeView() {
                 <Coins size={15} className="text-warn" /> {cost} credits
               </span>
             </div>
-            <Button size="lg" className="w-full" disabled={!canGenerate || rendering} onClick={onGenerate}>
-              {rendering ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" /> Generating…
-                </>
-              ) : (
-                <>
-                  <Sparkles size={18} /> Generate
-                </>
-              )}
-            </Button>
-            {hydrated && !canAfford && (
+            {needsSignIn ? (
+              <Button size="lg" className="w-full" onClick={() => setAuthOpen(true)}>
+                <Sparkles size={18} /> Sign in to generate
+              </Button>
+            ) : (
+              <Button size="lg" className="w-full" disabled={!canGenerate || rendering} onClick={onGenerate}>
+                {rendering ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Generating…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} /> Generate
+                  </>
+                )}
+              </Button>
+            )}
+            {!needsSignIn && hydrated && !canAfford && (
               <p className="mt-2 text-center text-xs text-danger">
                 Not enough credits — you need {cost - credits} more. Tap “Buy” in the top bar.
               </p>
             )}
-            {hydrated && cloudConfigured && !cloudUser && (
+            {needsSignIn && (
               <p className="mt-2 text-center text-xs text-faint">
-                Demo mode previews with sample clips — sign in (top right) to render with the real{" "}
+                Free account · 1,200 credits to start — your shot renders with the real{" "}
                 {modality === "video" ? "Seedance" : "Seedream"} model.
               </p>
             )}

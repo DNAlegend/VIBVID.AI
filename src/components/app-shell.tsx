@@ -119,7 +119,8 @@ function BuyCreditsModal({ open, onClose }: { open: boolean; onClose: () => void
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [buyOpen, setBuyOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
+  const authOpen = useStore((s) => s.authOpen);
+  const setAuthOpen = useStore((s) => s.setAuthOpen);
   const [email, setEmail] = useState<string | null>(null);
   const hydrateFromCloud = useStore((s) => s.hydrateFromCloud);
   const signOutToLocal = useStore((s) => s.signOutToLocal);
@@ -146,7 +147,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       }
     });
     return () => subscription.unsubscribe();
-  }, [hydrateFromCloud, signOutToLocal]);
+  }, [hydrateFromCloud, signOutToLocal, setAuthOpen]);
 
   return (
     <div className="min-h-screen">

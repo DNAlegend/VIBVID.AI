@@ -16,6 +16,10 @@ import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getModel, priceFor } from "@/lib/models";
 
+// The finalize step downloads the rendered MP4 from Ark and re-uploads it to
+// Storage — give the function headroom beyond the serverless default.
+export const maxDuration = 60;
+
 const ARK_BASE = process.env.ARK_BASE_URL ?? "https://ark.ap-southeast.bytepluses.com/api/v3";
 
 const IMAGE_SIZE: Record<string, string> = {
