@@ -521,7 +521,7 @@ function FinalCTA() {
         <div className="mt-7 flex justify-center">
           <Link
             href={APP}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-accent-2 transition-transform hover:scale-[1.02]"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-[#4c3ce0] transition-transform hover:scale-[1.02]"
           >
             <Sparkles size={18} /> Create your first video
           </Link>

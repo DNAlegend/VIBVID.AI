@@ -1,29 +1,34 @@
 @import "tailwindcss";
 
-/* ---- Design tokens (Tailwind v4 @theme → utilities like bg-surface, text-muted) ---- */
+/* ---- Design tokens (Tailwind v4 @theme → utilities like bg-surface, text-muted) ----
+   Dark studio palette: near-black stage, violet/teal accent glow. */
 @theme {
-  --color-bg: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-2: #f4f5f8;
-  --color-surface-3: #eceef4;
-  --color-line: #e6e8ef;
-  --color-line-2: #d6dae3;
-  --color-fg: #14161d;
-  --color-muted: #565d6e;
-  --color-faint: #878d9d;
+  --color-bg: #08080d;
+  --color-surface: #101018;
+  --color-surface-2: #171722;
+  --color-surface-3: #1f1f2d;
+  --color-line: #232331;
+  --color-line-2: #313142;
+  --color-fg: #f4f4f8;
+  --color-muted: #a0a2b3;
+  --color-faint: #666878;
 
-  --color-accent: #6d5ef8;
-  --color-accent-2: #5a49f5;
-  --color-accent-soft: #efedff;
-  --color-teal: #0d9488;
-  --color-teal-soft: #e3f6f2;
-  --color-danger: #e23b54;
-  --color-warn: #c2820a;
+  --color-accent: #7c6cff;
+  --color-accent-2: #9a8dff;
+  --color-accent-soft: #221d43;
+  --color-teal: #2dd4bf;
+  --color-teal-soft: #0d2a26;
+  --color-danger: #f4586e;
+  --color-warn: #e0a63e;
 
   --radius-xl2: 18px;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
     Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+html {
+  color-scheme: dark;
 }
 
 * {
@@ -37,8 +42,8 @@ body {
 
 body {
   background:
-    radial-gradient(1100px 600px at 100% -10%, rgba(124, 108, 255, 0.07), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(13, 148, 136, 0.05), transparent 55%),
+    radial-gradient(1100px 600px at 100% -10%, rgba(124, 108, 255, 0.1), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(45, 212, 191, 0.05), transparent 55%),
     var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
@@ -87,7 +92,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(20, 22, 29, 0.05),
+    rgba(255, 255, 255, 0.06),
     transparent
   );
   animation: shimmer 1.4s infinite;
