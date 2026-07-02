@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+ <defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#0a0912"/><stop offset="1" stop-color="#191227"/>
+  </linearGradient>
+  <linearGradient id="cone" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#ffe9c4" stop-opacity="0.5"/><stop offset="1" stop-color="#ffe9c4" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="bottle" x1="0" y1="0" x2="1" y2="0">
+   <stop offset="0" stop-color="#3b2f66"/><stop offset="0.45" stop-color="#8f7bff"/><stop offset="0.55" stop-color="#c9beff"/><stop offset="0.7" stop-color="#6a58c9"/><stop offset="1" stop-color="#2c2350"/>
+  </linearGradient>
+  <linearGradient id="ped" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#2b2344"/><stop offset="1" stop-color="#120e20"/>
+  </linearGradient>
+  <radialGradient id="floor" cx="0.5" cy="0.5" r="0.5">
+   <stop offset="0" stop-color="#8f7bff" stop-opacity="0.35"/><stop offset="1" stop-color="#8f7bff" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="vig2" cx="0.5" cy="0.45" r="0.8">
+   <stop offset="0.5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.6"/>
+  </radialGradient>
+  <filter id="soft"><feGaussianBlur stdDeviation="10"/></filter>
+  <filter id="soft2"><feGaussianBlur stdDeviation="3"/></filter>
+ </defs>
+
+ <rect width="1280" height="720" fill="url(#bg)"/>
+
+ <!-- spotlight cone -->
+ <polygon points="640,-40 380,620 900,620" fill="url(#cone)"/>
+ <ellipse cx="640" cy="600" rx="330" ry="60" fill="url(#floor)"/>
+
+ <!-- pedestal -->
+ <g>
+  <rect x="530" y="480" width="220" height="130" rx="10" fill="url(#ped)"/>
+  <ellipse cx="640" cy="480" rx="110" ry="22" fill="#3a2f5e"/>
+  <ellipse cx="640" cy="480" rx="110" ry="22" fill="none" stroke="#a493ff" stroke-width="1.5" opacity="0.5"/>
+ </g>
+
+ <!-- product bottle -->
+ <g>
+  <rect x="596" y="300" width="88" height="170" rx="18" fill="url(#bottle)"/>
+  <rect x="596" y="300" width="88" height="170" rx="18" fill="none" stroke="#e6dfff" stroke-width="1.2" opacity="0.4"/>
+  <rect x="620" y="268" width="40" height="38" rx="7" fill="#241c42"/>
+  <rect x="620" y="268" width="40" height="38" rx="7" fill="none" stroke="#a493ff" stroke-width="1" opacity="0.6"/>
+  <rect x="606" y="316" width="12" height="130" rx="6" fill="#ffffff" opacity="0.35" filter="url(#soft2)"/>
+  <rect x="614" y="360" width="52" height="56" rx="6" fill="#f2eeff" opacity="0.92"/>
+  <rect x="622" y="374" width="36" height="5" rx="2.5" fill="#584a9e"/>
+  <rect x="622" y="386" width="24" height="5" rx="2.5" fill="#9d92cc"/>
+  <rect x="622" y="398" width="30" height="5" rx="2.5" fill="#9d92cc"/>
+ </g>
+
+ <!-- floating glow orbs -->
+ <circle cx="380" cy="250" r="60" fill="#ff4d9d" opacity="0.15" filter="url(#soft)"/>
+ <circle cx="930" cy="200" r="80" fill="#22d3ee" opacity="0.12" filter="url(#soft)"/>
+ <circle cx="850" cy="470" r="4" fill="#cabfff" opacity="0.8"/>
+ <circle cx="470" cy="390" r="3" fill="#cabfff" opacity="0.6"/>
+ <circle cx="790" cy="330" r="2.5" fill="#ffd28a" opacity="0.7"/>
+
+ <!-- reflection -->
+ <g transform="translate(0 1210) scale(1 -1)" opacity="0.18">
+  <rect x="596" y="300" width="88" height="170" rx="18" fill="url(#bottle)" filter="url(#soft2)"/>
+ </g>
+
+ <rect width="1280" height="720" fill="url(#vig2)"/>
+</svg>

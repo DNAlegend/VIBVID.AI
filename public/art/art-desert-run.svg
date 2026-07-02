@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+ <defs>
+  <linearGradient id="dsky" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#2b1443"/><stop offset="0.45" stop-color="#8a2d5c"/><stop offset="0.72" stop-color="#e8683f"/><stop offset="1" stop-color="#ffb454"/>
+  </linearGradient>
+  <linearGradient id="dune1" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#5c2145"/><stop offset="1" stop-color="#341131"/>
+  </linearGradient>
+  <linearGradient id="dune2" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#7a2c50"/><stop offset="1" stop-color="#47163a"/>
+  </linearGradient>
+  <radialGradient id="dsun" cx="0.5" cy="0.5" r="0.5">
+   <stop offset="0" stop-color="#fff3d6"/><stop offset="0.55" stop-color="#ffc46b"/><stop offset="1" stop-color="#ffc46b" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="dvig4" cx="0.5" cy="0.5" r="0.75">
+   <stop offset="0.55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#20081c" stop-opacity="0.5"/>
+  </radialGradient>
+ </defs>
+
+ <rect width="1280" height="720" fill="url(#dsky)"/>
+
+ <!-- sun -->
+ <circle cx="820" cy="330" r="200" fill="url(#dsun)" opacity="0.9"/>
+ <circle cx="820" cy="330" r="105" fill="#ffe9bd"/>
+
+ <!-- birds -->
+ <g stroke="#3a1030" stroke-width="3" fill="none" stroke-linecap="round">
+  <path d="M 320,180 q 12,-12 24,0 q 12,-12 24,0"/>
+  <path d="M 420,140 q 9,-9 18,0 q 9,-9 18,0"/>
+ </g>
+
+ <!-- far dunes -->
+ <path d="M 0,430 C 220,360 420,470 640,420 C 860,370 1080,460 1280,400 L 1280,720 0,720 Z" fill="url(#dune2)" opacity="0.85"/>
+ <!-- near dunes -->
+ <path d="M 0,560 C 260,470 520,610 800,540 C 1000,490 1160,580 1280,545 L 1280,720 0,720 Z" fill="url(#dune1)"/>
+ <!-- dune ridge highlight -->
+ <path d="M 0,560 C 260,470 520,610 800,540" stroke="#ff9d6b" stroke-width="3" fill="none" opacity="0.6"/>
+ <path d="M 0,430 C 220,360 420,470 640,420" stroke="#ff86a0" stroke-width="2.5" fill="none" opacity="0.4"/>
+
+ <!-- runner silhouette on ridge -->
+ <g transform="translate(700 520)" fill="#2a0c26">
+  <circle cx="10" cy="-96" r="12"/>
+  <path d="M 2,-84 C -6,-78 -10,-66 -8,-52 L -34,-10 -26,-2 4,-40 14,-16 -6,32 4,38 30,-12 22,-44 C 30,-56 30,-72 22,-82 C 16,-88 8,-88 2,-84 Z"/>
+  <path d="M 0,-70 L -34,-46 -30,-38 2,-58 Z"/>
+  <path d="M 18,-72 L 48,-58 44,-48 14,-60 Z"/>
+ </g>
+ <ellipse cx="702" cy="562" rx="42" ry="7" fill="#1c0619" opacity="0.6"/>
+
+ <!-- drifting sand -->
+ <g stroke="#ffcf9a" opacity="0.35" stroke-width="2" fill="none" stroke-linecap="round">
+  <path d="M 560,600 q 60,-14 120,0"/>
+  <path d="M 900,620 q 50,-12 100,0"/>
+  <path d="M 240,640 q 55,-12 110,0"/>
+ </g>
+
+ <rect width="1280" height="720" fill="url(#dvig4)"/>
+</svg>

@@ -5,6 +5,7 @@ import {
   Sparkles,
   FolderOpen,
   Film,
+  Image as ImageIcon,
   ArrowRight,
   Check,
   Wand2,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
-import { HERO, HERO_CHIPS, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
+import { HERO, HERO_CHIPS, HERO_PROMPT, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
 
 const APP = "/app";
 
@@ -80,7 +81,7 @@ function Brand() {
         <Zap size={18} className="text-white" fill="white" />
       </span>
       <span className="text-[17px] font-bold tracking-tight">
-        Mighty<span className="gradient-text">Studio</span>
+        Mighty<span className="gradient-text">Mak</span>
       </span>
     </Link>
   );
@@ -124,7 +125,7 @@ function Hero() {
           <Sparkles size={13} className="text-accent-2" /> Powered by ByteDance Seedance &amp; Seedream
         </div>
         <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-[1.07] tracking-tight sm:text-6xl">
-          Your entire production studio,
+          Your AI video &amp; image studio,
           <br className="hidden sm:block" /> <span className="gradient-text">one prompt away.</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-relaxed text-muted">
@@ -141,11 +142,23 @@ function Hero() {
         </div>
         <p className="mt-3 text-[13px] text-faint">No credit card needed · 1,200 free credits to start</p>
 
-        {/* Hero visual */}
+        {/* Hero visual — the studio in action */}
         <div className="relative mx-auto mt-12 max-w-4xl">
           <div className="overflow-hidden rounded-[20px] border border-line-2 bg-surface shadow-[0_30px_80px_-30px_rgba(16,18,27,0.45)]">
-            <div className="aspect-video w-full bg-black">
+            <div className="relative aspect-video w-full bg-black">
               <MediaTile m={HERO} />
+              <div className="absolute right-3 top-3 rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
+                Seedance 2.0 Pro · 1080p · 6s
+              </div>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 sm:p-5">
+                <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-black/45 px-3.5 py-2.5 backdrop-blur-md">
+                  <Wand2 size={15} className="shrink-0 text-white/60" />
+                  <span className="truncate text-left text-[13px] text-white/85">{HERO_PROMPT}</span>
+                  <span className="ml-auto hidden shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-white sm:flex">
+                    <Sparkles size={13} /> Generate
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
           {/* floating chips */}
@@ -267,7 +280,7 @@ function Showcase() {
   return (
     <section id="showcase" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
-        <Badge tone="accent" className="mb-3">Made with Mighty Studio</Badge>
+        <Badge tone="accent" className="mb-3">Made with MightyMak</Badge>
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Output that looks the part</h2>
         <p className="mt-3 text-[17px] text-muted">Video and images generated in seconds — every one ready to drop into your campaign.</p>
       </div>
@@ -296,23 +309,86 @@ function Showcase() {
 }
 
 const PLANS = [
-  { name: "Starter", price: "$7", credits: "500", blurb: "For trying things out.", popular: false,
-    perks: ["500 credits", "All ByteDance models", "Video + image", "Personal asset library"] },
-  { name: "Plus", price: "$20", credits: "1,600", blurb: "For regular creators.", popular: true,
-    perks: ["1,600 credits", "Everything in Starter", "Business asset library", "Composite assets", "Priority rendering"] },
-  { name: "Studio", price: "$60", credits: "5,500", blurb: "For teams in production.", popular: false,
-    perks: ["5,500 credits", "Everything in Plus", "Highest quality (2K)", "Bulk generation", "Early access to new models"] },
+  {
+    name: "Free",
+    price: "$0",
+    period: "to start",
+    credits: "300",
+    capacity: "Starter capacity",
+    blurb: "Try the studio — no card needed.",
+    popular: false,
+    video: "720p drafts · up to 6s",
+    image: "1K images",
+    perks: ["1,200-credit welcome boost", "Seedance 2.0 Lite + Seedream", "Personal asset library", "≈10 draft clips or 35 images / mo"],
+    cta: "Start free",
+  },
+  {
+    name: "Basic",
+    price: "$19",
+    period: "/ month",
+    credits: "2,000",
+    capacity: null,
+    blurb: "For creators publishing every week.",
+    popular: false,
+    video: "1080p HD · up to 10s · native audio",
+    image: "2K images",
+    perks: ["All ByteDance models", "Image-to-video with your assets", "≈25 HD clips or 250 images / mo"],
+    cta: "Get Basic",
+  },
+  {
+    name: "Pro",
+    price: "$49",
+    period: "/ month",
+    credits: "10,000",
+    capacity: "5x Basic capacity",
+    blurb: "For serious creators and small teams.",
+    popular: true,
+    video: "2K cinematic · up to 10s · native audio",
+    image: "2K images · rich detail",
+    perks: ["Everything in Basic", "Business library + composite assets", "Priority rendering"],
+    cta: "Get Pro",
+  },
+  {
+    name: "Max",
+    price: "$149",
+    period: "/ month",
+    credits: "40,000",
+    capacity: "20x Basic capacity",
+    blurb: "For studios in full production.",
+    popular: false,
+    video: "2K cinematic · bulk generation",
+    image: "2K images · bulk generation",
+    perks: ["Everything in Pro", "Highest queue priority", "Early access to new models"],
+    cta: "Get Max",
+  },
 ];
+
+function PlanOutput({ icon: Icon, label, value }: { icon: typeof Film; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-2">
+        <Icon size={13} />
+      </span>
+      <span>
+        <span className="block text-[11px] font-medium uppercase tracking-wide text-faint">{label}</span>
+        <span className="block text-[13px] font-medium leading-snug text-fg">{value}</span>
+      </span>
+    </div>
+  );
+}
 
 function Pricing() {
   return (
     <section id="pricing" className="border-t border-line bg-surface-2/40">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Simple, credit-based pricing</h2>
-          <p className="mt-3 text-[17px] text-muted">Credits work across every model. Top up any time, or subscribe to refill monthly.</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Plans that scale with you</h2>
+          <p className="mt-3 text-[17px] text-muted">
+            Every plan refills monthly with credits — your generation capacity across all video and image models.
+            Bigger plans buy more capacity and higher-fidelity output.
+          </p>
         </div>
-        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {PLANS.map((p) => (
             <div
               key={p.name}
@@ -329,22 +405,39 @@ function Pricing() {
               <div className="text-sm font-semibold text-muted">{p.name}</div>
               <div className="mt-2 flex items-baseline gap-1.5">
                 <span className="text-4xl font-bold tracking-tight">{p.price}</span>
-                <span className="text-sm text-faint">/ {p.credits} credits</span>
+                <span className="text-sm text-faint">{p.period}</span>
               </div>
               <p className="mt-1 text-[13px] text-faint">{p.blurb}</p>
-              <ul className="mt-5 space-y-2.5">
+
+              <div className="mt-5 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold tabular-nums tracking-tight">{p.credits}</span>
+                  <span className="text-[12px] text-faint">credits / month</span>
+                </div>
+                {p.capacity && <div className="mt-0.5 text-[12px] font-medium text-accent-2">{p.capacity}</div>}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <PlanOutput icon={Film} label="Video" value={p.video} />
+                <PlanOutput icon={ImageIcon} label="Images" value={p.image} />
+              </div>
+
+              <ul className="mt-4 space-y-2.5 border-t border-line pt-4">
                 {p.perks.map((perk) => (
-                  <li key={perk} className="flex items-start gap-2.5 text-[14px] text-fg">
-                    <Check size={16} className="mt-0.5 shrink-0 text-teal" /> {perk}
+                  <li key={perk} className="flex items-start gap-2.5 text-[13px] text-fg">
+                    <Check size={15} className="mt-0.5 shrink-0 text-teal" /> {perk}
                   </li>
                 ))}
               </ul>
-              <CTA href={APP} variant={p.popular ? "primary" : "outline"} className="mt-6 w-full">
-                Get started
+              <CTA href={APP} variant={p.popular ? "primary" : "outline"} size="md" className="mt-6 w-full">
+                {p.cta}
               </CTA>
             </div>
           ))}
         </div>
+        <p className="mt-6 text-center text-[13px] text-faint">
+          Credits work across every model. Running hot? Top up any time from inside the studio — no plan change needed.
+        </p>
       </div>
     </section>
   );
@@ -384,7 +477,7 @@ function Footer() {
           <a href="#pricing" className="hover:text-fg">Pricing</a>
           <Link href={APP} className="hover:text-fg">Launch studio</Link>
         </nav>
-        <p className="text-[13px] text-faint">© 2026 Mighty Studio</p>
+        <p className="text-[13px] text-faint">© 2026 MightyMak</p>
       </div>
     </footer>
   );

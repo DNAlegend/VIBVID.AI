@@ -58,7 +58,7 @@ export function LibraryView() {
         <EmptyState
           icon={<Film size={24} />}
           title="Nothing here yet"
-          description="Generate from Make or Studio and your videos and images land here — ready to play, download, remix and reuse."
+          description="Generate from Make and your videos and images land here — ready to play, download, remix and reuse."
           action={
             <Button onClick={() => (window.location.href = "/app")}>
               <Sparkles size={16} /> Make something

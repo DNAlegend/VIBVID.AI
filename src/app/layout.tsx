@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mighty Studio — Your AI Production Studio",
+  title: "MightyMak — AI Video & Image Generation Studio",
   description:
-    "Organize your brand assets, generate video and images with best-in-class AI models, and manage every output — one simple studio.",
+    "MightyMak is your AI production studio — organize your brand assets, generate video and images with best-in-class AI models, and manage every output in one place.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

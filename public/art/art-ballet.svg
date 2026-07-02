@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+ <defs>
+  <linearGradient id="bbg" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#120a1e"/><stop offset="1" stop-color="#241332"/>
+  </linearGradient>
+  <linearGradient id="bcone" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#ffe3f1" stop-opacity="0.45"/><stop offset="1" stop-color="#ffe3f1" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="bfloor" cx="0.5" cy="0.5" r="0.5">
+   <stop offset="0" stop-color="#ff9ecb" stop-opacity="0.4"/><stop offset="1" stop-color="#ff9ecb" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="bvig" cx="0.5" cy="0.45" r="0.78">
+   <stop offset="0.45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.6"/>
+  </radialGradient>
+  <filter id="bbl"><feGaussianBlur stdDeviation="12"/></filter>
+ </defs>
+
+ <rect width="800" height="800" fill="url(#bbg)"/>
+
+ <!-- curtains -->
+ <g fill="#31173f">
+  <path d="M 0,0 L 150,0 C 120,220 130,480 90,800 L 0,800 Z"/>
+  <path d="M 800,0 L 650,0 C 680,220 670,480 710,800 L 800,800 Z"/>
+ </g>
+ <g fill="#3e2050" opacity="0.8">
+  <path d="M 40,0 L 96,0 C 80,240 88,520 60,800 L 20,800 Z"/>
+  <path d="M 760,0 L 704,0 C 720,240 712,520 740,800 L 780,800 Z"/>
+ </g>
+
+ <!-- spotlight -->
+ <polygon points="400,-30 210,660 590,660" fill="url(#bcone)"/>
+ <ellipse cx="400" cy="640" rx="230" ry="42" fill="url(#bfloor)"/>
+
+ <!-- dancer silhouette: arabesque -->
+ <g transform="translate(400 430)" fill="#0d0616">
+  <circle cx="8" cy="-138" r="15"/>
+  <path d="M 4,-124 C -6,-118 -12,-104 -12,-88 C -12,-66 -6,-44 0,-24 C 4,-10 4,4 0,18"/>
+  <path d="M 4,-124 C -6,-118 -12,-104 -12,-88 C -12,-64 -4,-40 2,-20 C 6,-6 6,8 2,20 L -10,148 C -11,160 -2,164 4,158 L 22,44 C 26,20 24,-8 20,-34 C 18,-60 20,-90 16,-118 C 13,-124 8,-127 4,-124 Z"/>
+  <!-- raised back leg -->
+  <path d="M 14,-30 C 44,-52 86,-68 130,-74 L 132,-62 C 92,-52 58,-34 26,-12 Z"/>
+  <!-- arms -->
+  <path d="M 2,-108 C -30,-100 -62,-84 -88,-60 L -82,-50 C -56,-70 -28,-84 4,-96 Z"/>
+  <path d="M 6,-110 C 30,-122 56,-140 74,-162 L 66,-170 C 46,-150 24,-132 2,-122 Z"/>
+  <!-- tutu -->
+  <path d="M -26,-22 C -8,-34 24,-34 40,-20 C 30,-2 -12,-2 -26,-22 Z" opacity="0.92"/>
+ </g>
+ <!-- rim light on dancer -->
+ <g transform="translate(400 430)" fill="none" stroke="#ffc7e2" stroke-width="2.5" opacity="0.85" stroke-linecap="round">
+  <path d="M 16,-118 C 20,-90 18,-60 20,-34 C 24,-8 26,20 22,44"/>
+  <path d="M 14,-30 C 44,-52 86,-68 130,-74"/>
+  <path d="M 6,-110 C 30,-122 56,-140 74,-162"/>
+  <circle cx="8" cy="-138" r="15" stroke-dasharray="14 34"/>
+ </g>
+
+ <!-- dust motes -->
+ <g fill="#ffd9ec">
+  <circle cx="320" cy="260" r="2" opacity="0.5"/><circle cx="470" cy="200" r="2.5" opacity="0.6"/>
+  <circle cx="420" cy="330" r="1.8" opacity="0.4"/><circle cx="360" cy="150" r="2" opacity="0.5"/>
+  <circle cx="500" cy="380" r="2" opacity="0.35"/>
+ </g>
+
+ <!-- stage floor line -->
+ <rect y="660" width="800" height="140" fill="#0c0614"/>
+ <ellipse cx="400" cy="660" rx="400" ry="14" fill="#1d0f28"/>
+ <!-- reflection -->
+ <g transform="translate(400 890) scale(1 -0.55)" fill="#ffc7e2" opacity="0.10">
+  <circle cx="8" cy="-138" r="15"/>
+  <path d="M 4,-124 C -6,-118 -12,-104 -12,-88 C -12,-64 -4,-40 2,-20 C 6,-6 6,8 2,20 L -10,148 C -11,160 -2,164 4,158 L 22,44 C 26,20 24,-8 20,-34 C 18,-60 20,-90 16,-118 Z" filter="url(#bbl)"/>
+ </g>
+
+ <rect width="800" height="800" fill="url(#bvig)"/>
+</svg>

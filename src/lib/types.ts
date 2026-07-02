@@ -1,4 +1,4 @@
-// Core domain types for the Mighty Studio front-end (mock data layer).
+// Core domain types for the MightyMak front-end (mock data layer).
 // These shapes are intentionally close to what the real backend will return,
 // so wiring Supabase / BytePlus later is a swap, not a redesign.
 

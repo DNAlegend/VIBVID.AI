@@ -107,7 +107,9 @@ export function MakeView() {
   const finalPrompt = useMemo(() => composeFromAssets(pickedAssets, prompt), [pickedAssets, prompt]);
   const cost = priceFor(model, { durationSec, count: 1, hasRefs: pickedAssets.length > 0 });
   const canAfford = credits >= cost;
-  const canGenerate = finalPrompt.trim().length > 0 && canAfford;
+  // `hydrated` also gates the brief window while a signed-in account's cloud
+  // state is loading, so a spend can't race the authoritative balance.
+  const canGenerate = hydrated && finalPrompt.trim().length > 0 && canAfford;
   const activeJob = videos.find((v) => v.id === activeJobId) ?? null;
   const rendering = activeJob?.status === "rendering";
   const pickedCount = pickedAssets.length;

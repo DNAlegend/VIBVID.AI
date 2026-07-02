@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+ <defs>
+  <linearGradient id="gbg" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#160d20"/><stop offset="1" stop-color="#2a1332"/>
+  </linearGradient>
+  <linearGradient id="gown" x1="0" y1="0" x2="1" y2="1">
+   <stop offset="0" stop-color="#8a1d5b"/><stop offset="0.5" stop-color="#d6457a"/><stop offset="1" stop-color="#5e1244"/>
+  </linearGradient>
+  <linearGradient id="gcone" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#ffe3f1" stop-opacity="0.4"/><stop offset="1" stop-color="#ffe3f1" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="gfloor" cx="0.5" cy="0.5" r="0.5">
+   <stop offset="0" stop-color="#d6457a" stop-opacity="0.35"/><stop offset="1" stop-color="#d6457a" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="gvig" cx="0.5" cy="0.45" r="0.78">
+   <stop offset="0.45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.6"/>
+  </radialGradient>
+  <filter id="gb"><feGaussianBlur stdDeviation="3"/></filter>
+ </defs>
+
+ <rect width="800" height="800" fill="url(#gbg)"/>
+
+ <polygon points="400,-30 230,640 570,640" fill="url(#gcone)"/>
+ <ellipse cx="400" cy="630" rx="220" ry="40" fill="url(#gfloor)"/>
+
+ <!-- dress form -->
+ <g>
+  <!-- stand pole & base -->
+  <rect x="394" y="580" width="12" height="70" rx="6" fill="#241228"/>
+  <ellipse cx="400" cy="656" rx="70" ry="12" fill="#241228"/>
+  <!-- neck cap -->
+  <rect x="386" y="160" width="28" height="26" rx="9" fill="#3a1b40"/>
+  <!-- bodice -->
+  <path d="M 348,196 C 380,178 420,178 452,196 C 458,240 456,282 444,316 L 356,316 C 344,282 342,240 348,196 Z" fill="url(#gown)"/>
+  <!-- waist -->
+  <path d="M 356,316 L 444,316 C 442,332 440,344 438,354 L 362,354 C 360,344 358,332 356,316 Z" fill="#7e1a52"/>
+  <!-- skirt -->
+  <path d="M 362,354 L 438,354 C 480,440 516,520 540,600 C 460,632 340,632 260,600 C 284,520 320,440 362,354 Z" fill="url(#gown)"/>
+  <!-- skirt sheen folds -->
+  <g stroke="#ff9ec2" fill="none" opacity="0.5" stroke-width="3" stroke-linecap="round">
+   <path d="M 386,360 C 372,450 356,520 336,596"/>
+   <path d="M 416,360 C 430,452 448,524 470,600"/>
+   <path d="M 400,362 C 400,450 400,530 402,610"/>
+  </g>
+  <path d="M 348,196 C 380,178 420,178 452,196" stroke="#ffc7de" stroke-width="3" fill="none" opacity="0.9"/>
+  <!-- bodice sparkle -->
+  <g fill="#ffd9ec">
+   <circle cx="380" cy="230" r="2.2" opacity="0.9"/><circle cx="412" cy="250" r="1.8" opacity="0.7"/>
+   <circle cx="396" cy="286" r="2" opacity="0.8"/><circle cx="428" cy="222" r="1.6" opacity="0.6"/>
+  </g>
+ </g>
+
+ <!-- floating sparkles -->
+ <g fill="#ffd9ec">
+  <circle cx="300" cy="300" r="2.5" opacity="0.7"/><circle cx="520" cy="260" r="2" opacity="0.6"/>
+  <circle cx="260" cy="480" r="2" opacity="0.5"/><circle cx="548" cy="450" r="2.5" opacity="0.6"/>
+  <circle cx="480" cy="180" r="1.8" opacity="0.5"/>
+ </g>
+ <circle cx="400" cy="240" r="90" fill="#ff9ec2" opacity="0.08" filter="url(#gb)"/>
+
+ <!-- floor + reflection -->
+ <rect y="650" width="800" height="150" fill="#100818"/>
+ <path d="M 362,660 L 438,660 C 470,700 490,730 500,760 C 440,776 360,776 300,760 C 310,730 330,700 362,660 Z" fill="url(#gown)" opacity="0.15" filter="url(#gb)"/>
+
+ <rect width="800" height="800" fill="url(#gvig)"/>
+</svg>

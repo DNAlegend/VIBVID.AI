@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+ <defs>
+  <linearGradient id="abg" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0" stop-color="#0a0d1c"/><stop offset="1" stop-color="#131b36"/>
+  </linearGradient>
+  <linearGradient id="armor" x1="0" y1="0" x2="1" y2="1">
+   <stop offset="0" stop-color="#2a3352"/><stop offset="0.5" stop-color="#3d4a75"/><stop offset="1" stop-color="#1c2440"/>
+  </linearGradient>
+  <radialGradient id="acore" cx="0.5" cy="0.5" r="0.5">
+   <stop offset="0" stop-color="#7de3ff"/><stop offset="0.5" stop-color="#22d3ee"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="avig" cx="0.5" cy="0.42" r="0.75">
+   <stop offset="0.45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.62"/>
+  </radialGradient>
+  <filter id="ab"><feGaussianBlur stdDeviation="8"/></filter>
+  <filter id="ab2"><feGaussianBlur stdDeviation="2.2"/></filter>
+ </defs>
+
+ <rect width="800" height="800" fill="url(#abg)"/>
+
+ <!-- backdrop hex hint -->
+ <g stroke="#22314f" stroke-width="2" fill="none" opacity="0.7">
+  <polygon points="120,140 160,117 200,140 200,186 160,209 120,186"/>
+  <polygon points="620,90 660,67 700,90 700,136 660,159 620,136"/>
+  <polygon points="660,540 700,517 740,540 740,586 700,609 660,586"/>
+  <polygon points="80,520 120,497 160,520 160,566 120,589 80,566"/>
+ </g>
+
+ <!-- glow behind figure -->
+ <circle cx="400" cy="400" r="220" fill="#22d3ee" opacity="0.10" filter="url(#ab)"/>
+
+ <!-- armored bust -->
+ <g>
+  <!-- shoulders -->
+  <path d="M 180,660 C 190,520 260,460 330,440 L 470,440 C 540,460 610,520 620,660 L 620,800 180,800 Z" fill="url(#armor)"/>
+  <!-- shoulder plates -->
+  <path d="M 168,600 C 172,510 226,458 300,442 L 316,470 C 250,492 210,540 206,620 Z" fill="#465685"/>
+  <path d="M 632,600 C 628,510 574,458 500,442 L 484,470 C 550,492 590,540 594,620 Z" fill="#465685"/>
+  <!-- neck -->
+  <rect x="368" y="380" width="64" height="70" rx="16" fill="#1a2138"/>
+  <!-- helmet -->
+  <path d="M 400,150 C 480,150 520,210 520,290 C 520,360 480,410 400,410 C 320,410 280,360 280,290 C 280,210 320,150 400,150 Z" fill="url(#armor)"/>
+  <path d="M 400,150 C 480,150 520,210 520,290 L 512,296 C 504,224 462,170 400,166 C 338,170 296,224 288,296 L 280,290 C 280,210 320,150 400,150 Z" fill="#4d5d90"/>
+  <!-- visor -->
+  <path d="M 302,282 C 330,262 470,262 498,282 C 494,320 470,342 400,342 C 330,342 306,320 302,282 Z" fill="#0b1122"/>
+  <path d="M 310,286 C 340,270 460,270 490,286" stroke="#7de3ff" stroke-width="6" fill="none" stroke-linecap="round" filter="url(#ab2)"/>
+  <path d="M 310,286 C 340,270 460,270 490,286" stroke="#d9f7ff" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- helmet seams -->
+  <line x1="400" y1="150" x2="400" y2="252" stroke="#141a30" stroke-width="5"/>
+  <circle cx="400" cy="120" r="7" fill="#22d3ee" filter="url(#ab2)"/>
+  <line x1="400" y1="127" x2="400" y2="150" stroke="#22d3ee" stroke-width="3"/>
+ </g>
+
+ <!-- chest core -->
+ <circle cx="400" cy="560" r="46" fill="url(#acore)" filter="url(#ab2)"/>
+ <circle cx="400" cy="560" r="18" fill="#eafcff"/>
+ <g stroke="#22d3ee" stroke-width="3" opacity="0.8">
+  <line x1="342" y1="560" x2="290" y2="560"/><line x1="458" y1="560" x2="510" y2="560"/>
+  <line x1="400" y1="620" x2="400" y2="680"/>
+ </g>
+ <g stroke="#3d4a75" stroke-width="3" opacity="0.9" fill="none">
+  <path d="M 260,700 C 300,660 340,650 400,650 C 460,650 500,660 540,700"/>
+  <path d="M 240,760 C 290,714 340,700 400,700 C 460,700 510,714 560,760"/>
+ </g>
+
+ <rect width="800" height="800" fill="url(#avig)"/>
+</svg>
