@@ -6,6 +6,9 @@
 // Thumbnails are local SVG art in /public/studio (no external deps).
 
 import type { AssetClass } from "./types";
+import generatedData from "./generated.json";
+
+const generated = generatedData as Record<string, string>;
 
 export interface StudioElement {
   id: string;
@@ -25,13 +28,14 @@ export interface ClassMeta {
   plural: string;
   tagline: string;
   /** lucide-react icon name, resolved in components. */
-  icon: "user" | "shirt" | "image" | "activity" | "music";
+  icon: "user" | "shirt" | "image" | "activity" | "music" | "package";
   glyph: string;
   categoryId: string;
 }
 
 export const ASSET_CLASSES: ClassMeta[] = [
   { key: "character", label: "Character", plural: "Characters", tagline: "Who's on screen", icon: "user", glyph: "🧑‍🎤", categoryId: "class-character" },
+  { key: "product", label: "Product", plural: "Products", tagline: "What you're selling", icon: "package", glyph: "📦", categoryId: "class-product" },
   { key: "dress", label: "Dress", plural: "Dresses", tagline: "What they wear", icon: "shirt", glyph: "👗", categoryId: "class-dress" },
   { key: "scene", label: "Scene", plural: "Scenes", tagline: "Where it happens", icon: "image", glyph: "🏙️", categoryId: "class-scene" },
   { key: "dance", label: "Dance", plural: "Dances", tagline: "How they move", icon: "activity", glyph: "💃", categoryId: "class-dance" },
@@ -89,6 +93,14 @@ export const CATALOG: StudioElement[] = [
   E("dance-robot", "dance", "Robot", "Pop-and-lock precision", "a precise robotic pop-and-lock dance", "#36c5d6"),
   E("dance-contemporary", "dance", "Contemporary", "Fluid and expressive", "a fluid contemporary dance", "#5ab0c0"),
 
+  // ---- Products ----
+  E("prod-serum", "product", "Glow Serum", "Skincare hero", "a frosted glass skincare serum bottle", "#d6457a"),
+  E("prod-sneakers", "product", "Court Sneakers", "Limited edition", "a pair of limited-edition white and orange sneakers", "#f0a955"),
+  E("prod-earbuds", "product", "Aura Earbuds", "True wireless", "matte-black wireless earbuds in a charging case", "#6d5ef8"),
+  E("prod-watch", "product", "Meridian Watch", "Minimal steel", "a minimalist steel wristwatch", "#5a7cff"),
+  E("prod-handbag", "product", "Atelier Handbag", "Structured leather", "a structured tan leather designer handbag", "#b05ad0"),
+  E("prod-coffee", "product", "Ember Coffee", "Small-batch roast", "a matte-black craft coffee bag", "#e0884a"),
+
   // ---- Audio ----
   E("score-orchestral", "audio", "Epic Orchestral", "Sweeping and grand", "epic orchestral", "#e0884a", "audio"),
   E("score-synthwave", "audio", "Synthwave", "Retro neon pulse", "driving synthwave", "#ff5db8", "audio"),
@@ -103,7 +115,9 @@ export const CATALOG_BY_ID: Record<string, StudioElement> = Object.fromEntries(
 );
 
 export function thumbFor(id: string): string {
-  return `/studio/${id}.svg`;
+  // Real Seedream renders (from `npm run generate:demo -- --studio`) win over
+  // the hand-drawn SVG placeholders.
+  return generated[id] ?? `/studio/${id}.svg`;
 }
 
 export function elementsByClass(cls: AssetClass): StudioElement[] {
@@ -127,6 +141,7 @@ export function composeFromAssets(picked: Composable[], direction?: string): str
   const ofClass = (c: AssetClass) => picked.filter((a) => a.class === c && a.promptFragment);
 
   const characters = ofClass("character");
+  const products = ofClass("product");
   const dresses = ofClass("dress");
   const dances = ofClass("dance");
   const scenes = ofClass("scene");
@@ -134,12 +149,17 @@ export function composeFromAssets(picked: Composable[], direction?: string): str
 
   if (picked.length === 0) return direction?.trim() ?? "";
 
-  const subject = characters.length ? join(characters) : "the subject";
+  const subject = characters.length
+    ? join(characters)
+    : products.length && !characters.length
+      ? join(products)
+      : "the subject";
   const wear = dresses.length ? ` wearing ${join(dresses)}` : "";
   const move = dances.length ? ` performing ${join(dances)}` : "";
+  const feat = characters.length && products.length ? ` presenting ${join(products)}` : "";
   const place = scenes.length ? ` in ${join(scenes)}` : "";
   const dir = direction?.trim() ? ` ${direction.trim()}.` : "";
   const music = audios.length ? ` Soundtrack: ${join(audios)}.` : "";
 
-  return `${subject}${wear}${move}${place}.${dir}${music}`.replace(/\s+\./g, ".").trim();
+  return `${subject}${wear}${move}${feat}${place}.${dir}${music}`.replace(/\s+\./g, ".").trim();
 }

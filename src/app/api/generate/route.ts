@@ -79,7 +79,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `${model.name} is not available yet` }, { status: 501 });
   }
   const aspectRatio = IMAGE_SIZE[body.aspectRatio] ? (body.aspectRatio as string) : "16:9";
-  const durationSec = Math.min(Math.max(Number(body.durationSec) || 6, 2), model.maxDurationSec ?? 10);
+  // Seedance renders 5s or 10s clips — snap whatever the client sent.
+  const durationSec = (Number(body.durationSec) || 5) >= 8 ? 10 : 5;
   const elements = Array.isArray(body.elements) ? body.elements.slice(0, 12) : null;
   const cost = priceFor(model, { durationSec, count: 1, hasRefs: (elements?.length ?? 0) > 0 });
 

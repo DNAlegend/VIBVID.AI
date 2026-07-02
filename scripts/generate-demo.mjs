@@ -41,8 +41,10 @@ const OUT_DIR = new URL("../public/generated/", import.meta.url);
 const MANIFEST = new URL("../src/lib/generated.json", import.meta.url);
 
 const argv = process.argv.slice(2);
-const doImages = !argv.includes("--videos");
-const doVideos = !argv.includes("--images");
+const studioOnly = argv.includes("--studio");
+const doImages = !studioOnly && !argv.includes("--videos");
+const doVideos = !studioOnly && !argv.includes("--images");
+const doStudio = studioOnly || argv.includes("--all");
 
 /* ------------------------------ content --------------------------------- */
 
@@ -63,6 +65,54 @@ const IMAGES = [
   { id: "art-cloud-temple", size: "1024x1024", prompt: `Red torii gate and shrine on a floating island above a sea of clouds at sunset, golden sun behind, distant birds, ${STYLE}` },
   { id: "art-evening-gown", size: "1024x1024", prompt: `Elegant magenta silk evening gown on a dress form under a single spotlight in a dark atelier, sparkling fabric, glossy floor reflection, ${STYLE}` },
 ];
+
+// Starter-library thumbnails (run with --studio) — one per catalog asset,
+// ids match src/lib/catalog.ts so thumbFor() picks them up via the manifest.
+const CHAR = (s) => `cinematic character portrait, waist-up, facing camera, ${s}, soft studio key light, dark neutral backdrop, photorealistic, rich color grading`;
+const GARM = (s) => `high-end fashion product shot of ${s} on an invisible mannequin, seamless dark studio backdrop, dramatic soft lighting, photorealistic`;
+const SCENE = (s) => `cinematic establishing shot of ${s}, dramatic lighting, rich color grading, photorealistic, 35mm film still`;
+const DANCE = (s) => `dynamic photo of a dancer mid-move performing ${s}, dramatic rim lighting, dark studio backdrop, slight motion blur on limbs, photorealistic`;
+const PROD = (s) => `premium e-commerce product photograph of ${s}, seamless light-gray backdrop, soft studio shadows, crisp detail, photorealistic`;
+const COVER = (s) => `abstract album cover art evoking ${s}, bold shapes, rich colors, no text, no letters`;
+
+const STUDIO = [
+  ["cast-astronaut", CHAR("a lone astronaut in a detailed spacesuit, helmet under one arm")],
+  ["cast-neon-samurai", CHAR("a neon-lit samurai warrior in dark lacquered armor with glowing pink and cyan trim")],
+  ["cast-cyber-detective", CHAR("a cyberpunk detective in a rain-flecked trench coat and fedora")],
+  ["cast-forest-spirit", CHAR("an ethereal glowing forest spirit with luminous skin and leaf-woven hair")],
+  ["cast-deep-sea-diver", CHAR("a deep-sea diver in a vintage brass diving suit, helmet under one arm")],
+  ["cast-desert-nomad", CHAR("a desert nomad in weathered layered robes and a head wrap, golden-hour light")],
+  ["dress-evening-gown", GARM("an elegant flowing crimson silk evening gown")],
+  ["dress-streetwear", GARM("a relaxed urban streetwear outfit with an oversized hoodie and cargo pants")],
+  ["dress-kimono", GARM("a traditional silk kimono with orange and gold crane embroidery")],
+  ["dress-cyber-armor", GARM("sleek futuristic cyber armor with glowing cyan seams")],
+  ["dress-royal-robe", GARM("an ornate royal robe in deep purple velvet with gold embroidery")],
+  ["dress-tuxedo", GARM("a sharp midnight-navy tailored tuxedo")],
+  ["set-neon-tokyo", SCENE("a rain-soaked neon Tokyo street at night, glowing signs reflecting in puddles")],
+  ["set-mars-colony", SCENE("a futuristic Mars colony of glass domes at dawn, red dunes")],
+  ["set-enchanted-forest", SCENE("a misty enchanted forest with glowing spores drifting between mossy trees")],
+  ["set-underwater-city", SCENE("a glowing bioluminescent underwater city on the ocean floor")],
+  ["set-desert-highway", SCENE("an endless desert highway at golden hour, heat shimmer")],
+  ["set-cloud-temple", SCENE("an ancient temple floating on an island above a sea of clouds at sunset")],
+  ["dance-hiphop", DANCE("an energetic hip-hop street dance freeze")],
+  ["dance-ballet", DANCE("a graceful ballet arabesque in a flowing dress")],
+  ["dance-breakdance", DANCE("an explosive breakdance power move, inverted on one hand")],
+  ["dance-salsa", DANCE("a passionate salsa dip in a red dress")],
+  ["dance-robot", DANCE("a precise robotic pop-and-lock pose in futuristic clothing")],
+  ["dance-contemporary", DANCE("a fluid contemporary dance leap with fabric trailing")],
+  ["prod-serum", PROD("a frosted glass skincare serum bottle with a dropper cap")],
+  ["prod-sneakers", PROD("a pair of limited-edition white and orange sneakers")],
+  ["prod-earbuds", PROD("matte-black wireless earbuds in an open charging case")],
+  ["prod-watch", PROD("a minimalist steel wristwatch with a sapphire-blue dial")],
+  ["prod-handbag", PROD("a structured tan leather designer handbag")],
+  ["prod-coffee", PROD("a matte-black craft coffee bag with copper accents")],
+  ["score-orchestral", COVER("an epic sweeping orchestral score, brass and strings")],
+  ["score-synthwave", COVER("retro synthwave, neon grid horizon and a setting sun")],
+  ["score-lofi", COVER("warm chill lo-fi beats, cozy dusk tones")],
+  ["score-strings", COVER("tense suspenseful strings, taut dark lines")],
+  ["score-ambient", COVER("soft dreamy ambient pads, drifting pastel clouds")],
+  ["score-drums", COVER("powerful tribal drums, bold earthen rhythm")],
+].map(([id, prompt]) => ({ id, size: "1024x1024", prompt }));
 
 // Videos: the hero clip + every use-case demo from demo-content.json.
 const demoJson = JSON.parse(await readFile(new URL("../src/lib/demo-content.json", import.meta.url), "utf8"));
@@ -144,6 +194,14 @@ const failures = [];
 if (doImages) {
   for (const img of IMAGES) {
     process.stdout.write(`image  ${img.id} … `);
+    try { await generateImage(img); console.log("done"); }
+    catch (e) { console.log("FAILED"); console.error(`  ${e.message}`); failures.push(img.id); }
+  }
+}
+
+if (doStudio) {
+  for (const img of STUDIO) {
+    process.stdout.write(`studio ${img.id} … `);
     try { await generateImage(img); console.log("done"); }
     catch (e) { console.log("FAILED"); console.error(`  ${e.message}`); failures.push(img.id); }
   }

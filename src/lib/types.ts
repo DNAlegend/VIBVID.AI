@@ -17,7 +17,7 @@ export const SHOT_LIMIT = 6;
 export type AssetKind = "image" | "video" | "audio";
 
 /** The library taxonomy a client organizes their assets into. */
-export type AssetClass = "character" | "dress" | "scene" | "dance" | "audio";
+export type AssetClass = "character" | "dress" | "scene" | "dance" | "audio" | "product";
 
 /** Whose library an asset lives in. */
 export type AssetOwner = "user" | "business";
@@ -118,7 +118,8 @@ export const TIERS: Record<
   pro: { label: "Pro", resolution: "2K", creditsPerSec: 20, blurb: "Maximum quality" },
 };
 
-export const DURATIONS = [4, 6, 8, 10] as const;
+/** Clip lengths the Seedance models actually support. */
+export const DURATIONS = [5, 10] as const;
 export const ASPECT_RATIOS: AspectRatio[] = ["16:9", "9:16", "1:1"];
 
 export function estimateCredits(p: Pick<GenerateParams, "tier" | "durationSec" | "refAssetId">): number {

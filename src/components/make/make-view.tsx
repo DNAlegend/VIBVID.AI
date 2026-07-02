@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -17,6 +17,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { cloudConfigured } from "@/lib/supabase";
 import { getModel, listModels, priceFor, DEFAULT_MODEL_ID } from "@/lib/models";
 import { ASSET_CLASSES, CLASS_BY_KEY, composeFromAssets } from "@/lib/catalog";
 import {
@@ -62,7 +63,7 @@ export function MakeView() {
   const [prompt, setPrompt] = useState("");
   const [picks, setPicks] = useState<Picks>({});
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
-  const [durationSec, setDurationSec] = useState<number>(6);
+  const [durationSec, setDurationSec] = useState<number>(5);
   const [tier, setTier] = useState<Tier>("standard");
   const [audio, setAudio] = useState(true);
   const [showAssets, setShowAssets] = useState(false);
@@ -70,6 +71,8 @@ export function MakeView() {
   const [pickClass, setPickClass] = useState<AssetClass | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
+  const cloudUser = useStore((s) => s.cloudUser);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   // Consume drafts handed over from Assets ("Use in Make") or Library ("Remix").
   useEffect(() => {
@@ -126,6 +129,11 @@ export function MakeView() {
   function setPick(cls: AssetClass, id: string | null) {
     setPicks((p) => ({ ...p, [cls]: id ?? undefined }));
   }
+
+  // Bring the render (and then the finished shot) into view.
+  useEffect(() => {
+    if (activeJob) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [activeJob?.status === "succeeded", !!activeJob]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onGenerate() {
     if (!canGenerate || rendering) return;
@@ -324,12 +332,19 @@ export function MakeView() {
                 Not enough credits — you need {cost - credits} more. Tap “Buy” in the top bar.
               </p>
             )}
+            {hydrated && cloudConfigured && !cloudUser && (
+              <p className="mt-2 text-center text-xs text-faint">
+                Demo mode previews with sample clips — sign in (top right) to render with the real{" "}
+                {modality === "video" ? "Seedance" : "Seedream"} model.
+              </p>
+            )}
           </div>
         </div>
       </Card>
 
       {/* Result */}
       {activeJob && (
+        <div ref={resultRef}>
         <Card className="mt-5 p-5">
           <ResultHero job={activeJob} />
           {activeJob.status === "succeeded" && (
@@ -368,6 +383,7 @@ export function MakeView() {
             </div>
           )}
         </Card>
+        </div>
       )}
 
       <SlotPickerModal

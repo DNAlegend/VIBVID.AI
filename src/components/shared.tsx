@@ -10,6 +10,7 @@ import {
   Loader2,
   Check,
   Layers,
+  Package,
 } from "lucide-react";
 import type { ClassMeta } from "@/lib/catalog";
 import { listModels, type ModelProvider } from "@/lib/models";
@@ -31,6 +32,7 @@ const CLASS_ICONS: Record<ClassMeta["icon"], typeof User> = {
   image: ImageIcon,
   activity: Activity,
   music: Music,
+  package: Package,
 };
 
 export function ClassIcon({ icon, size = 16, className }: { icon: ClassMeta["icon"]; size?: number; className?: string }) {
@@ -42,7 +44,7 @@ export function ClassIcon({ icon, size = 16, className }: { icon: ClassMeta["ico
 export function thumbOf(a: Asset): string | null {
   if (a.posterUrl) return a.posterUrl;
   if (a.kind === "image") return a.url;
-  if (a.kind === "audio" && a.url.endsWith(".svg")) return a.url;
+  if (a.kind === "audio" && /\.(svg|png|jpe?g|webp)$/.test(a.url)) return a.url;
   return null;
 }
 

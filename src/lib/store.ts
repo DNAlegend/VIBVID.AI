@@ -360,6 +360,27 @@ export const useStore = create<StoreState>()(
           set({ cloudUser: userId, credits: cloud.credits, categories, assets, videos: [], hasHydrated: true });
           return;
         }
+        // Heal older accounts: add starter assets/folders introduced since
+        // signup, and refresh starter thumbnails that moved from SVG
+        // placeholders to real renders (ids are stable → idempotent upsert).
+        let cloudAssets = cloud.assets;
+        let cloudCategories = cloud.categories;
+        const existingById = new Map(cloud.assets.map((a) => [a.id, a]));
+        const haveCats = new Set(cloud.categories.map((c) => c.id));
+        const toUpsert = seedAssets().filter((s) => {
+          const existing = existingById.get(s.id);
+          return !existing || (existing.source === "starter" && existing.url !== s.url);
+        });
+        const missingCats = seedCategories().filter((c) => !haveCats.has(c.id));
+        if (toUpsert.length || missingCats.length) {
+          void seedCloud(missingCats, toUpsert);
+          const upserted = new Map(toUpsert.map((a) => [a.id, a]));
+          cloudAssets = [
+            ...cloud.assets.map((a) => upserted.get(a.id) ?? a),
+            ...toUpsert.filter((a) => !existingById.has(a.id)),
+          ];
+          cloudCategories = [...cloud.categories, ...missingCats];
+        }
         // Settle any renders left hanging by a closed tab.
         const videos = cloud.videos.map((v, i) => {
           if (v.status !== "rendering") return v;
@@ -377,8 +398,8 @@ export const useStore = create<StoreState>()(
         set({
           cloudUser: userId,
           credits: cloud.credits,
-          categories: cloud.categories,
-          assets: cloud.assets,
+          categories: cloudCategories,
+          assets: cloudAssets,
           videos,
           hasHydrated: true,
         });
@@ -553,13 +574,13 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: "mightymak-v3",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
-      // Reseed the library around the new class taxonomy when upgrading from an
-      // older shape; keep the user's credits and generated videos.
+      // Reseed the library when the starter taxonomy grows (v4 added Products
+      // + real Seedream thumbnails); keep the user's credits and videos.
       migrate: (persisted, version) => {
         const s = (persisted ?? {}) as Partial<StoreState>;
-        if (version < 3) {
+        if (version < 4) {
           return { ...s, assets: seedAssets(), categories: seedCategories() } as StoreState;
         }
         return s as StoreState;

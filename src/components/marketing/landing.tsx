@@ -81,9 +81,7 @@ function Brand() {
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-teal shadow-[0_6px_18px_-6px_rgba(124,108,255,0.9)]">
         <Zap size={18} className="text-white" fill="white" />
       </span>
-      <span className="text-[17px] font-bold tracking-tight">
-        Mighty<span className="gradient-text">Mak</span>
-      </span>
+      <span className="text-[17px] font-extrabold tracking-tight text-fg">MightyMak</span>
     </Link>
   );
 }
@@ -149,7 +147,7 @@ function Hero() {
             <div className="relative aspect-video w-full bg-black">
               <MediaTile m={HERO} />
               <div className="absolute right-3 top-3 rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
-                Seedance 2.0 Pro · 1080p · 6s
+                Seedance 2.0 Pro · 1080p · 5s
               </div>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 sm:p-5">
                 <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-black/45 px-3.5 py-2.5 backdrop-blur-md">

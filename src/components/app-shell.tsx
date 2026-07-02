@@ -28,9 +28,7 @@ function Brand() {
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-teal shadow-[0_6px_18px_-6px_rgba(124,108,255,0.9)]">
         <Zap size={18} className="text-white" fill="white" />
       </span>
-      <span className="text-[17px] font-bold tracking-tight">
-        Mighty<span className="gradient-text">Mak</span>
-      </span>
+      <span className="text-[17px] font-extrabold tracking-tight text-fg">MightyMak</span>
     </Link>
   );
 }
