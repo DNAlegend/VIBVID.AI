@@ -362,6 +362,10 @@ function AssetCard({ asset, onUse }: { asset: Asset; onUse: () => void }) {
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video src={asset.url} preload="metadata" muted className="h-full w-full object-cover" />
           )
+        ) : /\.(svg|png|jpe?g|webp)$/.test(asset.url) ? (
+          // Audio with cover art (starter tracks ship generated album art).
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={asset.url} alt={asset.name} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface-2 to-surface-3">
             <Music size={28} className="text-faint" />
