@@ -112,12 +112,24 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
           </div>
         ) : (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={video.posterUrl}
-              alt={video.prompt}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            />
+            {video.posterUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={video.posterUrl}
+                alt={video.prompt}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : (
+              // Real generated clips have no poster — the first frame is one.
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video
+                src={video.videoUrl}
+                preload="metadata"
+                muted
+                playsInline
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            )}
             {!isImage && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 opacity-0 transition-opacity group-hover:opacity-100">

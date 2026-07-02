@@ -1,1 +1,20 @@
-{}
+{
+  "hero-neon-city": "/generated/hero-neon-city.png",
+  "art-product-reveal": "/generated/art-product-reveal.png",
+  "art-neon-tokyo": "/generated/art-neon-tokyo.png",
+  "art-cyber-detective": "/generated/art-cyber-detective.png",
+  "art-forest-spirit": "/generated/art-forest-spirit.png",
+  "art-ballet": "/generated/art-ballet.png",
+  "art-desert-run": "/generated/art-desert-run.png",
+  "art-underwater-city": "/generated/art-underwater-city.png",
+  "art-astro-mars": "/generated/art-astro-mars.png",
+  "art-cloud-temple": "/generated/art-cloud-temple.png",
+  "art-evening-gown": "/generated/art-evening-gown.png",
+  "hero-video": "/generated/hero-video.mp4",
+  "ugc-skincare": "/generated/ugc-skincare.mp4",
+  "ugc-unboxing": "/generated/ugc-unboxing.mp4",
+  "ugc-food": "/generated/ugc-food.mp4",
+  "product-earbuds": "/generated/product-earbuds.mp4",
+  "fashion-gown": "/generated/fashion-gown.mp4",
+  "brand-city": "/generated/brand-city.mp4"
+}

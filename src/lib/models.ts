@@ -28,6 +28,10 @@ export interface ModelProvider {
   maxDurationSec?: number;
   /** Image pricing. */
   creditsPerImage?: number;
+  /** Real BytePlus ModelArk model id — presence enables real generation. */
+  arkModel?: string;
+  /** Seedance resolution flag; encodes this tier's quality positioning. */
+  arkResolution?: "480p" | "720p" | "1080p";
 }
 
 export const MODELS: ModelProvider[] = [
@@ -44,6 +48,8 @@ export const MODELS: ModelProvider[] = [
     enabled: true,
     creditsPerSec: 12,
     maxDurationSec: 10,
+    arkModel: "seedance-1-0-pro-250528",
+    arkResolution: "1080p",
   },
   {
     id: "seedance-2-lite",
@@ -58,6 +64,8 @@ export const MODELS: ModelProvider[] = [
     enabled: true,
     creditsPerSec: 5,
     maxDurationSec: 8,
+    arkModel: "seedance-1-0-pro-250528",
+    arkResolution: "720p",
   },
   {
     id: "seedream-3",
@@ -71,6 +79,7 @@ export const MODELS: ModelProvider[] = [
     badge: "new",
     enabled: true,
     creditsPerImage: 8,
+    arkModel: "seedream-4-0-250828",
   },
   {
     id: "seededit-3",

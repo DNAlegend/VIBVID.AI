@@ -25,11 +25,11 @@ function resolve(id: string, fallback: string): Pick<ShowcaseMedia, "type" | "sr
   return { type: src.endsWith(".mp4") ? "video" : "image", src };
 }
 
-/** The big hero visual — becomes a real Seedance clip once generated. */
+/** The big hero visual — real Seedance clip > real Seedream still > SVG. */
 export const HERO: ShowcaseMedia = {
   id: "hero",
-  ...resolve("hero-video", "/art/hero-neon-city.svg"),
-  poster: "/art/hero-neon-city.svg",
+  ...resolve("hero-video", generated["hero-neon-city"] ?? "/art/hero-neon-city.svg"),
+  poster: generated["hero-neon-city"] ?? "/art/hero-neon-city.svg",
   label: "Neon samurai in rain-soaked Tokyo",
   tag: "Seedance 2.0",
 };

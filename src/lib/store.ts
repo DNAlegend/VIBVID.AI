@@ -12,6 +12,7 @@ import { pickSample } from "./samples";
 import { getModel, priceFor } from "./models";
 import { ASSET_CLASSES, CATALOG, categoryIdForClass, thumbFor } from "./catalog";
 import { uid } from "./utils";
+import { supabase } from "./supabase";
 import {
   adjustCreditsRemote,
   cloudOn,
@@ -180,6 +181,149 @@ type StoreSet = (
   partial: Partial<StoreState> | ((s: StoreState) => Partial<StoreState>),
 ) => void;
 
+/**
+ * The demo render loop: progress ticks, then a sample result lands.
+ * `mirror` additionally persists the job + credit spend to the cloud
+ * (signed-in users whose server has no real model configured).
+ */
+function startSimulatedRender(set: StoreSet, get: () => StoreState, job: VideoJob, mirror: boolean) {
+  if (mirror) {
+    pushGeneration(job);
+    adjustCreditsRemote(-job.creditsCost, (balance) => set({ credits: balance }));
+  }
+  let progress = 0;
+  const sampleIndex = get().videos.length;
+  const interval = setInterval(() => {
+    progress = Math.min(100, progress + 9 + Math.random() * 12);
+    if (progress >= 100) {
+      clearInterval(interval);
+      timers.delete(job.id);
+      const sample = pickSample(sampleIndex);
+      const result: Partial<VideoJob> = {
+        status: "succeeded",
+        progress: 100,
+        // Image models produce a still; video models produce a clip.
+        videoUrl: job.modality === "image" ? undefined : sample.video,
+        posterUrl: job.posterUrl ?? sample.poster,
+      };
+      patchVideo(set, job.id, result);
+      if (mirror) updateGenerationRow(job.id, result);
+    } else {
+      patchVideo(set, job.id, { progress: Math.round(progress) });
+    }
+  }, 380);
+  timers.set(job.id, interval);
+}
+
+/**
+ * Real generation through /api/generate (BytePlus Seedance/Seedream).
+ * The server spends the credits and owns the generations row; the local
+ * optimistic deduction is reconciled with the returned balance. Falls back
+ * to the simulation only if the request never reached the model.
+ */
+async function runCloudGeneration(set: StoreSet, get: () => StoreState, job: VideoJob) {
+  let posted = false;
+  try {
+    const token = (await supabase!.auth.getSession()).data.session?.access_token;
+    if (!token) throw new Error("no session");
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        id: job.id,
+        prompt: job.prompt,
+        modelId: job.modelId,
+        aspectRatio: job.aspectRatio,
+        durationSec: job.durationSec,
+        tier: job.tier,
+        audio: job.audio,
+        posterUrl: job.posterUrl,
+        elements: job.elements,
+        direction: job.direction,
+      }),
+    });
+    if (res.status === 501) {
+      // No real model behind the server — keep the demo pipeline.
+      startSimulatedRender(set, get, job, true);
+      return;
+    }
+    posted = true;
+    const data = await res.json().catch(() => ({} as Record<string, unknown>));
+    if (!res.ok) {
+      // Server never charged — undo the optimistic local deduction.
+      set((s) => ({ credits: s.credits + job.creditsCost }));
+      patchVideo(set, job.id, {
+        status: "failed",
+        progress: 100,
+        error: (data.error as string) ?? `Generation failed (${res.status})`,
+      });
+      return;
+    }
+    if (typeof data.credits === "number") set({ credits: data.credits });
+    if (data.status === "succeeded") {
+      patchVideo(set, job.id, {
+        status: "succeeded",
+        progress: 100,
+        videoUrl: (data.videoUrl as string) ?? undefined,
+        posterUrl: (data.posterUrl as string) ?? job.posterUrl,
+      });
+      return;
+    }
+
+    // Video renders as an async task — poll until it lands (~30–90s).
+    let progress = 8;
+    patchVideo(set, job.id, { progress });
+    const deadline = Date.now() + 10 * 60_000;
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 4000));
+      progress = Math.min(92, progress + 3 + Math.random() * 6);
+      patchVideo(set, job.id, { progress: Math.round(progress) });
+      try {
+        const poll = await fetch(`/api/generate?id=${job.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const pd = await poll.json().catch(() => ({} as Record<string, unknown>));
+        if (pd.status === "succeeded") {
+          patchVideo(set, job.id, {
+            status: "succeeded",
+            progress: 100,
+            videoUrl: (pd.videoUrl as string) ?? undefined,
+            posterUrl: (pd.posterUrl as string) ?? job.posterUrl,
+          });
+          return;
+        }
+        if (pd.status === "failed") {
+          if (typeof pd.credits === "number") set({ credits: pd.credits });
+          patchVideo(set, job.id, {
+            status: "failed",
+            progress: 100,
+            error: (pd.error as string) ?? "Generation failed",
+          });
+          return;
+        }
+      } catch {
+        // transient network hiccup — keep polling until the deadline
+      }
+      if (Date.now() > deadline) {
+        patchVideo(set, job.id, {
+          status: "failed",
+          progress: 100,
+          error: "Timed out — the render may still land in your Library later",
+        });
+        return;
+      }
+    }
+  } catch (e) {
+    if (!posted) {
+      console.warn("[generate] real generation unavailable, simulating:", e);
+      startSimulatedRender(set, get, job, true);
+    } else {
+      patchVideo(set, job.id, { status: "failed", progress: 100, error: "Generation failed" });
+    }
+  }
+}
+
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
@@ -282,6 +426,7 @@ export const useStore = create<StoreState>()(
           modelId: model.id,
           modality,
           refAssetId: p.refAssetId ?? null,
+          posterUrl: p.posterUrl,
           elements: p.elements,
           direction: p.direction,
           creditsCost: cost,
@@ -289,32 +434,13 @@ export const useStore = create<StoreState>()(
         };
 
         set((s) => ({ credits: s.credits - cost, videos: [job, ...s.videos] }));
-        pushGeneration(job);
-        adjustCreditsRemote(-cost, (balance) => set({ credits: balance }));
 
-        // Simulate an async render: progress ticks, then a sample result lands.
-        let progress = 0;
-        const sampleIndex = get().videos.length;
-        const interval = setInterval(() => {
-          progress = Math.min(100, progress + 9 + Math.random() * 12);
-          if (progress >= 100) {
-            clearInterval(interval);
-            timers.delete(id);
-            const sample = pickSample(sampleIndex);
-            const result: Partial<VideoJob> = {
-              status: "succeeded",
-              progress: 100,
-              // Image models produce a still; video models produce a clip.
-              videoUrl: modality === "image" ? undefined : sample.video,
-              posterUrl: p.posterUrl ?? sample.poster,
-            };
-            patchVideo(set, id, result);
-            updateGenerationRow(id, result);
-          } else {
-            patchVideo(set, id, { progress: Math.round(progress) });
-          }
-        }, 380);
-        timers.set(id, interval);
+        if (cloudOn()) {
+          // Signed in: real generation via the server (or its sim fallback).
+          void runCloudGeneration(set, get, job);
+        } else {
+          startSimulatedRender(set, get, job, false);
+        }
 
         return id;
       },
