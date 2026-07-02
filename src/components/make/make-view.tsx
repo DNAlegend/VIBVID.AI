@@ -20,6 +20,7 @@ import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
 import { getModel, listModels, priceFor, DEFAULT_MODEL_ID } from "@/lib/models";
 import { ASSET_CLASSES, CLASS_BY_KEY, composeFromAssets } from "@/lib/catalog";
+import { PURPOSES, PURPOSE_BY_ID, DEFAULT_PURPOSE_ID } from "@/lib/purposes";
 import {
   ASPECT_RATIOS,
   DURATIONS,
@@ -35,12 +36,6 @@ import { Button, Card, Badge, Segmented, Toggle, Modal } from "@/components/ui";
 import { AssetThumb, ClassIcon, ModelPicker, ResultHero, CompositeBadge } from "@/components/shared";
 
 type Picks = Partial<Record<AssetClass, string>>;
-
-const PROMPT_IDEAS = [
-  "A neon samurai walks through rain-soaked Tokyo at night, cinematic slow motion",
-  "Close-up of a desert nomad at golden hour, dust drifting in the wind",
-  "An astronaut floating above a glowing Mars colony, sweeping drone shot",
-];
 
 export function MakeView() {
   const credits = useStore((s) => s.credits);
@@ -58,6 +53,7 @@ export function MakeView() {
 
   const byId = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, a])), [assets]);
 
+  const [purposeId, setPurposeId] = useState<string>(DEFAULT_PURPOSE_ID);
   const [modality, setModality] = useState<Modality>("video");
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [prompt, setPrompt] = useState("");
@@ -101,11 +97,32 @@ export function MakeView() {
       setPicks((p) => ({ ...seed, ...p }));
       setShowAssets(true);
     }
-    // "Try this prompt" links from the landing page arrive as ?prompt=…
-    const linked = new URLSearchParams(window.location.search).get("prompt");
+    // Landing links arrive as ?purpose=…&prompt=… — preconfigure the studio.
+    const params = new URLSearchParams(window.location.search);
+    const linkedPurpose = params.get("purpose");
+    if (linkedPurpose && PURPOSE_BY_ID[linkedPurpose]) applyPurpose(linkedPurpose);
+    const linked = params.get("prompt");
     if (linked) setPrompt(linked);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function applyPurpose(id: string) {
+    const p = PURPOSE_BY_ID[id];
+    if (!p) return;
+    setPurposeId(id);
+    setModality(p.modality);
+    setModelId(p.modelId);
+    setAspectRatio(p.aspectRatio);
+    setDurationSec(p.durationSec);
+    if (id !== "custom") setShowAssets(true);
+  }
+
+  const purpose = PURPOSE_BY_ID[purposeId] ?? PURPOSE_BY_ID[DEFAULT_PURPOSE_ID];
+  // Surface this purpose's asset classes first; the rest stay available.
+  const orderedClasses = [
+    ...purpose.classes,
+    ...ASSET_CLASSES.map((c) => c.key).filter((k) => !purpose.classes.includes(k)),
+  ];
 
   const model = getModel(modelId);
   const pickedAssets = ASSET_CLASSES.map((c) => picks[c.key])
@@ -113,8 +130,13 @@ export function MakeView() {
     .map((id) => byId[id as string])
     .filter(Boolean) as Asset[];
 
-  // The typed prompt doubles as the director's note when assets are picked.
-  const finalPrompt = useMemo(() => composeFromAssets(pickedAssets, prompt), [pickedAssets, prompt]);
+  // The typed prompt doubles as the director's note when assets are picked;
+  // the purpose's style language is woven in at the end.
+  const finalPrompt = useMemo(() => {
+    const composed = composeFromAssets(pickedAssets, prompt);
+    if (!composed || !purpose.styleSuffix) return composed;
+    return `${composed} — ${purpose.styleSuffix}`;
+  }, [pickedAssets, prompt, purpose.styleSuffix]);
   const cost = priceFor(model, { durationSec, count: 1, hasRefs: pickedAssets.length > 0 });
   const canAfford = credits >= cost;
   // `hydrated` also gates the brief window while a signed-in account's cloud
@@ -143,6 +165,21 @@ export function MakeView() {
     if (!canGenerate || rendering) return;
     const scene = pickedAssets.find((a) => a.class === "scene");
     const posterUrl = (scene ?? pickedAssets[0])?.posterUrl ?? (scene ?? pickedAssets[0])?.url;
+    // First picked visual asset with a public URL drives the first frame (i2v).
+    const refAsset =
+      modality === "video"
+        ? pickedAssets.find(
+            (a) =>
+              a.kind === "image" &&
+              (a.url.startsWith("https://") ||
+                (a.url.startsWith("/") && window.location.protocol === "https:")),
+          )
+        : undefined;
+    const refImageUrl = refAsset
+      ? refAsset.url.startsWith("/")
+        ? window.location.origin + refAsset.url
+        : refAsset.url
+      : undefined;
     const id = generate({
       prompt: finalPrompt,
       tier,
@@ -154,6 +191,7 @@ export function MakeView() {
       elements: pickedAssets.map((a) => a.id),
       direction: prompt,
       posterUrl,
+      refImageUrl,
     });
     setActiveJobId(id);
     setSavedMsg(false);
@@ -161,15 +199,37 @@ export function MakeView() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <header className="mb-6 text-center">
+      <header className="mb-5 text-center">
         <div className="mb-1.5 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-2">
           <Sparkles size={14} /> Make
         </div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">What do you want to create?</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">What are you making today?</h1>
         <p className="mt-1.5 text-sm text-muted">
-          Describe your shot, or build it from your assets — pick a model and generate.
+          Pick a purpose — the studio sets the format, model and building blocks for you.
         </p>
       </header>
+
+      {/* Purpose picker */}
+      <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1.5">
+        {PURPOSES.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => applyPurpose(p.id)}
+            className={cn(
+              "flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors",
+              purposeId === p.id
+                ? "border-accent/60 bg-accent-soft"
+                : "border-line bg-surface hover:border-line-2",
+            )}
+          >
+            <span className="text-lg leading-none">{p.glyph}</span>
+            <span>
+              <span className="block text-[13px] font-semibold leading-tight text-fg">{p.label}</span>
+              <span className="block text-[11px] leading-tight text-faint">{p.tagline}</span>
+            </span>
+          </button>
+        ))}
+      </div>
 
       <Card className="overflow-hidden">
         <div className="p-5">
@@ -178,7 +238,7 @@ export function MakeView() {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
-            placeholder="Describe your shot — a character, a setting, a mood, a camera move…"
+            placeholder={purpose.placeholder}
             className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3.5 text-[15px] leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
           />
 
@@ -188,7 +248,7 @@ export function MakeView() {
               <span className="flex items-center gap-1 text-[11px] font-medium text-faint">
                 <Wand2 size={12} /> Try
               </span>
-              {PROMPT_IDEAS.map((idea) => (
+              {purpose.ideas.map((idea) => (
                 <button
                   key={idea}
                   onClick={() => setPrompt(idea)}
@@ -231,21 +291,23 @@ export function MakeView() {
 
             {showAssets && (
               <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {ASSET_CLASSES.map((c) => (
+                {orderedClasses.map((key) => (
                   <SlotCard
-                    key={c.key}
-                    cls={c.key}
-                    asset={picks[c.key] ? (byId[picks[c.key] as string] as Asset) : null}
-                    onPick={() => setPickClass(c.key)}
-                    onClear={() => setPick(c.key, null)}
+                    key={key}
+                    cls={key}
+                    asset={picks[key] ? (byId[picks[key] as string] as Asset) : null}
+                    onPick={() => setPickClass(key)}
+                    onClear={() => setPick(key, null)}
                   />
                 ))}
               </div>
             )}
 
-            {pickedCount > 0 && (
+            {finalPrompt && finalPrompt !== prompt.trim() && (
               <div className="mt-3 rounded-xl border border-line bg-surface-2 p-3">
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">Composed prompt</div>
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+                  What the model will be told
+                </div>
                 <p className="text-[13px] leading-relaxed text-muted">{finalPrompt}</p>
               </div>
             )}

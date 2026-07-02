@@ -7,6 +7,7 @@ import {
   Image as ImageIcon,
   ArrowRight,
   Check,
+  ChevronDown,
   Wand2,
   Layers,
   Clapperboard,
@@ -308,7 +309,7 @@ function DemoCard({ d }: { d: DemoItem }) {
           “{d.prompt}”
         </p>
         <Link
-          href={`/app?prompt=${encodeURIComponent(d.prompt)}`}
+          href={`/app?purpose=${d.purpose}&prompt=${encodeURIComponent(d.prompt)}`}
           className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent-2 transition-colors hover:text-accent"
         >
           <Wand2 size={14} /> Try this prompt <ArrowRight size={14} />
@@ -506,6 +507,62 @@ function Pricing() {
   );
 }
 
+const FAQS = [
+  {
+    q: "What can I actually generate?",
+    a: "Real videos (5s or 10s clips at up to 2K, with native audio) and high-detail images, rendered by ByteDance's Seedance and Seedream models. Vertical UGC ads, product films, fashion clips, brand spots, stills — pick a purpose and the studio configures the right format.",
+  },
+  {
+    q: "How do my assets change the output?",
+    a: "Pick a product, character, wardrobe or scene from your library and it steers the shot two ways: it's woven into the prompt, and its image drives the video's first frame — so the sneaker in your clip is your sneaker, not a lookalike.",
+  },
+  {
+    q: "How do credits work?",
+    a: "Every plan refills monthly with credits that work across all models. A 5-second HD video runs about 60 credits; an image about 8. You start with a 1,200-credit welcome boost — roughly 20 videos or 150 images, free.",
+  },
+  {
+    q: "Do I own what I make?",
+    a: "Yes. Everything you generate lands in your private library, stored on your account, ready to download and use in your campaigns.",
+  },
+  {
+    q: "How long does a video take?",
+    a: "Typically 30–90 seconds from prompt to finished clip. Images land in a few seconds.",
+  },
+  {
+    q: "Can my team share a library?",
+    a: "The Business library scope is built in — shared brand assets like your product shots, uniforms and jingles live alongside each creator's personal library. Multi-seat teams are coming next.",
+  },
+];
+
+function FAQ() {
+  return (
+    <section id="faq" className="border-t border-line bg-surface-2/40">
+      <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions, answered</h2>
+        </div>
+        <div className="mt-10 space-y-3">
+          {FAQS.map((f) => (
+            <details
+              key={f.q}
+              className="group rounded-2xl border border-line bg-surface p-5 open:border-accent/40"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[15px] font-semibold text-fg">
+                {f.q}
+                <ChevronDown
+                  size={17}
+                  className="shrink-0 text-faint transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <p className="mt-3 text-[14px] leading-relaxed text-muted">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function FinalCTA() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
@@ -558,6 +615,7 @@ export function Landing() {
         <UseCases />
         <Showcase />
         <Pricing />
+        <FAQ />
         <FinalCTA />
       </main>
       <Footer />

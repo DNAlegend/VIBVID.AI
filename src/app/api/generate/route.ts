@@ -145,13 +145,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "succeeded", posterUrl: publicUrl, credits: balance, cost });
   }
 
-  // Video: async Ark task + polling via GET.
+  // Video: async Ark task + polling via GET. A public https reference image
+  // (a picked asset) becomes the first frame — image-to-video.
   const flags = ` --resolution ${model.arkResolution ?? "720p"} --duration ${durationSec} --ratio ${aspectRatio} --watermark false`;
-  const res = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
+  const refImageUrl =
+    typeof body.refImageUrl === "string" && /^https:\/\/.+/i.test(body.refImageUrl)
+      ? body.refImageUrl
+      : null;
+  const content: Array<Record<string, unknown>> = [{ type: "text", text: prompt + flags }];
+  if (refImageUrl) content.push({ type: "image_url", image_url: { url: refImageUrl } });
+
+  let res = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
     method: "POST",
     headers: arkHeaders(),
-    body: JSON.stringify({ model: model.arkModel, content: [{ type: "text", text: prompt + flags }] }),
+    body: JSON.stringify({ model: model.arkModel, content }),
   });
+  if (!res.ok && refImageUrl) {
+    // The reference image may be unreachable/unsupported — retry text-only.
+    res = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
+      method: "POST",
+      headers: arkHeaders(),
+      body: JSON.stringify({ model: model.arkModel, content: content.slice(0, 1) }),
+    });
+  }
   if (!res.ok) {
     await refund(sb, cost);
     const detail = (await res.text()).slice(0, 300);
@@ -169,7 +185,7 @@ export async function POST(req: Request) {
     task_id: task.id,
     poster_url: typeof body.posterUrl === "string" ? body.posterUrl : null,
   });
-  return NextResponse.json({ status: "rendering", credits: balance, cost });
+  return NextResponse.json({ status: "rendering", taskId: task.id, credits: balance, cost });
 }
 
 export async function GET(req: Request) {

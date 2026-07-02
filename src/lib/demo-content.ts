@@ -13,6 +13,8 @@ export interface DemoItem {
   aspect: "16:9" | "9:16";
   accent: string;
   prompt: string;
+  /** Purpose preset id this demo maps to in Make (see lib/purposes.ts). */
+  purpose: string;
 }
 
 export const DEMO_CONTENT = demoData.demos as DemoItem[];

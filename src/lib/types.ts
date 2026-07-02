@@ -82,6 +82,8 @@ export interface GenerateParams {
   elements?: string[];
   direction?: string;
   posterUrl?: string;
+  /** Public https image used as the video's first-frame reference (i2v). */
+  refImageUrl?: string;
 }
 
 /**
@@ -109,6 +111,10 @@ export interface VideoJob {
   direction?: string;
   /** True when the result is a demo sample clip, not real model output. */
   simulated?: boolean;
+  /** Ark task id for real renders — lets a reload resume polling. */
+  taskId?: string;
+  /** First-frame reference image for the render (public https URL). */
+  refImageUrl?: string;
 }
 
 export const TIERS: Record<

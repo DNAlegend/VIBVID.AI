@@ -220,6 +220,57 @@ function startSimulatedRender(set: StoreSet, get: () => StoreState, job: VideoJo
 }
 
 /**
+ * Poll /api/generate?id=… until a real render lands (or fails). Also used to
+ * resume watching an in-flight render after a page reload.
+ */
+async function pollRenderUntilDone(set: StoreSet, job: Pick<VideoJob, "id" | "posterUrl">) {
+  const token = (await supabase!.auth.getSession()).data.session?.access_token;
+  if (!token) return;
+  let progress = 8;
+  patchVideo(set, job.id, { progress });
+  const deadline = Date.now() + 10 * 60_000;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 4000));
+    progress = Math.min(92, progress + 3 + Math.random() * 6);
+    patchVideo(set, job.id, { progress: Math.round(progress) });
+    try {
+      const poll = await fetch(`/api/generate?id=${job.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const pd = await poll.json().catch(() => ({} as Record<string, unknown>));
+      if (pd.status === "succeeded") {
+        patchVideo(set, job.id, {
+          status: "succeeded",
+          progress: 100,
+          videoUrl: (pd.videoUrl as string) ?? undefined,
+          posterUrl: (pd.posterUrl as string) ?? job.posterUrl,
+        });
+        return;
+      }
+      if (pd.status === "failed") {
+        if (typeof pd.credits === "number") set({ credits: pd.credits });
+        patchVideo(set, job.id, {
+          status: "failed",
+          progress: 100,
+          error: (pd.error as string) ?? "Generation failed",
+        });
+        return;
+      }
+    } catch {
+      // transient network hiccup — keep polling until the deadline
+    }
+    if (Date.now() > deadline) {
+      patchVideo(set, job.id, {
+        status: "failed",
+        progress: 100,
+        error: "Timed out — the render may still land in your Library later",
+      });
+      return;
+    }
+  }
+}
+
+/**
  * Real generation through /api/generate (BytePlus Seedance/Seedream).
  * The server spends the credits and owns the generations row; the local
  * optimistic deduction is reconciled with the returned balance. Falls back
@@ -245,6 +296,7 @@ async function runCloudGeneration(set: StoreSet, get: () => StoreState, job: Vid
         posterUrl: job.posterUrl,
         elements: job.elements,
         direction: job.direction,
+        refImageUrl: job.refImageUrl,
       }),
     });
     if (res.status === 501) {
@@ -276,48 +328,8 @@ async function runCloudGeneration(set: StoreSet, get: () => StoreState, job: Vid
     }
 
     // Video renders as an async task — poll until it lands (~30–90s).
-    let progress = 8;
-    patchVideo(set, job.id, { progress });
-    const deadline = Date.now() + 10 * 60_000;
-    for (;;) {
-      await new Promise((r) => setTimeout(r, 4000));
-      progress = Math.min(92, progress + 3 + Math.random() * 6);
-      patchVideo(set, job.id, { progress: Math.round(progress) });
-      try {
-        const poll = await fetch(`/api/generate?id=${job.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const pd = await poll.json().catch(() => ({} as Record<string, unknown>));
-        if (pd.status === "succeeded") {
-          patchVideo(set, job.id, {
-            status: "succeeded",
-            progress: 100,
-            videoUrl: (pd.videoUrl as string) ?? undefined,
-            posterUrl: (pd.posterUrl as string) ?? job.posterUrl,
-          });
-          return;
-        }
-        if (pd.status === "failed") {
-          if (typeof pd.credits === "number") set({ credits: pd.credits });
-          patchVideo(set, job.id, {
-            status: "failed",
-            progress: 100,
-            error: (pd.error as string) ?? "Generation failed",
-          });
-          return;
-        }
-      } catch {
-        // transient network hiccup — keep polling until the deadline
-      }
-      if (Date.now() > deadline) {
-        patchVideo(set, job.id, {
-          status: "failed",
-          progress: 100,
-          error: "Timed out — the render may still land in your Library later",
-        });
-        return;
-      }
-    }
+    if (typeof data.taskId === "string") patchVideo(set, job.id, { taskId: data.taskId });
+    await pollRenderUntilDone(set, job);
   } catch (e) {
     if (!posted) {
       console.warn("[generate] real generation unavailable, simulating:", e);
@@ -387,14 +399,21 @@ export const useStore = create<StoreState>()(
           ];
           cloudCategories = [...cloud.categories, ...missingCats];
         }
-        // Settle any renders left hanging by a closed tab.
+        // Renders left "rendering" by a closed tab: real Ark tasks resume
+        // polling (the render likely finished server-side); only simulated
+        // rows (no task id) get settled with a sample.
         const videos = cloud.videos.map((v, i) => {
           if (v.status !== "rendering") return v;
+          if (v.taskId) {
+            void pollRenderUntilDone(set, v);
+            return v;
+          }
           const sample = pickSample(i);
           const settled: VideoJob = {
             ...v,
             status: "succeeded",
             progress: 100,
+            simulated: true,
             videoUrl: v.modality === "image" ? v.videoUrl : v.videoUrl ?? sample.video,
             posterUrl: v.posterUrl ?? sample.poster,
           };
@@ -454,6 +473,7 @@ export const useStore = create<StoreState>()(
           modality,
           refAssetId: p.refAssetId ?? null,
           posterUrl: p.posterUrl,
+          refImageUrl: p.refImageUrl,
           elements: p.elements,
           direction: p.direction,
           creditsCost: cost,

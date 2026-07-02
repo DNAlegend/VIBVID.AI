@@ -108,12 +108,14 @@ function jobToRow(v: VideoJob): Row {
     error: v.error ?? null,
     elements: v.elements ?? null,
     direction: v.direction ?? null,
+    simulated: v.simulated ?? false,
     created_at: v.createdAt,
   };
 }
 
 function rowToJob(r: Row): VideoJob {
   return {
+    taskId: (r.task_id as string) ?? undefined,
     id: r.id as string,
     prompt: r.prompt as string,
     status: r.status as VideoJob["status"],
@@ -131,6 +133,7 @@ function rowToJob(r: Row): VideoJob {
     error: (r.error as string) ?? undefined,
     elements: (r.elements as string[]) ?? undefined,
     direction: (r.direction as string) ?? undefined,
+    simulated: r.simulated ? true : undefined,
     createdAt: Number(r.created_at),
   };
 }
@@ -253,6 +256,7 @@ export function updateGenerationRow(id: string, patch: Partial<VideoJob>): void 
   if (patch.videoUrl !== undefined) row.video_url = patch.videoUrl;
   if (patch.posterUrl !== undefined) row.poster_url = patch.posterUrl;
   if (patch.error !== undefined) row.error = patch.error;
+  if (patch.simulated !== undefined) row.simulated = patch.simulated;
   supabase!.from("generations").update(row).eq("id", id).eq("user_id", activeUserId!)
     .then(({ error }) => { if (error) warn("updateGenerationRow", error); });
 }
