@@ -49,7 +49,7 @@ export function LibraryView() {
               : `${done} ${done === 1 ? "item" : "items"} generated.`}
           </p>
         </div>
-        <Button onClick={() => (window.location.href = "/")} className="hidden sm:inline-flex">
+        <Button onClick={() => (window.location.href = "/app")} className="hidden sm:inline-flex">
           <Sparkles size={16} /> Make
         </Button>
       </header>
@@ -60,7 +60,7 @@ export function LibraryView() {
           title="Nothing here yet"
           description="Generate from Make or Studio and your videos and images land here — ready to play, download, remix and reuse."
           action={
-            <Button onClick={() => (window.location.href = "/")}>
+            <Button onClick={() => (window.location.href = "/app")}>
               <Sparkles size={16} /> Make something
             </Button>
           }
@@ -174,7 +174,7 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
     setDraftElements(video.elements ?? []);
     setDraftDirection(video.direction ?? "");
     onClose();
-    router.push("/");
+    router.push("/app");
   }
 
   return (

@@ -262,7 +262,7 @@ export function AssetsView() {
                     asset={a}
                     onUse={() => {
                       setDraftRef(a.id);
-                      router.push("/");
+                      router.push("/app");
                     }}
                   />
                 ))}

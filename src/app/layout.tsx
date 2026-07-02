@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
-  title: "Mighty Studio — AI Production Studio",
+  title: "Mighty Studio — Your AI Production Studio",
   description:
-    "A full production studio for AI video and image. Organize your assets, generate with multiple models, and manage every output — simply.",
+    "Organize your brand assets, generate video and images with best-in-class AI models, and manage every output — one simple studio.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        <AppShell>{children}</AppShell>
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

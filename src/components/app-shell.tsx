@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 import { Button, Modal, Badge } from "@/components/ui";
 
 const NAV = [
-  { href: "/", label: "Make", icon: Sparkles },
-  { href: "/assets", label: "Assets", icon: FolderOpen },
-  { href: "/library", label: "Library", icon: Film },
+  { href: "/app", label: "Make", icon: Sparkles },
+  { href: "/app/assets", label: "Assets", icon: FolderOpen },
+  { href: "/app/library", label: "Library", icon: Film },
 ];
 
 const CREDIT_PACKS = [
@@ -22,7 +22,7 @@ const CREDIT_PACKS = [
 
 function Brand() {
   return (
-    <Link href="/" className="flex items-center gap-2.5">
+    <Link href="/app" className="flex items-center gap-2.5">
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-teal shadow-[0_6px_18px_-6px_rgba(124,108,255,0.9)]">
         <Zap size={18} className="text-white" fill="white" />
       </span>
@@ -38,7 +38,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       {NAV.map(({ href, label, icon: Icon }) => {
-        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const active = href === "/app" ? pathname === "/app" : pathname.startsWith(href);
         return (
           <Link
             key={href}
@@ -172,7 +172,7 @@ function MobileNav() {
   return (
     <>
       {NAV.map(({ href, label, icon: Icon }) => {
-        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const active = href === "/app" ? pathname === "/app" : pathname.startsWith(href);
         return (
           <Link
             key={href}

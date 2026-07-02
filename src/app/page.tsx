@@ -1,5 +1,5 @@
-import { MakeView } from "@/components/make/make-view";
+import { Landing } from "@/components/marketing/landing";
 
-export default function MakePage() {
-  return <MakeView />;
+export default function HomePage() {
+  return <Landing />;
 }

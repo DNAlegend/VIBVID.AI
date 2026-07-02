@@ -355,7 +355,7 @@ export function MakeView() {
                   </Button>
                 </a>
               ) : null}
-              <Link href="/library" className="ml-auto">
+              <Link href="/app/library" className="ml-auto">
                 <Button variant="ghost" size="sm">
                   Library <ArrowRight size={15} />
                 </Button>
@@ -447,7 +447,7 @@ function SlotPickerModal({
       {options.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">
           No {meta?.plural.toLowerCase()} yet.{" "}
-          <Link href="/assets" className="text-accent-2 hover:underline" onClick={onClose}>
+          <Link href="/app/assets" className="text-accent-2 hover:underline" onClick={onClose}>
             Upload some
           </Link>{" "}
           to use here.
