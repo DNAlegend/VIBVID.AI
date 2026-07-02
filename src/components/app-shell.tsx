@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Film, FolderOpen, Plus, Coins, Zap, Sparkles } from "lucide-react";
+import { Film, FolderOpen, LogOut, Plus, Coins, UserCircle, Zap, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { supabase, cloudConfigured } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button, Modal, Badge } from "@/components/ui";
+import { AuthModal } from "@/components/auth/auth-modal";
 
 const NAV = [
   { href: "/app", label: "Make", icon: Sparkles },
@@ -27,7 +29,7 @@ function Brand() {
         <Zap size={18} className="text-white" fill="white" />
       </span>
       <span className="text-[17px] font-bold tracking-tight">
-        Mighty<span className="gradient-text">MAK</span>
+        Mighty<span className="gradient-text">Mak</span>
       </span>
     </Link>
   );
@@ -120,6 +122,34 @@ function BuyCreditsModal({ open, onClose }: { open: boolean; onClose: () => void
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [buyOpen, setBuyOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const hydrateFromCloud = useStore((s) => s.hydrateFromCloud);
+  const signOutToLocal = useStore((s) => s.signOutToLocal);
+  const lastUser = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setEmail(session.user.email ?? "Account");
+        // Covers sign-ins completed outside the modal too (e.g. the email
+        // confirmation link landing back on /app).
+        setAuthOpen(false);
+        if (lastUser.current !== session.user.id) {
+          lastUser.current = session.user.id;
+          void hydrateFromCloud(session.user.id);
+        }
+      } else {
+        setEmail(null);
+        if (event === "SIGNED_OUT") {
+          lastUser.current = null;
+          signOutToLocal();
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [hydrateFromCloud, signOutToLocal]);
 
   return (
     <div className="min-h-screen">
@@ -134,9 +164,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-auto">
           <div className="rounded-xl border border-line bg-surface-2 p-3 text-xs text-muted">
             <div className="mb-1 flex items-center gap-1.5 font-medium text-fg">
-              <Sparkles size={13} className="text-teal" /> Front-end demo
+              <Sparkles size={13} className="text-teal" /> {email ? "Cloud sync on" : "Demo mode"}
             </div>
-            Powered by ByteDance models (simulated). Data is saved in your browser.
+            {email
+              ? "Your library, credits and generations are saved to your account."
+              : "Data is saved in this browser. Sign in to sync it to your account."}
           </div>
         </div>
       </aside>
@@ -150,7 +182,28 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Brand />
             </div>
             <div className="hidden text-sm text-faint md:block" />
-            <CreditWidget onBuy={() => setBuyOpen(true)} />
+            <div className="flex items-center gap-2">
+              <CreditWidget onBuy={() => setBuyOpen(true)} />
+              {cloudConfigured &&
+                (email ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="hidden max-w-[150px] truncate text-xs text-muted lg:block">{email}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => supabase?.auth.signOut()}
+                      title="Sign out"
+                      className="gap-1.5"
+                    >
+                      <LogOut size={15} />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setAuthOpen(true)} className="gap-1.5">
+                    <UserCircle size={15} /> Sign in
+                  </Button>
+                ))}
+            </div>
           </div>
         </header>
 
@@ -163,6 +216,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       <BuyCreditsModal open={buyOpen} onClose={() => setBuyOpen(false)} />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   );
 }

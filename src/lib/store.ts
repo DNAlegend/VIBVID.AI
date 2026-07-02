@@ -12,6 +12,24 @@ import { pickSample } from "./samples";
 import { getModel, priceFor } from "./models";
 import { ASSET_CLASSES, CATALOG, categoryIdForClass, thumbFor } from "./catalog";
 import { uid } from "./utils";
+import {
+  adjustCreditsRemote,
+  cloudOn,
+  getCloudUser,
+  deleteAssetRow,
+  deleteCategoryRow,
+  deleteGenerationRow,
+  fetchCloudState,
+  pushAsset,
+  pushCategory,
+  pushGeneration,
+  seedCloud,
+  setCloudUser,
+  updateAssetRow,
+  updateCategoryRow,
+  updateGenerationRow,
+  uploadDataUrl,
+} from "./cloud";
 
 const STARTING_CREDITS = 1200;
 
@@ -109,6 +127,8 @@ function hasRefs(p: GenerateParams): boolean {
 
 interface StoreState {
   hasHydrated: boolean;
+  /** Signed-in Supabase user id, or null in local demo mode. */
+  cloudUser: string | null;
   credits: number;
   videos: VideoJob[];
   assets: Asset[];
@@ -121,6 +141,10 @@ interface StoreState {
   draftRefAssetId: string | null;
 
   setHasHydrated: (v: boolean) => void;
+
+  // cloud session
+  hydrateFromCloud: (userId: string) => Promise<void>;
+  signOutToLocal: () => void;
 
   // generation
   estimate: (p: Pick<GenerateParams, "tier" | "durationSec" | "modelId" | "refAssetId">) => number;
@@ -160,6 +184,7 @@ export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
       hasHydrated: false,
+      cloudUser: null,
       credits: STARTING_CREDITS,
       videos: [],
       assets: seedAssets(),
@@ -169,6 +194,65 @@ export const useStore = create<StoreState>()(
       draftRefAssetId: null,
 
       setHasHydrated: (v) => set({ hasHydrated: v }),
+
+      hydrateFromCloud: async (userId) => {
+        setCloudUser(userId);
+        // Show loading state while the account's data replaces local state.
+        set({ hasHydrated: false });
+        const cloud = await fetchCloudState();
+        // The user signed out or switched accounts while we were fetching —
+        // that flow owns the store now; discard this stale snapshot.
+        if (getCloudUser() !== userId) return;
+        if (!cloud) {
+          // Fetch failed — fall back to what's on screen rather than hanging.
+          set({ hasHydrated: true });
+          return;
+        }
+        if (cloud.empty) {
+          // Fresh account: provision it with the starter library.
+          const categories = seedCategories();
+          const assets = seedAssets();
+          void seedCloud(categories, assets);
+          set({ cloudUser: userId, credits: cloud.credits, categories, assets, videos: [], hasHydrated: true });
+          return;
+        }
+        // Settle any renders left hanging by a closed tab.
+        const videos = cloud.videos.map((v, i) => {
+          if (v.status !== "rendering") return v;
+          const sample = pickSample(i);
+          const settled: VideoJob = {
+            ...v,
+            status: "succeeded",
+            progress: 100,
+            videoUrl: v.modality === "image" ? v.videoUrl : v.videoUrl ?? sample.video,
+            posterUrl: v.posterUrl ?? sample.poster,
+          };
+          updateGenerationRow(v.id, settled);
+          return settled;
+        });
+        set({
+          cloudUser: userId,
+          credits: cloud.credits,
+          categories: cloud.categories,
+          assets: cloud.assets,
+          videos,
+          hasHydrated: true,
+        });
+      },
+
+      signOutToLocal: () => {
+        setCloudUser(null);
+        timers.forEach((t) => clearInterval(t));
+        timers.clear();
+        set({
+          cloudUser: null,
+          credits: STARTING_CREDITS,
+          videos: [],
+          assets: seedAssets(),
+          categories: seedCategories(),
+          hasHydrated: true,
+        });
+      },
 
       estimate: (p) =>
         priceFor(getModel(p.modelId), {
@@ -205,6 +289,8 @@ export const useStore = create<StoreState>()(
         };
 
         set((s) => ({ credits: s.credits - cost, videos: [job, ...s.videos] }));
+        pushGeneration(job);
+        adjustCreditsRemote(-cost, (balance) => set({ credits: balance }));
 
         // Simulate an async render: progress ticks, then a sample result lands.
         let progress = 0;
@@ -215,13 +301,15 @@ export const useStore = create<StoreState>()(
             clearInterval(interval);
             timers.delete(id);
             const sample = pickSample(sampleIndex);
-            patchVideo(set, id, {
+            const result: Partial<VideoJob> = {
               status: "succeeded",
               progress: 100,
               // Image models produce a still; video models produce a clip.
               videoUrl: modality === "image" ? undefined : sample.video,
               posterUrl: p.posterUrl ?? sample.poster,
-            });
+            };
+            patchVideo(set, id, result);
+            updateGenerationRow(id, result);
           } else {
             patchVideo(set, id, { progress: Math.round(progress) });
           }
@@ -238,6 +326,7 @@ export const useStore = create<StoreState>()(
           timers.delete(id);
         }
         set((s) => ({ videos: s.videos.filter((v) => v.id !== id) }));
+        deleteGenerationRow(id);
       },
 
       setDraftDirection: (direction) => set({ draftDirection: direction }),
@@ -246,11 +335,37 @@ export const useStore = create<StoreState>()(
 
       setDraftRef: (assetId) => set({ draftRefAssetId: assetId }),
 
-      addCredits: (n) => set((s) => ({ credits: s.credits + n })),
+      addCredits: (n) => {
+        set((s) => ({ credits: s.credits + n }));
+        adjustCreditsRemote(n, (balance) => set({ credits: balance }));
+      },
 
       addAsset: (a) => {
         const asset: Asset = { ...a, id: uid("ast"), createdAt: Date.now() };
         set((s) => ({ assets: [asset, ...s.assets] }));
+        if (cloudOn()) {
+          if (asset.url.startsWith("data:")) {
+            // Move upload payloads into Storage, then persist the public URL.
+            void (async () => {
+              const publicUrl = await uploadDataUrl(asset.id, asset.url);
+              if (!publicUrl) {
+                // Upload failed — keep the asset local-only rather than
+                // writing a multi-megabyte data URL into the database.
+                console.warn("[cloud] upload failed; asset kept local:", asset.id);
+                return;
+              }
+              const final: Asset = {
+                ...asset,
+                url: publicUrl,
+                posterUrl: asset.posterUrl?.startsWith("data:") ? publicUrl : asset.posterUrl,
+              };
+              set((s) => ({ assets: s.assets.map((x) => (x.id === asset.id ? final : x)) }));
+              pushAsset(final);
+            })();
+          } else {
+            pushAsset(asset);
+          }
+        }
         return asset;
       },
 
@@ -268,35 +383,47 @@ export const useStore = create<StoreState>()(
         });
       },
 
-      removeAsset: (id) => set((s) => ({ assets: s.assets.filter((a) => a.id !== id) })),
+      removeAsset: (id) => {
+        set((s) => ({ assets: s.assets.filter((a) => a.id !== id) }));
+        deleteAssetRow(id);
+      },
 
-      renameAsset: (id, name) =>
+      renameAsset: (id, name) => {
         set((s) => ({
           assets: s.assets.map((a) => (a.id === id ? { ...a, name } : a)),
-        })),
+        }));
+        updateAssetRow(id, { name });
+      },
 
-      moveAsset: (id, categoryId) =>
+      moveAsset: (id, categoryId) => {
         set((s) => ({
           assets: s.assets.map((a) => (a.id === id ? { ...a, categoryId } : a)),
-        })),
+        }));
+        updateAssetRow(id, { categoryId });
+      },
 
       addCategory: (name) => {
         const cat: Category = { id: uid("cat"), name: name.trim(), createdAt: Date.now() };
         set((s) => ({ categories: [...s.categories, cat] }));
+        pushCategory(cat);
         return cat;
       },
 
-      renameCategory: (id, name) =>
+      renameCategory: (id, name) => {
         set((s) => ({
           categories: s.categories.map((c) => (c.id === id ? { ...c, name } : c)),
-        })),
+        }));
+        updateCategoryRow(id, { name });
+      },
 
-      removeCategory: (id) =>
+      removeCategory: (id) => {
         set((s) => ({
           categories: s.categories.filter((c) => c.id !== id),
           // orphaned assets fall back to "Uncategorized"
           assets: s.assets.map((a) => (a.categoryId === id ? { ...a, categoryId: null } : a)),
-        })),
+        }));
+        deleteCategoryRow(id);
+      },
     }),
     {
       name: "mightymak-v3",
