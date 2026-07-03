@@ -48,7 +48,7 @@ export const MODELS: ModelProvider[] = [
     enabled: true,
     creditsPerSec: 12,
     maxDurationSec: 10,
-    arkModel: "seedance-1-0-pro-250528",
+    arkModel: "dreamina-seedance-2-0-260128",
     arkResolution: "1080p",
   },
   {
@@ -64,7 +64,7 @@ export const MODELS: ModelProvider[] = [
     enabled: true,
     creditsPerSec: 5,
     maxDurationSec: 8,
-    arkModel: "seedance-1-0-pro-250528",
+    arkModel: "dreamina-seedance-2-0-fast-260128",
     arkResolution: "720p",
   },
   {

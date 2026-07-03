@@ -28,7 +28,7 @@ try {
 const KEY = process.env.ARK_API_KEY;
 const BASE = process.env.ARK_BASE_URL ?? "https://ark.ap-southeast.bytepluses.com/api/v3";
 const IMAGE_MODEL = process.env.ARK_IMAGE_MODEL ?? "seedream-4-0-250828";
-const VIDEO_MODEL = process.env.ARK_VIDEO_MODEL ?? "seedance-1-0-pro-250528";
+const VIDEO_MODEL = process.env.ARK_VIDEO_MODEL ?? "dreamina-seedance-2-0-260128";
 const VIDEO_RES = process.env.ARK_VIDEO_RESOLUTION ?? "720p"; // keep site files lean
 
 if (!KEY) {
