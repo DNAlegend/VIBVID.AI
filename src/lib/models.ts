@@ -69,7 +69,7 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedream-3",
-    name: "Seedream 3.0",
+    name: "Seedream 4.0",
     vendor: "ByteDance",
     modality: "image",
     capabilities: ["text-to-image"],

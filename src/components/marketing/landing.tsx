@@ -190,7 +190,7 @@ function FloatChip({ m }: { m: ShowcaseMedia }) {
 }
 
 function ModelBand() {
-  const items = ["Seedance 2.0 Pro", "Seedance 2.0 Lite", "Seedream 3.0", "SeedEdit 3.0", "+ more models soon"];
+  const items = ["Seedance 2.0 Pro", "Seedance 2.0 Fast", "Seedream 4.0", "+ more models soon"];
   return (
     <section className="border-y border-line bg-surface-2/50">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-6 py-5">
