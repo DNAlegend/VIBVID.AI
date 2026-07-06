@@ -41,7 +41,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button, Card, Badge, Segmented, Toggle, Modal } from "@/components/ui";
-import { AssetThumb, ClassIcon, ModelPicker, ResultHero, CompositeBadge } from "@/components/shared";
+import { AssetThumb, ClassIcon, ResultHero, CompositeBadge } from "@/components/shared";
 
 type Picks = Partial<Record<AssetClass, string>>;
 
@@ -50,12 +50,13 @@ interface Board {
   firstFrame: string | null;
   lastFrame: string | null;
   refs: string[];
+  refVideos: string[];
   influences: string[];
 }
 
-const EMPTY_BOARD: Board = { firstFrame: null, lastFrame: null, refs: [], influences: [] };
+const EMPTY_BOARD: Board = { firstFrame: null, lastFrame: null, refs: [], refVideos: [], influences: [] };
 
-type BoardZone = "firstFrame" | "lastFrame" | "refs" | "influences";
+type BoardZone = "firstFrame" | "lastFrame" | "refs" | "refVideos" | "influences";
 
 export function MakeView({ mode }: { mode?: Modality }) {
   const credits = useStore((s) => s.credits);
@@ -87,7 +88,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [durationSec, setDurationSec] = useState<number>(initialPurpose.durationSec);
   const [tier, setTier] = useState<Tier>("standard");
   const [audio, setAudio] = useState(true);
-  const [showAssets, setShowAssets] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [pickClass, setPickClass] = useState<AssetClass | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -125,20 +125,27 @@ export function MakeView({ mode }: { mode?: Modality }) {
       } else {
         // Video: media assets become references, audio/motion become influences.
         setBoard((b) => {
-          const next = { ...b, refs: [...b.refs], influences: [...b.influences] };
+          const next = {
+            ...b,
+            refs: [...b.refs],
+            refVideos: [...b.refVideos],
+            influences: [...b.influences],
+          };
           ids.forEach((id) => {
             const a = byId[id];
             if (!a) return;
             if (a.kind === "audio") {
               if (!next.influences.includes(id)) next.influences.push(id);
-            } else if (!next.refs.includes(id)) {
+            } else if (a.kind === "video") {
+              if (!next.refVideos.includes(id) && next.refVideos.length < REF_VIDEO_LIMIT)
+                next.refVideos.push(id);
+            } else if (!next.refs.includes(id) && next.refs.length < REF_IMAGE_LIMIT) {
               next.refs.push(id);
             }
           });
           return next;
         });
       }
-      setShowAssets(true);
     }
     // Landing links arrive as ?purpose=…&prompt=… — preconfigure the studio.
     const params = new URLSearchParams(window.location.search);
@@ -163,7 +170,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
     setModelId(p.modelId);
     setAspectRatio(p.aspectRatio);
     setDurationSec(p.durationSec);
-    if (id !== "custom") setShowAssets(true);
   }
 
   const purpose = PURPOSE_BY_ID[purposeId] ?? PURPOSE_BY_ID[DEFAULT_PURPOSE_ID];
@@ -199,6 +205,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
     board.firstFrame,
     board.lastFrame,
     ...board.refs,
+    ...board.refVideos,
     ...board.influences,
   ].filter(Boolean) as string[];
 
@@ -210,30 +217,30 @@ export function MakeView({ mode }: { mode?: Modality }) {
           .map((id) => byId[id as string])
           .filter(Boolean) as Asset[]);
 
-  const refAssets = board.refs.map((id) => byId[id]).filter(Boolean) as Asset[];
-  const refImgCount = refAssets.filter((a) => a.kind === "image").length;
-  const refVidCount = refAssets.filter((a) => a.kind === "video").length;
+  const refImageAssets = board.refs.map((id) => byId[id]).filter(Boolean) as Asset[];
+  const refVideoAssets = board.refVideos.map((id) => byId[id]).filter(Boolean) as Asset[];
 
   /** Drop/click assignment with kind checks, caps, and mode exclusivity. */
   function assignToZone(zone: BoardZone, assetId: string) {
     const a = byId[assetId];
     if (!a) return;
+    // Route by kind so any drop lands somewhere sensible.
+    if (a.kind === "audio") zone = "influences";
+    else if (a.kind === "video" && zone !== "influences") zone = "refVideos";
     if (zone === "firstFrame" || zone === "lastFrame") {
       if (a.kind !== "image") return;
       // Frames mode excludes reference media (API contract).
-      setBoard((b) => ({ ...b, [zone]: assetId, refs: [] }));
+      setBoard((b) => ({ ...b, [zone]: assetId, refs: [], refVideos: [] }));
     } else if (zone === "refs") {
-      if (a.kind === "audio") {
-        assignToZone("influences", assetId);
-        return;
-      }
+      if (a.kind !== "image") return;
       setBoard((b) => {
-        if (b.refs.includes(assetId)) return b;
-        const imgs = b.refs.filter((id) => byId[id]?.kind === "image").length;
-        const vids = b.refs.filter((id) => byId[id]?.kind === "video").length;
-        if (a.kind === "image" && imgs >= REF_IMAGE_LIMIT) return b;
-        if (a.kind === "video" && vids >= REF_VIDEO_LIMIT) return b;
+        if (b.refs.includes(assetId) || b.refs.length >= REF_IMAGE_LIMIT) return b;
         return { ...b, firstFrame: null, lastFrame: null, refs: [...b.refs, assetId] };
+      });
+    } else if (zone === "refVideos") {
+      setBoard((b) => {
+        if (b.refVideos.includes(assetId) || b.refVideos.length >= REF_VIDEO_LIMIT) return b;
+        return { ...b, firstFrame: null, lastFrame: null, refVideos: [...b.refVideos, assetId] };
       });
     } else {
       setBoard((b) =>
@@ -247,6 +254,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
       if (zone === "firstFrame") return { ...b, firstFrame: null };
       if (zone === "lastFrame") return { ...b, lastFrame: null };
       if (zone === "refs") return { ...b, refs: b.refs.filter((id) => id !== assetId) };
+      if (zone === "refVideos")
+        return { ...b, refVideos: b.refVideos.filter((id) => id !== assetId) };
       return { ...b, influences: b.influences.filter((id) => id !== assetId) };
     });
   }
@@ -301,14 +310,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
     board.firstFrame && byId[board.firstFrame] ? publicUrl(byId[board.firstFrame]) : null;
   const lastFrameUrl =
     board.lastFrame && byId[board.lastFrame] ? publicUrl(byId[board.lastFrame]) : null;
-  const refImageUrls = refAssets
-    .filter((a) => a.kind === "image")
-    .map(publicUrl)
-    .filter(Boolean) as string[];
-  const refVideoUrls = refAssets
-    .filter((a) => a.kind === "video")
-    .map(publicUrl)
-    .filter(Boolean) as string[];
+  const refImageUrls = refImageAssets.map(publicUrl).filter(Boolean) as string[];
+  const refVideoUrls = refVideoAssets.map(publicUrl).filter(Boolean) as string[];
 
   async function onDirect() {
     if (needsSignIn) {
@@ -464,50 +467,44 @@ export function MakeView({ mode }: { mode?: Modality }) {
             </div>
           )}
 
-          {/* Add assets (slot assembly) */}
+          {/* Model — pick it first; its exact inputs render right below */}
           <div className="mt-4 border-t border-line pt-4">
-            <button
-              onClick={() => setShowAssets((v) => !v)}
-              className="flex w-full items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-fg"
-            >
-              <ChevronDown size={15} className={cn("transition-transform", showAssets && "rotate-180")} />
-              {modality === "video" ? "Build your shot — drag assets into spots" : "Add assets from your library"}
-              {pickedCount > 0 && <Badge tone="accent" className="ml-1">{pickedCount}</Badge>}
-            </button>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-faint">Model</div>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {listModels({ modality, enabledOnly: true }).map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setModelId(m.id)}
+                  title={m.blurb}
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 transition-colors",
+                    modelId === m.id ? "border-accent/60 bg-accent-soft" : "border-line hover:border-line-2",
+                  )}
+                >
+                  <span className="text-base leading-none">{m.glyph}</span>
+                  <span className="text-[13px] font-semibold text-fg">{m.name}</span>
+                  {m.badge && (
+                    <Badge tone={m.badge === "recommended" ? "accent" : "neutral"} className="capitalize">
+                      {m.badge}
+                    </Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {/* Collapsed summary chips */}
-            {!showAssets && pickedCount > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {pickedAssets.map((a) => (
-                  <span
-                    key={a.id}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 py-1 pl-1 pr-2 text-[12px] text-fg"
-                  >
-                    <AssetThumb a={a} className="h-5 w-5 rounded-full" />
-                    {a.name}
-                    <button
-                      onClick={() => {
-                        if (modality === "video") {
-                          setBoard((b) => ({
-                            firstFrame: b.firstFrame === a.id ? null : b.firstFrame,
-                            lastFrame: b.lastFrame === a.id ? null : b.lastFrame,
-                            refs: b.refs.filter((id) => id !== a.id),
-                            influences: b.influences.filter((id) => id !== a.id),
-                          }));
-                        } else {
-                          setPick(a.class as AssetClass, null);
-                        }
-                      }}
-                      className="rounded-full p-0.5 text-faint hover:text-fg"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+          {/* Inputs this model accepts — always visible, empty until filled */}
+          <div className="mt-4 border-t border-line pt-4">
+            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">
+              {getModel(modelId).name} inputs
+            </div>
+            <p className="mb-3 text-[11.5px] text-faint">
+              {modality === "video"
+                ? `Text prompt — plus exact frames (first ± last) OR references (up to ${REF_IMAGE_LIMIT} images + ${REF_VIDEO_LIMIT} videos). Drag from the tray, or press +.`
+                : "Text prompt — the pickers below just help you write it."}
+            </p>
 
-            {showAssets && modality === "video" && (
+            {modality === "video" && (
               <div className="mt-3 space-y-4">
                 {/* Asset tray — drag from here */}
                 <div>
@@ -551,73 +548,119 @@ export function MakeView({ mode }: { mode?: Modality }) {
                   </div>
                 </div>
 
-                {/* Spots */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {/* Frames mode */}
-                  <div>
-                    <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
-                      Exact frames — start → end
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <DropSquare
-                        label="First frame"
-                        icon={<ImagePlus size={17} />}
-                        asset={board.firstFrame ? byId[board.firstFrame] : null}
-                        highlight={dragZone === "firstFrame"}
-                        onClear={() => removeFromBoard("firstFrame")}
-                        onPick={() => setBoardPickZone("firstFrame")}
-                        {...zoneDropProps("firstFrame")}
-                      />
-                      <DropSquare
-                        label="Last frame"
-                        icon={<Flag size={17} />}
-                        asset={board.lastFrame ? byId[board.lastFrame] : null}
-                        disabled={!board.firstFrame}
-                        hint={!board.firstFrame ? "needs a first frame" : undefined}
-                        highlight={dragZone === "lastFrame"}
-                        onClear={() => removeFromBoard("lastFrame")}
-                        onPick={() => setBoardPickZone("lastFrame")}
-                        {...zoneDropProps("lastFrame")}
-                      />
-                    </div>
+                {/* Frames mode — dims while references are in use */}
+                <div className={cn(board.refs.length + board.refVideos.length > 0 && "opacity-45")}>
+                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
+                    Exact frames — start → end
+                  </div>
+                  <div className="grid max-w-md grid-cols-2 gap-2">
+                    <DropSquare
+                      label="First frame"
+                      icon={<ImagePlus size={17} />}
+                      asset={board.firstFrame ? byId[board.firstFrame] : null}
+                      highlight={dragZone === "firstFrame"}
+                      onClear={() => removeFromBoard("firstFrame")}
+                      onPick={() => setBoardPickZone("firstFrame")}
+                      {...zoneDropProps("firstFrame")}
+                    />
+                    <DropSquare
+                      label="Last frame"
+                      icon={<Flag size={17} />}
+                      asset={board.lastFrame ? byId[board.lastFrame] : null}
+                      disabled={!board.firstFrame}
+                      hint={!board.firstFrame ? "needs a first frame" : undefined}
+                      highlight={dragZone === "lastFrame"}
+                      onClear={() => removeFromBoard("lastFrame")}
+                      onPick={() => setBoardPickZone("lastFrame")}
+                      {...zoneDropProps("lastFrame")}
+                    />
+                  </div>
+                </div>
+
+                {/* References mode — dims while frames are in use */}
+                <div className={cn(board.firstFrame && "opacity-45")}>
+                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
+                    Reference images — {board.refs.length}/{REF_IMAGE_LIMIT}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: REF_IMAGE_LIMIT }).map((_, i) => {
+                      const a = refImageAssets[i];
+                      if (a) {
+                        return (
+                          <div key={a.id} className="relative h-16 w-16 overflow-hidden rounded-lg border border-accent/50">
+                            <AssetThumb a={a} className="h-full w-full" />
+                            <button
+                              onClick={() => removeFromBoard("refs", a.id)}
+                              className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
+                              aria-label="Remove reference"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        );
+                      }
+                      const isNext = i === refImageAssets.length;
+                      return (
+                        <button
+                          key={`empty-${i}`}
+                          onClick={() => setBoardPickZone("refs")}
+                          {...zoneDropProps("refs")}
+                          className={cn(
+                            "flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed text-faint transition-colors",
+                            isNext
+                              ? "border-line-2 hover:border-accent/40 hover:text-fg"
+                              : "border-line opacity-45",
+                            dragZone === "refs" && isNext && "border-accent bg-accent-soft",
+                          )}
+                        >
+                          {isNext ? <Plus size={15} /> : <span className="text-[10px]">{i + 1}</span>}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* References mode */}
-                  <div>
-                    <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
-                      References — {refImgCount}/{REF_IMAGE_LIMIT} images · {refVidCount}/
-                      {REF_VIDEO_LIMIT} videos
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {refAssets.map((a) => (
-                        <div key={a.id} className="relative h-[72px] w-[72px] overflow-hidden rounded-xl border border-accent/50">
-                          <AssetThumb a={a} className="h-full w-full" />
-                          {a.kind === "video" && (
+                  <div className="mb-1.5 mt-3 text-[11px] font-medium uppercase tracking-wide text-faint">
+                    Reference videos — {board.refVideos.length}/{REF_VIDEO_LIMIT}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: REF_VIDEO_LIMIT }).map((_, i) => {
+                      const a = refVideoAssets[i];
+                      if (a) {
+                        return (
+                          <div key={a.id} className="relative h-16 w-28 overflow-hidden rounded-lg border border-accent/50">
+                            <AssetThumb a={a} className="h-full w-full" />
                             <span className="absolute bottom-1 left-1 rounded bg-black/60 p-0.5 text-white">
                               <Film size={10} />
                             </span>
+                            <button
+                              onClick={() => removeFromBoard("refVideos", a.id)}
+                              className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
+                              aria-label="Remove reference video"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        );
+                      }
+                      const isNext = i === refVideoAssets.length;
+                      return (
+                        <button
+                          key={`emptyv-${i}`}
+                          onClick={() => setBoardPickZone("refVideos")}
+                          {...zoneDropProps("refVideos")}
+                          className={cn(
+                            "flex h-16 w-28 items-center justify-center gap-1 rounded-lg border-2 border-dashed text-faint transition-colors",
+                            isNext
+                              ? "border-line-2 hover:border-accent/40 hover:text-fg"
+                              : "border-line opacity-45",
+                            dragZone === "refVideos" && isNext && "border-accent bg-accent-soft",
                           )}
-                          <button
-                            onClick={() => removeFromBoard("refs", a.id)}
-                            className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
-                            aria-label="Remove"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => setBoardPickZone("refs")}
-                        className={cn(
-                          "flex h-[72px] w-[72px] flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-dashed text-faint transition-colors hover:border-accent/40 hover:text-fg",
-                          dragZone === "refs" ? "border-accent bg-accent-soft" : "border-line-2",
-                        )}
-                        {...zoneDropProps("refs")}
-                      >
-                        <Plus size={16} />
-                        <span className="text-[10px] font-medium">Add</span>
-                      </button>
-                    </div>
+                        >
+                          <Film size={13} />
+                          {isNext && <Plus size={13} />}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -663,8 +706,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
               </div>
             )}
 
-            {showAssets && modality === "image" && (
-              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {modality === "image" && (
+              <div className="mt-1 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {orderedClasses.map((key) => (
                   <SlotCard
                     key={key}
@@ -702,16 +745,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
             {showOptions && (
               <div className="mt-4 space-y-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted">Model</label>
-                  <ModelPicker
-                    modality={modality}
-                    modelId={modelId}
-                    onModality={switchModality}
-                    onModel={setModelId}
-                    lockModality={!!mode}
-                  />
-                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-muted">Aspect</label>
@@ -939,16 +972,17 @@ function BoardPickerModal({
   const titles: Record<BoardZone, string> = {
     firstFrame: "Choose the first frame (image)",
     lastFrame: "Choose the last frame (image)",
-    refs: "Add a reference (image or video)",
+    refs: "Add a reference image",
+    refVideos: "Add a reference video",
     influences: "Add a style influence",
   };
   const options = zone
     ? assets.filter((a) =>
-        zone === "firstFrame" || zone === "lastFrame"
-          ? a.kind === "image"
-          : zone === "refs"
-            ? a.kind === "image" || a.kind === "video"
-            : true,
+        zone === "refVideos"
+          ? a.kind === "video"
+          : zone === "influences"
+            ? true
+            : a.kind === "image",
       )
     : [];
   return (
