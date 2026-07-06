@@ -1,5 +1,6 @@
-import { CharacterStudio } from "@/components/characters/character-studio";
+import { redirect } from "next/navigation";
 
+// The Character Studio surface was retired. Preserve old links.
 export default function CharactersPage() {
-  return <CharacterStudio />;
+  redirect("/app");
 }
