@@ -165,6 +165,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [directing, setDirecting] = useState(false);
   const [directorError, setDirectorError] = useState<string | null>(null);
   const [draftBackup, setDraftBackup] = useState<string | null>(null);
+  /** Open state of the # mention picker: null = closed, else the partial tag. */
+  const [tagQuery, setTagQuery] = useState<string | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const cloudUser = useStore((s) => s.cloudUser);
   const setAuthOpen = useStore((s) => s.setAuthOpen);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -290,6 +293,45 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const refImageAssets = board.refs.map((id) => byId[id]).filter(Boolean) as Asset[];
   const refVideoAssets = board.refVideos.map((id) => byId[id]).filter(Boolean) as Asset[];
 
+  /**
+   * Every board slot gets a referenceable tag (#I1, #V2, #A1, #F1…). Tags
+   * expand to wording the model understands ("image 1 (Nova)") since media
+   * is sent to Seedance in exactly this order.
+   */
+  const taggedMedia = [
+    ...(board.firstFrame && byId[board.firstFrame]
+      ? [{ tag: "F1", asset: byId[board.firstFrame], expand: "the first frame" }]
+      : []),
+    ...(board.lastFrame && byId[board.lastFrame]
+      ? [{ tag: "F2", asset: byId[board.lastFrame], expand: "the last frame" }]
+      : []),
+    ...refImageAssets.map((a, i) => ({
+      tag: `I${i + 1}`,
+      asset: a,
+      expand: `image ${i + 1} (${a.name})`,
+    })),
+    ...refVideoAssets.map((a, i) => ({
+      tag: `V${i + 1}`,
+      asset: a,
+      expand: `video ${i + 1} (${a.name})`,
+    })),
+    ...board.influences
+      .map((id, i) => {
+        const a = byId[id];
+        return a ? { tag: `A${i + 1}`, asset: a, expand: a.promptFragment ?? a.name } : null;
+      })
+      .filter(Boolean) as { tag: string; asset: Asset; expand: string }[],
+  ];
+
+  /** Replace #TAG mentions with model-readable references. */
+  function expandTags(text: string): string {
+    if (!text.includes("#")) return text;
+    return text.replace(/#([A-Za-z]\d{1,2})\b/g, (m, raw) => {
+      const hit = taggedMedia.find((t) => t.tag.toLowerCase() === String(raw).toLowerCase());
+      return hit ? hit.expand : m;
+    });
+  }
+
   /** Drop/click assignment with kind checks, caps, and mode exclusivity. */
   function assignToZone(zone: BoardZone, assetId: string) {
     const a = byId[assetId];
@@ -345,12 +387,15 @@ export function MakeView({ mode }: { mode?: Modality }) {
   });
 
   // The typed prompt doubles as the director's note when assets are picked;
-  // the purpose's style language is woven in at the end.
+  // #tags expand to model-readable references, then the purpose's style
+  // language is woven in at the end.
+  const expandedPrompt = expandTags(prompt);
   const finalPrompt = useMemo(() => {
-    const composed = composeFromAssets(pickedAssets, prompt);
+    const composed = composeFromAssets(pickedAssets, expandedPrompt);
     if (!composed || !purpose.styleSuffix) return composed;
     return `${composed} — ${purpose.styleSuffix}`;
-  }, [pickedAssets, prompt, purpose.styleSuffix]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedAssets, expandedPrompt, purpose.styleSuffix]);
   const cost = priceFor(model, { durationSec, count: 1, hasRefs: pickedAssets.length > 0 });
   const canAfford = credits >= cost;
   // `hydrated` also gates the brief window while a signed-in account's cloud
@@ -388,7 +433,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
       setAuthOpen(true);
       return;
     }
-    const brief = prompt.trim();
+    const brief = expandTags(prompt).trim();
     if (!brief || directing) return;
     setDirecting(true);
     setDirectorError(null);
@@ -402,7 +447,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
           brief,
           modality,
           purpose: purpose.id === "custom" ? null : `${purpose.label} — ${purpose.tagline}`,
-          assets: pickedAssets.map((a) => a.promptFragment ?? a.name),
+          assets: taggedMedia.length
+            ? taggedMedia.map((t) => `${t.tag} = ${t.asset.promptFragment ?? t.asset.name}`)
+            : pickedAssets.map((a) => a.promptFragment ?? a.name),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -474,14 +521,66 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
       <Card className="overflow-hidden">
         <div className="p-5">
-          {/* Prompt */}
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={3}
-            placeholder={purpose.placeholder}
-            className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3.5 text-[15px] leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
-          />
+          {/* Prompt — type # to reference added media by tag */}
+          <div className="relative">
+            <textarea
+              ref={promptRef}
+              value={prompt}
+              onChange={(e) => {
+                setPrompt(e.target.value);
+                const upToCaret = e.target.value.slice(0, e.target.selectionStart ?? 0);
+                const m = upToCaret.match(/#([A-Za-z0-9]*)$/);
+                setTagQuery(m ? m[1] : null);
+              }}
+              onBlur={() => setTimeout(() => setTagQuery(null), 200)}
+              rows={3}
+              placeholder={purpose.placeholder}
+              className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3.5 text-[15px] leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+            {tagQuery !== null && (
+              <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-[0_16px_40px_-16px_rgba(16,18,27,0.3)]">
+                {taggedMedia.length === 0 ? (
+                  <p className="px-2 py-2 text-[12.5px] text-faint">
+                    Add media below first — each becomes a tag like <b>#I1</b>, <b>#V1</b>, <b>#A1</b> you can
+                    reference here.
+                  </p>
+                ) : (
+                  taggedMedia
+                    .filter(
+                      (t) =>
+                        t.tag.toLowerCase().startsWith(tagQuery.toLowerCase()) ||
+                        t.asset.name.toLowerCase().includes(tagQuery.toLowerCase()),
+                    )
+                    .map((t) => (
+                      <button
+                        key={t.tag}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const ta = promptRef.current;
+                          const caret = ta?.selectionStart ?? prompt.length;
+                          const before = prompt.slice(0, caret).replace(/#[A-Za-z0-9]*$/, `#${t.tag} `);
+                          const after = prompt.slice(caret);
+                          setPrompt(before + after);
+                          setTagQuery(null);
+                          requestAnimationFrame(() => {
+                            ta?.focus();
+                            ta?.setSelectionRange(before.length, before.length);
+                          });
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-surface-2"
+                      >
+                        <span className="w-8 shrink-0 rounded-md bg-accent-soft px-1.5 py-0.5 text-center text-[11px] font-bold text-accent-2">
+                          {t.tag}
+                        </span>
+                        <AssetThumb a={t.asset} className="h-7 w-7 shrink-0 rounded-md" />
+                        <span className="truncate text-[13px] text-fg">{t.asset.name}</span>
+                        <span className="ml-auto shrink-0 text-[11px] text-faint">{t.expand}</span>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
 
           {/* The Director — any language in, pro English prompt out */}
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -570,7 +669,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
             </div>
             <p className="mb-3 text-[11.5px] text-faint">
               {modality === "video"
-                ? `Text prompt — plus exact frames (first ± last) OR references (up to ${REF_IMAGE_LIMIT} images + ${REF_VIDEO_LIMIT} videos). Drag from the tray, or press +.`
+                ? `Text prompt — plus exact frames (first ± last) OR references (up to ${REF_IMAGE_LIMIT} images + ${REF_VIDEO_LIMIT} videos). Drag from the tray or press +. Added media get tags (#I1, #V1…) — type # in the prompt to reference them.`
                 : "Text prompt — the pickers below just help you write it."}
             </p>
 
@@ -631,7 +730,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 >
                   <div className="grid max-w-md grid-cols-2 gap-2">
                     <DropSquare
-                      label="First frame"
+                      label={board.firstFrame ? "F1 · First frame" : "First frame"}
                       icon={<ImagePlus size={17} />}
                       asset={board.firstFrame ? byId[board.firstFrame] : null}
                       highlight={dragZone === "firstFrame"}
@@ -640,7 +739,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       {...zoneDropProps("firstFrame")}
                     />
                     <DropSquare
-                      label="Last frame"
+                      label={board.lastFrame ? "F2 · Last frame" : "Last frame"}
                       icon={<Flag size={17} />}
                       asset={board.lastFrame ? byId[board.lastFrame] : null}
                       disabled={!board.firstFrame}
@@ -671,6 +770,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
                         return (
                           <div key={a.id} className="relative h-16 w-16 overflow-hidden rounded-lg border border-accent/50">
                             <AssetThumb a={a} className="h-full w-full" />
+                            <span className="absolute bottom-0.5 left-0.5 rounded bg-black/65 px-1 text-[9px] font-bold text-white">
+                              I{i + 1}
+                            </span>
                             <button
                               onClick={() => removeFromBoard("refs", a.id)}
                               className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
@@ -725,10 +827,10 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       const a = refVideoAssets[i];
                       if (a) {
                         return (
-                          <div key={a.id} className="relative h-16 w-28 overflow-hidden rounded-lg border border-accent/50">
+                          <div key={a.id} className="relative h-16 w-28 overflow-hidden rounded-lg border border-teal/60">
                             <AssetThumb a={a} className="h-full w-full" />
-                            <span className="absolute bottom-1 left-1 rounded bg-black/60 p-0.5 text-white">
-                              <Film size={10} />
+                            <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/65 px-1 py-0.5 text-[9px] font-bold text-white">
+                              <Film size={9} /> V{i + 1}
                             </span>
                             <button
                               onClick={() => removeFromBoard("refVideos", a.id)}
@@ -784,7 +886,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                         Drop audio, dances or anything here to flavor the prompt
                       </span>
                     )}
-                    {board.influences.map((id) => {
+                    {board.influences.map((id, i) => {
                       const a = byId[id];
                       if (!a) return null;
                       return (
@@ -792,6 +894,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                           key={id}
                           className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 py-0.5 pl-1 pr-1.5 text-[12px]"
                         >
+                          <span className="rounded bg-warn/20 px-1 text-[9px] font-bold text-warn">A{i + 1}</span>
                           <AssetThumb a={a} className="h-5 w-5 rounded-full" />
                           {a.name}
                           <button onClick={() => removeFromBoard("influences", id)} className="text-faint hover:text-fg">
