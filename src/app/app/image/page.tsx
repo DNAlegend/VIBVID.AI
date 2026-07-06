@@ -1,5 +1,7 @@
-import { MakeView } from "@/components/make/make-view";
+import { redirect } from "next/navigation";
 
-export default function ImageGeneratorPage() {
-  return <MakeView mode="image" />;
+// The standalone image generator was retired — video is the product;
+// stills come from the Character Studio. Preserve old links.
+export default function ImagePage() {
+  redirect("/app");
 }
