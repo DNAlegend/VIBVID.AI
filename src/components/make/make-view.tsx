@@ -81,49 +81,80 @@ const INPUT_TONES = {
   },
 } as const;
 
-function InputPanel({
+/** Compact input tile — shows what's filled; click opens the picker popup. */
+function InputTile({
   tone,
   icon,
   title,
-  typeLabel,
+  pill,
   count,
   cap,
-  hint,
+  thumbs,
   dim,
-  children,
+  disabled,
+  hint,
+  highlight,
+  onOpen,
+  ...dropProps
 }: {
   tone: keyof typeof INPUT_TONES;
   icon: React.ReactNode;
   title: string;
-  typeLabel: string;
+  pill: string;
   count: number;
   cap: string;
-  hint?: string;
+  thumbs: Asset[];
   dim?: boolean;
-  children: React.ReactNode;
-}) {
+  disabled?: boolean;
+  hint?: string;
+  highlight?: boolean;
+  onOpen: () => void;
+} & React.HTMLAttributes<HTMLDivElement>) {
   const t = INPUT_TONES[tone];
   return (
-    <div className={cn("rounded-2xl border p-3.5 transition-opacity", t.border, t.bg, dim && "opacity-45")}>
-      <div className="mb-2.5 flex items-start gap-2.5">
-        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", t.chip)}>
+    <div
+      {...(disabled ? {} : dropProps)}
+      onClick={() => !disabled && onOpen()}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      onKeyDown={(e) => e.key === "Enter" && !disabled && onOpen()}
+      className={cn(
+        "cursor-pointer rounded-2xl border p-3 transition-all",
+        t.border,
+        t.bg,
+        highlight && "ring-2 ring-accent/50",
+        (dim || disabled) && "opacity-45",
+        disabled && "cursor-not-allowed",
+        !disabled && "hover:shadow-[0_10px_24px_-16px_rgba(16,18,27,0.35)]",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", t.chip)}>
           {icon}
         </span>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13.5px] font-semibold text-fg">{title}</span>
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", t.pill)}>
-              {typeLabel}
-            </span>
-          </div>
-          {hint && <div className="mt-0.5 text-[11.5px] text-faint">{hint}</div>}
-        </div>
-        <span className="ml-auto shrink-0 text-[13px] font-semibold tabular-nums text-muted">
+        <span className="ml-auto shrink-0 text-[12.5px] font-semibold tabular-nums text-muted">
           {count}
-          <span className="font-normal text-faint"> / {cap}</span>
+          <span className="font-normal text-faint">/{cap}</span>
         </span>
       </div>
-      {children}
+      <div className="mt-2 text-[12.5px] font-semibold leading-tight text-fg">{title}</div>
+      <span className={cn("mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider", t.pill)}>
+        {pill}
+      </span>
+      <div className="mt-2 flex h-7 items-center gap-1">
+        {thumbs.length === 0 ? (
+          <span className="text-[10.5px] text-faint">{hint ?? "Tap to add"}</span>
+        ) : (
+          <>
+            {thumbs.slice(0, 4).map((a) => (
+              <AssetThumb key={a.id} a={a} className="h-7 w-7 rounded-md" />
+            ))}
+            {thumbs.length > 4 && (
+              <span className="text-[10.5px] font-semibold text-muted">+{thumbs.length - 4}</span>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -720,212 +751,75 @@ export function MakeView({ mode }: { mode?: Modality }) {
                   </div>
                 </div>
 
-                {/* Frames — image area for exact start/end */}
-                <InputPanel
-                  tone="image"
-                  icon={<ImagePlus size={16} />}
-                  title="Start & end frames"
-                  typeLabel="Images"
-                  count={(board.firstFrame ? 1 : 0) + (board.lastFrame ? 1 : 0)}
-                  cap="2"
-                  hint="The exact first — and optionally last — picture of your clip."
-                  dim={board.refs.length + board.refVideos.length > 0}
-                >
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <div className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-fg">
-                        <ImagePlus size={13} className="text-accent-2" /> First frame · F1
-                      </div>
-                      <p className="mb-1.5 text-[11px] leading-snug text-faint">
-                        Your video opens exactly on this picture — the scene, the person, the
-                        product, frozen at second zero.
-                      </p>
-                      <DropSquare
-                        label={board.firstFrame ? "F1 · First frame" : "First frame"}
-                        icon={<ImagePlus size={17} />}
-                        asset={board.firstFrame ? byId[board.firstFrame] : null}
-                        highlight={dragZone === "firstFrame"}
-                        onClear={() => removeFromBoard("firstFrame")}
-                        onPick={() => setBoardPickZone("firstFrame")}
-                        {...zoneDropProps("firstFrame")}
-                      />
-                    </div>
-                    <div>
-                      <div className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-fg">
-                        <Flag size={13} className="text-accent-2" /> Last frame · F2
-                      </div>
-                      <p className="mb-1.5 text-[11px] leading-snug text-faint">
-                        Optional — the video lands on this picture. Perfect for reveals,
-                        before → after, and transformations.
-                      </p>
-                      <DropSquare
-                        label={board.lastFrame ? "F2 · Last frame" : "Last frame"}
-                        icon={<Flag size={17} />}
-                        asset={board.lastFrame ? byId[board.lastFrame] : null}
-                        disabled={!board.firstFrame}
-                        hint={!board.firstFrame ? "needs a first frame" : undefined}
-                        highlight={dragZone === "lastFrame"}
-                        onClear={() => removeFromBoard("lastFrame")}
-                        onPick={() => setBoardPickZone("lastFrame")}
-                        {...zoneDropProps("lastFrame")}
-                      />
-                    </div>
-                  </div>
-                </InputPanel>
-
-                {/* Reference images — image area */}
-                <InputPanel
-                  tone="image"
-                  icon={<ImageIcon size={16} />}
-                  title="Reference images"
-                  typeLabel="Images"
-                  count={board.refs.length}
-                  cap={String(REF_IMAGE_LIMIT)}
-                  hint="The model copies identity, outfits and look from these."
-                  dim={!!board.firstFrame}
-                >
-                  <div className="flex flex-wrap gap-1.5">
-                    {Array.from({ length: REF_IMAGE_LIMIT }).map((_, i) => {
-                      const a = refImageAssets[i];
-                      if (a) {
-                        return (
-                          <div key={a.id} className="relative h-16 w-16 overflow-hidden rounded-lg border border-accent/50">
-                            <AssetThumb a={a} className="h-full w-full" />
-                            <span className="absolute bottom-0.5 left-0.5 rounded bg-black/65 px-1 text-[9px] font-bold text-white">
-                              I{i + 1}
-                            </span>
-                            <button
-                              onClick={() => removeFromBoard("refs", a.id)}
-                              className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
-                              aria-label="Remove reference"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        );
-                      }
-                      const isNext = i === refImageAssets.length;
-                      return (
-                        <button
-                          key={`empty-${i}`}
-                          onClick={() => setBoardPickZone("refs")}
-                          {...zoneDropProps("refs")}
-                          className={cn(
-                            "flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed text-faint transition-colors",
-                            isNext
-                              ? "border-line-2 hover:border-accent/40 hover:text-fg"
-                              : "border-line opacity-45",
-                            dragZone === "refs" && isNext && "border-accent bg-accent-soft",
-                          )}
-                        >
-                          {isNext ? (
-                            <Plus size={15} />
-                          ) : (
-                            <span className="flex flex-col items-center gap-0.5">
-                              <ImageIcon size={12} />
-                              <span className="text-[9px]">{i + 1}</span>
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </InputPanel>
-
-                {/* Reference videos — video area */}
-                <InputPanel
-                  tone="video"
-                  icon={<Film size={16} />}
-                  title="Reference videos"
-                  typeLabel="Videos"
-                  count={board.refVideos.length}
-                  cap={String(REF_VIDEO_LIMIT)}
-                  hint="Motion and energy for the model to imitate."
-                  dim={!!board.firstFrame}
-                >
-                  <div className="flex flex-wrap gap-1.5">
-                    {Array.from({ length: REF_VIDEO_LIMIT }).map((_, i) => {
-                      const a = refVideoAssets[i];
-                      if (a) {
-                        return (
-                          <div key={a.id} className="relative h-16 w-28 overflow-hidden rounded-lg border border-teal/60">
-                            <AssetThumb a={a} className="h-full w-full" />
-                            <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/65 px-1 py-0.5 text-[9px] font-bold text-white">
-                              <Film size={9} /> V{i + 1}
-                            </span>
-                            <button
-                              onClick={() => removeFromBoard("refVideos", a.id)}
-                              className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
-                              aria-label="Remove reference video"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        );
-                      }
-                      const isNext = i === refVideoAssets.length;
-                      return (
-                        <button
-                          key={`emptyv-${i}`}
-                          onClick={() => setBoardPickZone("refVideos")}
-                          {...zoneDropProps("refVideos")}
-                          className={cn(
-                            "flex h-16 w-28 items-center justify-center gap-1 rounded-lg border-2 border-dashed text-faint transition-colors",
-                            isNext
-                              ? "border-line-2 hover:border-accent/40 hover:text-fg"
-                              : "border-line opacity-45",
-                            dragZone === "refVideos" && isNext && "border-accent bg-accent-soft",
-                          )}
-                        >
-                          <Film size={13} />
-                          {isNext && <Plus size={13} />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </InputPanel>
-
-                {/* Sound & style — audio area (prompt-only) */}
-                <InputPanel
-                  tone="audio"
-                  icon={<Music size={16} />}
-                  title="Sound & style"
-                  typeLabel="Audio · Any"
-                  count={board.influences.length}
-                  cap="∞"
-                  hint="Flavors the written prompt only — nothing is uploaded."
-                >
-                  <div
-                    className={cn(
-                      "flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-xl border border-dashed p-1.5",
-                      dragZone === "influences" ? "border-accent bg-accent-soft" : "border-line",
-                    )}
+                {/* Input tiles — tap one to open its picker popup */}
+                <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
+                  <InputTile
+                    tone="image"
+                    icon={<ImagePlus size={15} />}
+                    title="First frame"
+                    pill="Image"
+                    count={board.firstFrame ? 1 : 0}
+                    cap="1"
+                    thumbs={board.firstFrame && byId[board.firstFrame] ? [byId[board.firstFrame]] : []}
+                    dim={board.refs.length + board.refVideos.length > 0}
+                    highlight={dragZone === "firstFrame"}
+                    onOpen={() => setBoardPickZone("firstFrame")}
+                    {...zoneDropProps("firstFrame")}
+                  />
+                  <InputTile
+                    tone="image"
+                    icon={<Flag size={15} />}
+                    title="Last frame"
+                    pill="Image"
+                    count={board.lastFrame ? 1 : 0}
+                    cap="1"
+                    thumbs={board.lastFrame && byId[board.lastFrame] ? [byId[board.lastFrame]] : []}
+                    dim={board.refs.length + board.refVideos.length > 0}
+                    disabled={!board.firstFrame}
+                    hint={board.firstFrame ? "Tap to add" : "Needs a first frame"}
+                    highlight={dragZone === "lastFrame"}
+                    onOpen={() => setBoardPickZone("lastFrame")}
+                    {...zoneDropProps("lastFrame")}
+                  />
+                  <InputTile
+                    tone="image"
+                    icon={<ImageIcon size={15} />}
+                    title="Reference images"
+                    pill="Images"
+                    count={board.refs.length}
+                    cap={String(REF_IMAGE_LIMIT)}
+                    thumbs={refImageAssets}
+                    dim={!!board.firstFrame}
+                    highlight={dragZone === "refs"}
+                    onOpen={() => setBoardPickZone("refs")}
+                    {...zoneDropProps("refs")}
+                  />
+                  <InputTile
+                    tone="video"
+                    icon={<Film size={15} />}
+                    title="Reference videos"
+                    pill="Videos"
+                    count={board.refVideos.length}
+                    cap={String(REF_VIDEO_LIMIT)}
+                    thumbs={refVideoAssets}
+                    dim={!!board.firstFrame}
+                    highlight={dragZone === "refVideos"}
+                    onOpen={() => setBoardPickZone("refVideos")}
+                    {...zoneDropProps("refVideos")}
+                  />
+                  <InputTile
+                    tone="audio"
+                    icon={<Music size={15} />}
+                    title="Sound & style"
+                    pill="Audio · Any"
+                    count={board.influences.length}
+                    cap="∞"
+                    thumbs={board.influences.map((id) => byId[id]).filter(Boolean) as Asset[]}
+                    highlight={dragZone === "influences"}
+                    onOpen={() => setBoardPickZone("influences")}
                     {...zoneDropProps("influences")}
-                  >
-                    {board.influences.length === 0 && (
-                      <span className="px-1.5 text-[11.5px] text-faint">
-                        Drop audio, dances or anything here to flavor the prompt
-                      </span>
-                    )}
-                    {board.influences.map((id, i) => {
-                      const a = byId[id];
-                      if (!a) return null;
-                      return (
-                        <span
-                          key={id}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 py-0.5 pl-1 pr-1.5 text-[12px]"
-                        >
-                          <span className="rounded bg-warn/20 px-1 text-[9px] font-bold text-warn">A{i + 1}</span>
-                          <AssetThumb a={a} className="h-5 w-5 rounded-full" />
-                          {a.name}
-                          <button onClick={() => removeFromBoard("influences", id)} className="text-faint hover:text-fg">
-                            <X size={11} />
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </InputPanel>
+                  />
+                </div>
 
                 <p className="text-[11px] text-faint">
                   Exact frames and references can&apos;t be combined — filling one clears the other.
@@ -1114,10 +1008,12 @@ export function MakeView({ mode }: { mode?: Modality }) {
       <BoardPickerModal
         zone={boardPickZone}
         assets={assets}
-        onSelect={(id) => {
-          if (boardPickZone) assignToZone(boardPickZone, id);
-          setBoardPickZone(null);
+        board={board}
+        onAssign={(zone, id) => {
+          assignToZone(zone, id);
+          if (zone === "firstFrame" || zone === "lastFrame") setBoardPickZone(null);
         }}
+        onRemove={(zone, id) => removeFromBoard(zone, id)}
         onClose={() => setBoardPickZone(null)}
       />
     </div>
@@ -1126,94 +1022,79 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
 /* ---------------------------- Shot Board pieces --------------------------- */
 
-function DropSquare({
-  label,
-  hint,
-  icon,
-  asset,
-  disabled,
-  highlight,
-  onPick,
-  onClear,
-  ...dropProps
-}: {
-  label: string;
-  hint?: string;
-  icon: React.ReactNode;
-  asset: Asset | null | undefined;
-  disabled?: boolean;
-  highlight?: boolean;
-  onPick: () => void;
-  onClear: () => void;
-} & React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      {...(disabled ? {} : dropProps)}
-      className={cn(
-        "relative aspect-video overflow-hidden rounded-xl border-2 transition-colors",
-        asset ? "border-solid border-accent/50" : "border-dashed border-line-2",
-        highlight && !disabled && "border-accent bg-accent-soft",
-        disabled && "opacity-45",
-      )}
-    >
-      {asset ? (
-        <>
-          <AssetThumb a={asset} className="h-full w-full" />
-          <span className="absolute bottom-1 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
-            {label}
-          </span>
-          <button
-            onClick={onClear}
-            className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white"
-            aria-label={`Clear ${label}`}
-          >
-            <X size={12} />
-          </button>
-        </>
-      ) : (
-        <button
-          onClick={onPick}
-          disabled={disabled}
-          className="flex h-full w-full flex-col items-center justify-center gap-1 text-faint transition-colors hover:text-fg disabled:cursor-not-allowed"
-        >
-          {icon}
-          <span className="text-[11px] font-semibold">{label}</span>
-          {hint && <span className="text-[10px]">{hint}</span>}
-        </button>
-      )}
-    </div>
-  );
-}
-
 function BoardPickerModal({
   zone,
   assets,
-  onSelect,
+  board,
+  onAssign,
+  onRemove,
   onClose,
 }: {
   zone: BoardZone | null;
   assets: Asset[];
-  onSelect: (id: string) => void;
+  board: Board;
+  onAssign: (zone: BoardZone, id: string) => void;
+  onRemove: (zone: BoardZone, id: string) => void;
   onClose: () => void;
 }) {
-  const titles: Record<BoardZone, string> = {
-    firstFrame: "Choose the first frame (image)",
-    lastFrame: "Choose the last frame (image)",
-    refs: "Add a reference image",
-    refVideos: "Add a reference video",
-    influences: "Add a style influence",
+  const META: Record<
+    BoardZone,
+    { title: string; hint: string; kinds: Asset["kind"][]; cap: number }
+  > = {
+    firstFrame: {
+      title: "First frame · F1",
+      hint: "Your video opens exactly on this picture — the scene, the person, the product, frozen at second zero.",
+      kinds: ["image"],
+      cap: 1,
+    },
+    lastFrame: {
+      title: "Last frame · F2",
+      hint: "Optional — the video lands on this picture. Perfect for reveals, before → after, and transformations.",
+      kinds: ["image"],
+      cap: 1,
+    },
+    refs: {
+      title: "Reference images · #I1–#I9",
+      hint: "The model copies identity, outfits and look from these. Tap to add or remove — up to 9.",
+      kinds: ["image"],
+      cap: 9,
+    },
+    refVideos: {
+      title: "Reference videos · #V1–#V3",
+      hint: "Motion and energy for the model to imitate. Tap to add or remove — up to 3.",
+      kinds: ["video"],
+      cap: 3,
+    },
+    influences: {
+      title: "Sound & style · #A…",
+      hint: "Flavors the written prompt only — nothing is uploaded to the model.",
+      kinds: ["image", "video", "audio"],
+      cap: Infinity,
+    },
   };
-  const options = zone
-    ? assets.filter((a) =>
-        zone === "refVideos"
-          ? a.kind === "video"
-          : zone === "influences"
-            ? true
-            : a.kind === "image",
-      )
-    : [];
+  if (!zone) return null;
+  const meta = META[zone];
+  const single = zone === "firstFrame" || zone === "lastFrame";
+  const selected: string[] =
+    zone === "firstFrame"
+      ? board.firstFrame
+        ? [board.firstFrame]
+        : []
+      : zone === "lastFrame"
+        ? board.lastFrame
+          ? [board.lastFrame]
+          : []
+        : zone === "refs"
+          ? board.refs
+          : zone === "refVideos"
+            ? board.refVideos
+            : board.influences;
+  const options = assets.filter((a) => meta.kinds.includes(a.kind));
+  const capReached = selected.length >= meta.cap;
+
   return (
-    <Modal open={!!zone} onClose={onClose} title={zone ? titles[zone] : ""} size="lg">
+    <Modal open onClose={onClose} title={meta.title} size="lg">
+      <p className="mb-3 text-sm text-muted">{meta.hint}</p>
       {options.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">
           Nothing suitable in your library yet.{" "}
@@ -1223,26 +1104,58 @@ function BoardPickerModal({
           first.
         </p>
       ) : (
-        <div className="grid max-h-[55vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
-          {options.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => onSelect(a.id)}
-              className="group overflow-hidden rounded-xl border border-line bg-surface text-left transition-all hover:border-accent/50"
-            >
-              <div className="relative aspect-[4/3] overflow-hidden">
-                <AssetThumb a={a} className="h-full w-full" />
-                {a.kind === "video" && (
-                  <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 p-0.5 text-white">
-                    <Film size={11} />
-                  </span>
+        <div className="grid max-h-[50vh] grid-cols-2 gap-3 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
+          {options.map((a) => {
+            const isOn = selected.includes(a.id);
+            const blocked = !isOn && capReached && !single;
+            return (
+              <button
+                key={a.id}
+                onClick={() => {
+                  if (single) {
+                    onAssign(zone, a.id);
+                  } else if (isOn) {
+                    onRemove(zone, a.id);
+                  } else if (!blocked) {
+                    onAssign(zone, a.id);
+                  }
+                }}
+                className={cn(
+                  "group overflow-hidden rounded-xl border text-left transition-all",
+                  isOn ? "border-accent ring-2 ring-accent/40" : "border-line hover:border-accent/50",
+                  blocked && "cursor-not-allowed opacity-40",
                 )}
-              </div>
-              <div className="p-2">
-                <div className="truncate text-[13px] font-medium text-fg">{a.name}</div>
-              </div>
-            </button>
-          ))}
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <AssetThumb a={a} className="h-full w-full" />
+                  {a.kind === "video" && (
+                    <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 p-0.5 text-white">
+                      <Film size={11} />
+                    </span>
+                  )}
+                  {isOn && (
+                    <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-white">
+                      <Check size={14} />
+                    </span>
+                  )}
+                </div>
+                <div className="p-2">
+                  <div className="truncate text-[13px] font-medium text-fg">{a.name}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {!single && (
+        <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
+          <span className="text-sm text-muted">
+            {selected.length}
+            {Number.isFinite(meta.cap) ? ` of ${meta.cap}` : ""} selected
+          </span>
+          <Button onClick={onClose}>
+            <Check size={16} /> Done
+          </Button>
         </div>
       )}
     </Modal>
