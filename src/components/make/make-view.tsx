@@ -20,6 +20,7 @@ import {
   Film,
   Music,
   Flag,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
@@ -57,6 +58,75 @@ interface Board {
 const EMPTY_BOARD: Board = { firstFrame: null, lastFrame: null, refs: [], refVideos: [], influences: [] };
 
 type BoardZone = "firstFrame" | "lastFrame" | "refs" | "refVideos" | "influences";
+
+/** Visual identity per input type so every area reads at a glance. */
+const INPUT_TONES = {
+  image: {
+    border: "border-accent/30",
+    bg: "bg-accent-soft/40",
+    chip: "bg-accent text-white",
+    pill: "bg-accent-soft text-accent-2",
+  },
+  video: {
+    border: "border-teal/40",
+    bg: "bg-teal-soft/50",
+    chip: "bg-teal text-white",
+    pill: "bg-teal-soft text-teal",
+  },
+  audio: {
+    border: "border-warn/40",
+    bg: "bg-warn/10",
+    chip: "bg-warn text-white",
+    pill: "bg-warn/15 text-warn",
+  },
+} as const;
+
+function InputPanel({
+  tone,
+  icon,
+  title,
+  typeLabel,
+  count,
+  cap,
+  hint,
+  dim,
+  children,
+}: {
+  tone: keyof typeof INPUT_TONES;
+  icon: React.ReactNode;
+  title: string;
+  typeLabel: string;
+  count: number;
+  cap: string;
+  hint?: string;
+  dim?: boolean;
+  children: React.ReactNode;
+}) {
+  const t = INPUT_TONES[tone];
+  return (
+    <div className={cn("rounded-2xl border p-3.5 transition-opacity", t.border, t.bg, dim && "opacity-45")}>
+      <div className="mb-2.5 flex items-start gap-2.5">
+        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", t.chip)}>
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[13.5px] font-semibold text-fg">{title}</span>
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", t.pill)}>
+              {typeLabel}
+            </span>
+          </div>
+          {hint && <div className="mt-0.5 text-[11.5px] text-faint">{hint}</div>}
+        </div>
+        <span className="ml-auto shrink-0 text-[13px] font-semibold tabular-nums text-muted">
+          {count}
+          <span className="font-normal text-faint"> / {cap}</span>
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export function MakeView({ mode }: { mode?: Modality }) {
   const credits = useStore((s) => s.credits);
@@ -548,11 +618,17 @@ export function MakeView({ mode }: { mode?: Modality }) {
                   </div>
                 </div>
 
-                {/* Frames mode — dims while references are in use */}
-                <div className={cn(board.refs.length + board.refVideos.length > 0 && "opacity-45")}>
-                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
-                    Exact frames — start → end
-                  </div>
+                {/* Frames — image area for exact start/end */}
+                <InputPanel
+                  tone="image"
+                  icon={<ImagePlus size={16} />}
+                  title="Start & end frames"
+                  typeLabel="Images"
+                  count={(board.firstFrame ? 1 : 0) + (board.lastFrame ? 1 : 0)}
+                  cap="2"
+                  hint="The exact first — and optionally last — picture of your clip."
+                  dim={board.refs.length + board.refVideos.length > 0}
+                >
                   <div className="grid max-w-md grid-cols-2 gap-2">
                     <DropSquare
                       label="First frame"
@@ -575,13 +651,19 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       {...zoneDropProps("lastFrame")}
                     />
                   </div>
-                </div>
+                </InputPanel>
 
-                {/* References mode — dims while frames are in use */}
-                <div className={cn(board.firstFrame && "opacity-45")}>
-                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
-                    Reference images — {board.refs.length}/{REF_IMAGE_LIMIT}
-                  </div>
+                {/* Reference images — image area */}
+                <InputPanel
+                  tone="image"
+                  icon={<ImageIcon size={16} />}
+                  title="Reference images"
+                  typeLabel="Images"
+                  count={board.refs.length}
+                  cap={String(REF_IMAGE_LIMIT)}
+                  hint="The model copies identity, outfits and look from these."
+                  dim={!!board.firstFrame}
+                >
                   <div className="flex flex-wrap gap-1.5">
                     {Array.from({ length: REF_IMAGE_LIMIT }).map((_, i) => {
                       const a = refImageAssets[i];
@@ -613,15 +695,31 @@ export function MakeView({ mode }: { mode?: Modality }) {
                             dragZone === "refs" && isNext && "border-accent bg-accent-soft",
                           )}
                         >
-                          {isNext ? <Plus size={15} /> : <span className="text-[10px]">{i + 1}</span>}
+                          {isNext ? (
+                            <Plus size={15} />
+                          ) : (
+                            <span className="flex flex-col items-center gap-0.5">
+                              <ImageIcon size={12} />
+                              <span className="text-[9px]">{i + 1}</span>
+                            </span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
+                </InputPanel>
 
-                  <div className="mb-1.5 mt-3 text-[11px] font-medium uppercase tracking-wide text-faint">
-                    Reference videos — {board.refVideos.length}/{REF_VIDEO_LIMIT}
-                  </div>
+                {/* Reference videos — video area */}
+                <InputPanel
+                  tone="video"
+                  icon={<Film size={16} />}
+                  title="Reference videos"
+                  typeLabel="Videos"
+                  count={board.refVideos.length}
+                  cap={String(REF_VIDEO_LIMIT)}
+                  hint="Motion and energy for the model to imitate."
+                  dim={!!board.firstFrame}
+                >
                   <div className="flex flex-wrap gap-1.5">
                     {Array.from({ length: REF_VIDEO_LIMIT }).map((_, i) => {
                       const a = refVideoAssets[i];
@@ -662,13 +760,18 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       );
                     })}
                   </div>
-                </div>
+                </InputPanel>
 
-                {/* Influences (prompt-only) */}
-                <div>
-                  <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
-                    <Music size={12} /> Style & sound — shapes the prompt only
-                  </div>
+                {/* Sound & style — audio area (prompt-only) */}
+                <InputPanel
+                  tone="audio"
+                  icon={<Music size={16} />}
+                  title="Sound & style"
+                  typeLabel="Audio · Any"
+                  count={board.influences.length}
+                  cap="∞"
+                  hint="Flavors the written prompt only — nothing is uploaded."
+                >
                   <div
                     className={cn(
                       "flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-xl border border-dashed p-1.5",
@@ -698,7 +801,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       );
                     })}
                   </div>
-                </div>
+                </InputPanel>
 
                 <p className="text-[11px] text-faint">
                   Exact frames and references can&apos;t be combined — filling one clears the other.
