@@ -83,14 +83,20 @@ export interface GenerateParams {
   direction?: string;
   posterUrl?: string;
   /**
-   * Public https images steering the video. One image = the first frame;
-   * several = reference images (Seedance 2.0 accepts up to REF_IMAGE_LIMIT).
+   * Reference-media mode: public https images/videos steering identity and
+   * look (Seedance 2.0: up to REF_IMAGE_LIMIT images + REF_VIDEO_LIMIT videos).
+   * Mutually exclusive with the frames mode below.
    */
   refImageUrls?: string[];
+  refVideoUrls?: string[];
+  /** Frames mode: exact start (and optionally end) of the clip. */
+  firstFrameUrl?: string;
+  lastFrameUrl?: string;
 }
 
-/** Seedance 2.0's hard cap on reference images per video generation. */
+/** Seedance 2.0's hard caps on reference media per video generation. */
 export const REF_IMAGE_LIMIT = 9;
+export const REF_VIDEO_LIMIT = 3;
 
 /**
  * A generation record. Despite the legacy name it holds both video and image
@@ -119,8 +125,11 @@ export interface VideoJob {
   simulated?: boolean;
   /** Ark task id for real renders — lets a reload resume polling. */
   taskId?: string;
-  /** Reference images steering the render (public https URLs). */
+  /** Reference media steering the render (public https URLs). */
   refImageUrls?: string[];
+  refVideoUrls?: string[];
+  firstFrameUrl?: string;
+  lastFrameUrl?: string;
 }
 
 export const TIERS: Record<
@@ -132,8 +141,8 @@ export const TIERS: Record<
   pro: { label: "Pro", resolution: "2K", creditsPerSec: 20, blurb: "Maximum quality" },
 };
 
-/** Clip lengths the Seedance models actually support. */
-export const DURATIONS = [5, 10] as const;
+/** Clip lengths surfaced in the UI (Seedance 2.0 accepts 4–15s). */
+export const DURATIONS = [5, 10, 15] as const;
 export const ASPECT_RATIOS: AspectRatio[] = ["16:9", "9:16", "1:1"];
 
 export function estimateCredits(p: Pick<GenerateParams, "tier" | "durationSec" | "refAssetId">): number {

@@ -90,8 +90,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `${model.name} is not available yet` }, { status: 501 });
   }
   const aspectRatio = IMAGE_SIZE[body.aspectRatio] ? (body.aspectRatio as string) : "16:9";
-  // Seedance renders 5s or 10s clips — snap whatever the client sent.
-  const durationSec = (Number(body.durationSec) || 5) >= 8 ? 10 : 5;
+  // Seedance 2.0 accepts 4–15 second clips.
+  const durationSec = Math.min(15, Math.max(4, Math.round(Number(body.durationSec) || 5)));
   const elements = Array.isArray(body.elements) ? body.elements.slice(0, 12) : null;
   const cost = priceFor(model, { durationSec, count: 1, hasRefs: (elements?.length ?? 0) > 0 });
 
@@ -152,24 +152,40 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "succeeded", posterUrl: publicUrl, credits: balance, cost });
   }
 
-  // Video: async Ark task + polling via GET. Picked assets' public images
-  // steer the render: one image = the first frame (i2v); several = named
-  // reference images (Seedance 2.0 r2v mode, hard cap of 9).
+  // Video: async Ark task + polling via GET. Two exclusive steering modes
+  // (probed contract): FRAMES (first_frame ± last_frame) or REFERENCE MEDIA
+  // (≤9 reference_image + ≤3 reference_video). Frames win when both arrive.
   const flags = ` --resolution ${model.arkResolution ?? "720p"} --duration ${durationSec} --ratio ${aspectRatio} --watermark false`;
-  const rawRefs: unknown[] = Array.isArray(body.refImageUrls)
-    ? body.refImageUrls
-    : typeof body.refImageUrl === "string"
-      ? [body.refImageUrl]
-      : [];
-  const refImageUrls = rawRefs
-    .filter((u): u is string => typeof u === "string" && /^https:\/\/.+/i.test(u))
-    .slice(0, 9);
+  const asHttps = (v: unknown): v is string => typeof v === "string" && /^https:\/\/.+/i.test(v);
+  const httpsList = (v: unknown, cap: number) =>
+    (Array.isArray(v) ? v : []).filter(asHttps).slice(0, cap);
+  const firstFrameUrl = asHttps(body.firstFrameUrl) ? body.firstFrameUrl : null;
+  const lastFrameUrl = asHttps(body.lastFrameUrl) ? body.lastFrameUrl : null;
+  const refImageUrls = httpsList(
+    Array.isArray(body.refImageUrls)
+      ? body.refImageUrls
+      : typeof body.refImageUrl === "string"
+        ? [body.refImageUrl]
+        : [],
+    9,
+  );
+  const refVideoUrls = httpsList(body.refVideoUrls, 3);
+
   const content: Array<Record<string, unknown>> = [{ type: "text", text: prompt + flags }];
-  if (refImageUrls.length === 1) {
+  if (firstFrameUrl) {
+    content.push({ type: "image_url", image_url: { url: firstFrameUrl }, role: "first_frame" });
+    if (lastFrameUrl) {
+      content.push({ type: "image_url", image_url: { url: lastFrameUrl }, role: "last_frame" });
+    }
+  } else if (refImageUrls.length + refVideoUrls.length === 1 && refVideoUrls.length === 0) {
+    // Single lone image keeps the classic i2v behavior (becomes the first frame).
     content.push({ type: "image_url", image_url: { url: refImageUrls[0] } });
   } else {
     for (const u of refImageUrls) {
       content.push({ type: "image_url", image_url: { url: u }, role: "reference_image" });
+    }
+    for (const u of refVideoUrls) {
+      content.push({ type: "video_url", video_url: { url: u }, role: "reference_video" });
     }
   }
 
@@ -178,7 +194,7 @@ export async function POST(req: Request) {
     headers: arkHeaders(),
     body: JSON.stringify({ model: model.arkModel, content }),
   });
-  if (!res.ok && refImageUrls.length > 0) {
+  if (!res.ok && content.length > 1) {
     // The reference image may be unreachable/unsupported — retry text-only.
     res = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
       method: "POST",
