@@ -89,7 +89,11 @@ export async function POST(req: Request) {
   if (!model.arkModel) {
     return NextResponse.json({ error: `${model.name} is not available yet` }, { status: 501 });
   }
-  const aspectRatio = IMAGE_SIZE[body.aspectRatio] ? (body.aspectRatio as string) : "16:9";
+  // Presets or a sane custom W:H (Seedance normalizes ratios server-side).
+  const aspectRatio =
+    typeof body.aspectRatio === "string" && /^\d{1,2}:\d{1,2}$/.test(body.aspectRatio)
+      ? body.aspectRatio
+      : "16:9";
   // Seedance 2.0 accepts 4–15 second clips.
   const durationSec = Math.min(15, Math.max(4, Math.round(Number(body.durationSec) || 5)));
   const elements = Array.isArray(body.elements) ? body.elements.slice(0, 12) : null;
@@ -126,7 +130,9 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: model.arkModel,
         prompt,
-        size: (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)[aspectRatio],
+        size:
+          (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)[aspectRatio] ??
+          (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)["16:9"],
         response_format: "b64_json",
         watermark: false,
       }),
@@ -155,7 +161,11 @@ export async function POST(req: Request) {
   // Video: async Ark task + polling via GET. Two exclusive steering modes
   // (probed contract): FRAMES (first_frame ± last_frame) or REFERENCE MEDIA
   // (≤9 reference_image + ≤3 reference_video). Frames win when both arrive.
-  const flags = ` --resolution ${model.arkResolution ?? "720p"} --duration ${durationSec} --ratio ${aspectRatio} --watermark false`;
+  const RESOLUTIONS = ["480p", "720p", "1080p"];
+  const resolution = RESOLUTIONS.includes(body.resolution)
+    ? (body.resolution as string)
+    : model.arkResolution ?? "720p";
+  const flags = ` --resolution ${resolution} --duration ${durationSec} --ratio ${aspectRatio} --watermark false`;
   const asHttps = (v: unknown): v is string => typeof v === "string" && /^https:\/\/.+/i.test(v);
   const httpsList = (v: unknown, cap: number) =>
     (Array.isArray(v) ? v : []).filter(asHttps).slice(0, cap);

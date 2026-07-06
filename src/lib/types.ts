@@ -3,7 +3,8 @@
 // so wiring Supabase / BytePlus later is a swap, not a redesign.
 
 export type Tier = "fast" | "standard" | "pro";
-export type AspectRatio = "16:9" | "9:16" | "1:1";
+/** Preset ratios ship in the UI; Seedance normalizes any sane W:H string. */
+export type AspectRatio = string;
 export type JobStatus = "rendering" | "succeeded" | "failed";
 
 /** What an AI model produces. */
@@ -92,11 +93,15 @@ export interface GenerateParams {
   /** Frames mode: exact start (and optionally end) of the clip. */
   firstFrameUrl?: string;
   lastFrameUrl?: string;
+  /** Render resolution (480p/720p/1080p); defaults to the model's tier. */
+  resolution?: string;
 }
 
 /** Seedance 2.0's hard caps on reference media per video generation. */
 export const REF_IMAGE_LIMIT = 9;
 export const REF_VIDEO_LIMIT = 3;
+/** Prompt-flavor influences cap — beyond this they dilute the prompt. */
+export const STYLE_LIMIT = 5;
 
 /**
  * A generation record. Despite the legacy name it holds both video and image
@@ -130,6 +135,7 @@ export interface VideoJob {
   refVideoUrls?: string[];
   firstFrameUrl?: string;
   lastFrameUrl?: string;
+  resolution?: string;
 }
 
 export const TIERS: Record<

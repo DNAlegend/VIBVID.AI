@@ -32,7 +32,7 @@ import {
   DURATIONS,
   REF_IMAGE_LIMIT,
   REF_VIDEO_LIMIT,
-  TIERS,
+  STYLE_LIMIT,
   type AspectRatio,
   type Asset,
   type AssetClass,
@@ -90,6 +90,7 @@ function InputTile({
   count,
   cap,
   thumbs,
+  desc,
   dim,
   disabled,
   hint,
@@ -104,6 +105,7 @@ function InputTile({
   count: number;
   cap: string;
   thumbs: Asset[];
+  desc?: string;
   dim?: boolean;
   disabled?: boolean;
   hint?: string;
@@ -141,6 +143,7 @@ function InputTile({
       <span className={cn("mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider", t.pill)}>
         {pill}
       </span>
+      {desc && <p className="mt-1 text-[10.5px] leading-snug text-muted">{desc}</p>}
       <div className="mt-2 flex h-7 items-center gap-1">
         {thumbs.length === 0 ? (
           <span className="text-[10.5px] text-faint">{hint ?? "Tap to add"}</span>
@@ -186,7 +189,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [dragZone, setDragZone] = useState<BoardZone | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialPurpose.aspectRatio);
   const [durationSec, setDurationSec] = useState<number>(initialPurpose.durationSec);
-  const [tier, setTier] = useState<Tier>("standard");
+  const [tier] = useState<Tier>("standard");
+  const [resolution, setResolution] = useState<string>(getModel(initialPurpose.modelId).arkResolution ?? "720p");
   const [audio, setAudio] = useState(true);
   const [pickClass, setPickClass] = useState<AssetClass | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -203,6 +207,11 @@ export function MakeView({ mode }: { mode?: Modality }) {
   // Real backend configured but visitor not signed in → route them to auth
   // instead of quietly simulating (a sample clip reads as broken generation).
   const needsSignIn = cloudConfigured && !cloudUser;
+
+  // Resolution follows the model's ceiling whenever the model changes.
+  useEffect(() => {
+    setResolution(getModel(modelId).arkResolution ?? "720p");
+  }, [modelId]);
 
   // Consume drafts handed over from Assets ("Use in Make") or Library ("Remix").
   useEffect(() => {
@@ -385,7 +394,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
       });
     } else {
       setBoard((b) =>
-        b.influences.includes(assetId) ? b : { ...b, influences: [...b.influences, assetId] },
+        b.influences.includes(assetId) || b.influences.length >= STYLE_LIMIT
+          ? b
+          : { ...b, influences: [...b.influences, assetId] },
       );
     }
   }
@@ -427,9 +438,10 @@ export function MakeView({ mode }: { mode?: Modality }) {
   }, [pickedAssets, expandedPrompt, purpose.styleSuffix]);
   const cost = priceFor(model, { durationSec, count: 1, hasRefs: pickedAssets.length > 0 });
   const canAfford = credits >= cost;
+  const aspectValid = /^\d{1,2}:\d{1,2}$/.test(aspectRatio);
   // `hydrated` also gates the brief window while a signed-in account's cloud
   // state is loading, so a spend can't race the authoritative balance.
-  const canGenerate = hydrated && finalPrompt.trim().length > 0 && canAfford;
+  const canGenerate = hydrated && finalPrompt.trim().length > 0 && canAfford && aspectValid;
   const activeJob = videos.find((v) => v.id === activeJobId) ?? null;
   const rendering = activeJob?.status === "rendering";
   const pickedCount = pickedAssets.length;
@@ -509,6 +521,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
       posterUrl,
       firstFrameUrl: firstFrameUrl ?? undefined,
       lastFrameUrl: firstFrameUrl ? lastFrameUrl ?? undefined : undefined,
+      resolution,
       refImageUrls: refImageUrls.length ? refImageUrls : undefined,
       refVideoUrls: refVideoUrls.length ? refVideoUrls : undefined,
     });
@@ -723,79 +736,107 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
             {modality === "video" && (
               <div className="mt-3 space-y-4">
-                {/* Input tiles — tap one to open its picker popup */}
-                <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
-                  <InputTile
-                    tone="image"
-                    icon={<ImagePlus size={15} />}
-                    title="First frame"
-                    pill="Image"
-                    count={board.firstFrame ? 1 : 0}
-                    cap="1"
-                    thumbs={board.firstFrame && byId[board.firstFrame] ? [byId[board.firstFrame]] : []}
-                    dim={board.refs.length + board.refVideos.length > 0}
-                    highlight={dragZone === "firstFrame"}
-                    onOpen={() => setBoardPickZone("firstFrame")}
-                    {...zoneDropProps("firstFrame")}
-                  />
-                  <InputTile
-                    tone="image"
-                    icon={<Flag size={15} />}
-                    title="Last frame"
-                    pill="Image"
-                    count={board.lastFrame ? 1 : 0}
-                    cap="1"
-                    thumbs={board.lastFrame && byId[board.lastFrame] ? [byId[board.lastFrame]] : []}
-                    dim={board.refs.length + board.refVideos.length > 0}
-                    disabled={!board.firstFrame}
-                    hint={board.firstFrame ? "Tap to add" : "Needs a first frame"}
-                    highlight={dragZone === "lastFrame"}
-                    onOpen={() => setBoardPickZone("lastFrame")}
-                    {...zoneDropProps("lastFrame")}
-                  />
-                  <InputTile
-                    tone="image"
-                    icon={<ImageIcon size={15} />}
-                    title="Reference images"
-                    pill="Images"
-                    count={board.refs.length}
-                    cap={String(REF_IMAGE_LIMIT)}
-                    thumbs={refImageAssets}
-                    dim={!!board.firstFrame}
-                    highlight={dragZone === "refs"}
-                    onOpen={() => setBoardPickZone("refs")}
-                    {...zoneDropProps("refs")}
-                  />
-                  <InputTile
-                    tone="video"
-                    icon={<Film size={15} />}
-                    title="Reference videos"
-                    pill="Videos"
-                    count={board.refVideos.length}
-                    cap={String(REF_VIDEO_LIMIT)}
-                    thumbs={refVideoAssets}
-                    dim={!!board.firstFrame}
-                    highlight={dragZone === "refVideos"}
-                    onOpen={() => setBoardPickZone("refVideos")}
-                    {...zoneDropProps("refVideos")}
-                  />
-                  <InputTile
-                    tone="audio"
-                    icon={<Music size={15} />}
-                    title="Sound & style"
-                    pill="Audio · Any"
-                    count={board.influences.length}
-                    cap="∞"
-                    thumbs={board.influences.map((id) => byId[id]).filter(Boolean) as Asset[]}
-                    highlight={dragZone === "influences"}
-                    onOpen={() => setBoardPickZone("influences")}
-                    {...zoneDropProps("influences")}
-                  />
-                </div>
+                {/* Input tiles — grouped by what they do; tap to open the picker */}
+                <div className="space-y-4">
+                  <div>
+                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg">
+                      Exact frames <span className="font-normal normal-case text-faint">— pin the opening (and closing) picture</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <InputTile
+                        tone="image"
+                        icon={<ImagePlus size={15} />}
+                        title="First frame"
+                        pill="1 image"
+                        count={board.firstFrame ? 1 : 0}
+                        cap="1"
+                        desc="The clip opens exactly on this picture."
+                        thumbs={board.firstFrame && byId[board.firstFrame] ? [byId[board.firstFrame]] : []}
+                        dim={board.refs.length + board.refVideos.length > 0}
+                        highlight={dragZone === "firstFrame"}
+                        onOpen={() => setBoardPickZone("firstFrame")}
+                        {...zoneDropProps("firstFrame")}
+                      />
+                      <InputTile
+                        tone="image"
+                        icon={<Flag size={15} />}
+                        title="Last frame"
+                        pill="1 image"
+                        count={board.lastFrame ? 1 : 0}
+                        cap="1"
+                        desc="…and lands on this one. Reveals & transforms."
+                        thumbs={board.lastFrame && byId[board.lastFrame] ? [byId[board.lastFrame]] : []}
+                        dim={board.refs.length + board.refVideos.length > 0}
+                        disabled={!board.firstFrame}
+                        hint={board.firstFrame ? "Tap to add" : "Needs a first frame"}
+                        highlight={dragZone === "lastFrame"}
+                        onOpen={() => setBoardPickZone("lastFrame")}
+                        {...zoneDropProps("lastFrame")}
+                      />
+                    </div>
+                  </div>
 
-                <p className="text-[11px] text-faint">
-                  Exact frames and references can&apos;t be combined — filling one clears the other.
-                </p>
+                  <div className="flex items-center gap-3">
+                    <span className="h-px flex-1 bg-line" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-faint">or</span>
+                    <span className="h-px flex-1 bg-line" />
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg">
+                      References <span className="font-normal normal-case text-faint">— identity, look & motion the model imitates</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <InputTile
+                        tone="image"
+                        icon={<ImageIcon size={15} />}
+                        title="Reference images"
+                        pill={`up to ${REF_IMAGE_LIMIT} images`}
+                        count={board.refs.length}
+                        cap={String(REF_IMAGE_LIMIT)}
+                        desc="Faces, products, outfits, places to copy. #I1–#I9"
+                        thumbs={refImageAssets}
+                        dim={!!board.firstFrame}
+                        highlight={dragZone === "refs"}
+                        onOpen={() => setBoardPickZone("refs")}
+                        {...zoneDropProps("refs")}
+                      />
+                      <InputTile
+                        tone="video"
+                        icon={<Film size={15} />}
+                        title="Reference videos"
+                        pill={`up to ${REF_VIDEO_LIMIT} videos`}
+                        count={board.refVideos.length}
+                        cap={String(REF_VIDEO_LIMIT)}
+                        desc="Clips whose motion & energy to match. #V1–#V3"
+                        thumbs={refVideoAssets}
+                        dim={!!board.firstFrame}
+                        highlight={dragZone === "refVideos"}
+                        onOpen={() => setBoardPickZone("refVideos")}
+                        {...zoneDropProps("refVideos")}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg">
+                      Prompt flavor <span className="font-normal normal-case text-faint">— written into the prompt, nothing uploaded</span>
+                    </div>
+                    <InputTile
+                      tone="audio"
+                      icon={<Music size={15} />}
+                      title="Sound & style"
+                      pill={`up to ${STYLE_LIMIT}`}
+                      count={board.influences.length}
+                      cap={String(STYLE_LIMIT)}
+                      desc="Audio, dances or any asset whose description flavors the text. #A1–#A5"
+                      thumbs={board.influences.map((id) => byId[id]).filter(Boolean) as Asset[]}
+                      highlight={dragZone === "influences"}
+                      onOpen={() => setBoardPickZone("influences")}
+                      {...zoneDropProps("influences")}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -828,45 +869,99 @@ export function MakeView({ mode }: { mode?: Modality }) {
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">
               {modality === "video" ? "Video spec" : "Image spec"}
             </div>
-            <div className="rounded-2xl bg-[#0d0d15] p-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-white/60">Aspect</label>
-                  <Segmented<AspectRatio>
-                    value={aspectRatio}
-                    onChange={setAspectRatio}
-                    options={ASPECT_RATIOS.map((r) => ({ value: r, label: r }))}
-                  />
+            <div className="space-y-4 rounded-2xl bg-[#0d0d15] p-4">
+              {/* Aspect — three standards, described, plus custom */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-white/60">Aspect ratio</label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { v: "16:9", label: "16:9 · Widescreen", desc: "YouTube · web · TV" },
+                    { v: "9:16", label: "9:16 · Vertical", desc: "TikTok · Reels · Shorts" },
+                    { v: "1:1", label: "1:1 · Square", desc: "Feeds & profiles" },
+                  ].map((a) => (
+                    <button
+                      key={a.v}
+                      onClick={() => setAspectRatio(a.v)}
+                      className={cn(
+                        "rounded-xl border px-3 py-2 text-left transition-colors",
+                        aspectRatio === a.v
+                          ? "border-accent bg-accent/20"
+                          : "border-white/10 bg-white/5 hover:border-white/25",
+                      )}
+                    >
+                      <span className="block text-[12.5px] font-semibold text-white">{a.label}</span>
+                      <span className="block text-[10.5px] text-white/50">{a.desc}</span>
+                    </button>
+                  ))}
+                  <div
+                    className={cn(
+                      "rounded-xl border px-3 py-2 transition-colors",
+                      !["16:9", "9:16", "1:1"].includes(aspectRatio)
+                        ? "border-accent bg-accent/20"
+                        : "border-white/10 bg-white/5",
+                    )}
+                  >
+                    <span className="block text-[12.5px] font-semibold text-white">Custom</span>
+                    <input
+                      value={["16:9", "9:16", "1:1"].includes(aspectRatio) ? "" : aspectRatio}
+                      onChange={(e) => setAspectRatio(e.target.value.trim() || "16:9")}
+                      placeholder="e.g. 21:9"
+                      className="mt-0.5 w-full bg-transparent text-[11px] text-white/80 placeholder:text-white/35 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                {modality === "video" && (
+                {!aspectValid && (
+                  <p className="mt-1.5 text-[11px] text-danger">
+                    Custom ratio must look like W:H — e.g. 21:9 or 4:3.
+                  </p>
+                )}
+              </div>
+
+              {modality === "video" && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* Duration */}
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-white/60">Duration</label>
+                    <label className="mb-1.5 block text-xs font-medium text-white/60">
+                      Duration <span className="text-white/35">· 4–15s supported</span>
+                    </label>
                     <Segmented<number>
                       value={durationSec}
                       onChange={setDurationSec}
                       options={DURATIONS.map((d) => ({ value: d, label: `${d}s` }))}
                     />
                   </div>
-                )}
-              </div>
-              {modality === "video" && (
-                <div className="mt-3 space-y-3">
+                  {/* Resolution — real: sent to the model */}
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-white/60">Quality</label>
-                    <Segmented<Tier>
-                      value={tier}
-                      onChange={setTier}
-                      options={(Object.keys(TIERS) as Tier[]).map((t) => ({
-                        value: t,
-                        label: TIERS[t].label,
-                        hint: `${TIERS[t].resolution} · ${TIERS[t].creditsPerSec}/s`,
-                      }))}
+                    <label className="mb-1.5 block text-xs font-medium text-white/60">
+                      Resolution <span className="text-white/35">· up to {getModel(modelId).arkResolution}</span>
+                    </label>
+                    <Segmented<string>
+                      value={resolution}
+                      onChange={setResolution}
+                      options={["480p", "720p", "1080p"]
+                        .slice(
+                          0,
+                          ["480p", "720p", "1080p"].indexOf(getModel(modelId).arkResolution ?? "720p") + 1,
+                        )
+                        .map((r) => ({
+                          value: r,
+                          label: r,
+                          hint: r === "480p" ? "draft" : r === "720p" ? "HD" : "Full HD",
+                        }))}
                     />
                   </div>
-                  <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5">
-                    <span className="text-sm font-medium text-white">Native audio</span>
-                    <Toggle checked={audio} onChange={setAudio} />
-                  </div>
+                </div>
+              )}
+
+              {modality === "video" && (
+                <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5">
+                  <span className="text-sm font-medium text-white">
+                    Native audio
+                    <span className="ml-2 text-[11px] font-normal text-white/45">
+                      the model generates sound with the clip
+                    </span>
+                  </span>
+                  <Toggle checked={audio} onChange={setAudio} />
                 </div>
               )}
             </div>
@@ -1028,10 +1123,10 @@ function BoardPickerModal({
       cap: 3,
     },
     influences: {
-      title: "Sound & style · #A…",
-      hint: "Flavors the written prompt only — nothing is uploaded to the model.",
+      title: "Sound & style · #A1–#A5",
+      hint: "Flavors the written prompt only — nothing is uploaded to the model. Up to 5.",
       kinds: ["image", "video", "audio"],
-      cap: Infinity,
+      cap: 5,
     },
   };
   if (!zone) return null;
