@@ -81,89 +81,116 @@ const INPUT_TONES = {
   },
 } as const;
 
-/** Compact input tile — shows what's filled; click opens the picker popup. */
-function InputTile({
+/** A titled, tinted panel for one input type: header, description, squares. */
+function InputGroup({
   tone,
   icon,
   title,
   pill,
   count,
   cap,
-  thumbs,
   desc,
   fileTypes,
   dim,
-  disabled,
-  hint,
-  highlight,
-  onOpen,
-  ...dropProps
+  children,
 }: {
   tone: keyof typeof INPUT_TONES;
   icon: React.ReactNode;
   title: string;
   pill: string;
   count: number;
-  cap: string;
-  thumbs: Asset[];
-  desc?: string;
-  fileTypes?: string;
+  cap: number;
+  desc: string;
+  fileTypes: string;
   dim?: boolean;
-  disabled?: boolean;
-  hint?: string;
-  highlight?: boolean;
-  onOpen: () => void;
-} & React.HTMLAttributes<HTMLDivElement>) {
+  children: React.ReactNode;
+}) {
   const t = INPUT_TONES[tone];
   return (
-    <div
-      {...(disabled ? {} : dropProps)}
-      onClick={() => !disabled && onOpen()}
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      onKeyDown={(e) => e.key === "Enter" && !disabled && onOpen()}
-      className={cn(
-        "cursor-pointer rounded-2xl border p-3 transition-all",
-        t.border,
-        t.bg,
-        highlight && "ring-2 ring-accent/50",
-        (dim || disabled) && "opacity-45",
-        disabled && "cursor-not-allowed",
-        !disabled && "hover:shadow-[0_10px_24px_-16px_rgba(16,18,27,0.35)]",
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", t.chip)}>
+    <div className={cn('rounded-2xl border p-3.5 transition-opacity', t.border, t.bg, dim && 'opacity-45')}>
+      <div className="flex items-start gap-2.5">
+        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', t.chip)}>
           {icon}
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-semibold text-fg">{title}</span>
+            <span className={cn('rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider', t.pill)}>
+              {pill}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[11px] leading-snug text-muted">{desc}</p>
+          <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-faint">{fileTypes}</p>
+        </div>
         <span className="ml-auto shrink-0 text-[12.5px] font-semibold tabular-nums text-muted">
           {count}
           <span className="font-normal text-faint">/{cap}</span>
         </span>
       </div>
-      <div className="mt-2 text-[12.5px] font-semibold leading-tight text-fg">{title}</div>
-      <span className={cn("mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider", t.pill)}>
-        {pill}
-      </span>
-      {desc && <p className="mt-1 text-[10.5px] leading-snug text-muted">{desc}</p>}
-      {fileTypes && (
-        <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-faint">{fileTypes}</p>
-      )}
-      <div className="mt-2 flex h-7 items-center gap-1">
-        {thumbs.length === 0 ? (
-          <span className="text-[10.5px] text-faint">{hint ?? "Tap to add"}</span>
-        ) : (
-          <>
-            {thumbs.slice(0, 4).map((a) => (
-              <AssetThumb key={a.id} a={a} className="h-7 w-7 rounded-md" />
-            ))}
-            {thumbs.length > 4 && (
-              <span className="text-[10.5px] font-semibold text-muted">+{thumbs.length - 4}</span>
-            )}
-          </>
-        )}
-      </div>
+      <div className="mt-2.5">{children}</div>
     </div>
+  );
+}
+
+/** One pressable slot square — filled shows the asset + tag; empty shows +/tag. */
+function SlotSquare({
+  asset,
+  tag,
+  wide,
+  isNext,
+  disabled,
+  highlight,
+  emptyLabel,
+  onPress,
+  onRemove,
+  ...dropProps
+}: {
+  asset: Asset | null;
+  tag: string;
+  wide?: boolean;
+  isNext?: boolean;
+  disabled?: boolean;
+  highlight?: boolean;
+  emptyLabel?: string;
+  onPress: () => void;
+  onRemove: () => void;
+} & React.HTMLAttributes<HTMLElement>) {
+  const size = wide ? 'h-16 w-28' : 'h-16 w-16';
+  if (asset) {
+    return (
+      <div className={cn('relative shrink-0 overflow-hidden rounded-lg border border-accent/50', size)}>
+        <AssetThumb a={asset} className="h-full w-full" />
+        <span className="absolute bottom-0.5 left-0.5 rounded bg-black/65 px-1 text-[9px] font-bold text-white">
+          {tag}
+        </span>
+        <button
+          onClick={onRemove}
+          className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
+          aria-label={'Remove ' + tag}
+        >
+          <X size={10} />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={onPress}
+      disabled={disabled}
+      {...(disabled ? {} : dropProps)}
+      className={cn(
+        'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed transition-colors',
+        size,
+        isNext && !disabled
+          ? 'border-line-2 text-faint hover:border-accent/40 hover:text-fg'
+          : 'border-line text-faint opacity-45',
+        disabled && 'cursor-not-allowed',
+        highlight && isNext && 'border-accent bg-accent-soft',
+      )}
+    >
+      {isNext && !disabled ? <Plus size={14} /> : null}
+      <span className="text-[9px] font-bold uppercase tracking-wide">{emptyLabel ?? tag}</span>
+    </button>
   );
 }
 
@@ -741,47 +768,45 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
             {modality === "video" && (
               <div className="mt-3 space-y-4">
-                {/* Input tiles — grouped by what they do; tap to open the picker */}
-                <div className="space-y-4">
-                  <div>
-                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg">
-                      Exact frames <span className="font-normal normal-case text-faint">— pin the opening (and closing) picture</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <InputTile
-                        tone="image"
-                        icon={<ImagePlus size={15} />}
-                        title="First frame"
-                        pill="1 image"
-                        count={board.firstFrame ? 1 : 0}
-                        cap="1"
-                        desc="The clip opens exactly on this picture."
-                        fileTypes="JPG · PNG · WebP"
-                        thumbs={board.firstFrame && byId[board.firstFrame] ? [byId[board.firstFrame]] : []}
-                        dim={board.refs.length + board.refVideos.length > 0}
-                        highlight={dragZone === "firstFrame"}
-                        onOpen={() => setBoardPickZone("firstFrame")}
-                        {...zoneDropProps("firstFrame")}
+                {/* Individual slot squares, grouped by what they do; press any to pick */}
+                <div className="space-y-3">
+                  <InputGroup
+                    tone="image"
+                    icon={<ImagePlus size={15} />}
+                    title="Exact frames"
+                    pill="2 images"
+                    count={(board.firstFrame ? 1 : 0) + (board.lastFrame ? 1 : 0)}
+                    cap={2}
+                    desc="F1: the clip opens exactly on this picture. F2 (optional): it lands on this one — reveals & transforms."
+                    fileTypes="JPG · PNG · WebP"
+                    dim={board.refs.length + board.refVideos.length > 0}
+                  >
+                    <div className="flex flex-wrap gap-1.5">
+                      <SlotSquare
+                        asset={board.firstFrame ? byId[board.firstFrame] ?? null : null}
+                        tag="F1"
+                        wide
+                        isNext
+                        emptyLabel="F1 · first"
+                        highlight={dragZone === 'firstFrame'}
+                        onPress={() => setBoardPickZone('firstFrame')}
+                        onRemove={() => removeFromBoard('firstFrame')}
+                        {...zoneDropProps('firstFrame')}
                       />
-                      <InputTile
-                        tone="image"
-                        icon={<Flag size={15} />}
-                        title="Last frame"
-                        pill="1 image"
-                        count={board.lastFrame ? 1 : 0}
-                        cap="1"
-                        desc="…and lands on this one. Reveals & transforms."
-                        fileTypes="JPG · PNG · WebP"
-                        thumbs={board.lastFrame && byId[board.lastFrame] ? [byId[board.lastFrame]] : []}
-                        dim={board.refs.length + board.refVideos.length > 0}
+                      <SlotSquare
+                        asset={board.lastFrame ? byId[board.lastFrame] ?? null : null}
+                        tag="F2"
+                        wide
+                        isNext
                         disabled={!board.firstFrame}
-                        hint={board.firstFrame ? "Tap to add" : "Needs a first frame"}
-                        highlight={dragZone === "lastFrame"}
-                        onOpen={() => setBoardPickZone("lastFrame")}
-                        {...zoneDropProps("lastFrame")}
+                        emptyLabel={board.firstFrame ? 'F2 · last' : 'F2 · needs F1'}
+                        highlight={dragZone === 'lastFrame'}
+                        onPress={() => setBoardPickZone('lastFrame')}
+                        onRemove={() => removeFromBoard('lastFrame')}
+                        {...zoneDropProps('lastFrame')}
                       />
                     </div>
-                  </div>
+                  </InputGroup>
 
                   <div className="flex items-center gap-3">
                     <span className="h-px flex-1 bg-line" />
@@ -789,63 +814,90 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     <span className="h-px flex-1 bg-line" />
                   </div>
 
-                  <div>
-                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg">
-                      References <span className="font-normal normal-case text-faint">— identity, look & motion the model imitates</span>
+                  <InputGroup
+                    tone="image"
+                    icon={<ImageIcon size={15} />}
+                    title="Reference images"
+                    pill={`up to ${REF_IMAGE_LIMIT}`}
+                    count={board.refs.length}
+                    cap={REF_IMAGE_LIMIT}
+                    desc="Faces, products, outfits, places the model copies. Reference them in the prompt as #I1–#I9."
+                    fileTypes="JPG · PNG · WebP"
+                    dim={!!board.firstFrame}
+                  >
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: REF_IMAGE_LIMIT }).map((_, i) => (
+                        <SlotSquare
+                          key={`ri-${i}`}
+                          asset={refImageAssets[i] ?? null}
+                          tag={`I${i + 1}`}
+                          isNext={i === refImageAssets.length}
+                          highlight={dragZone === 'refs'}
+                          onPress={() => setBoardPickZone('refs')}
+                          onRemove={() => refImageAssets[i] && removeFromBoard('refs', refImageAssets[i].id)}
+                          {...zoneDropProps('refs')}
+                        />
+                      ))}
                     </div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <InputTile
-                        tone="image"
-                        icon={<ImageIcon size={15} />}
-                        title="Reference images"
-                        pill={`up to ${REF_IMAGE_LIMIT} images`}
-                        count={board.refs.length}
-                        cap={String(REF_IMAGE_LIMIT)}
-                        desc="Faces, products, outfits, places to copy. #I1–#I9"
-                        fileTypes="JPG · PNG · WebP"
-                        thumbs={refImageAssets}
-                        dim={!!board.firstFrame}
-                        highlight={dragZone === "refs"}
-                        onOpen={() => setBoardPickZone("refs")}
-                        {...zoneDropProps("refs")}
-                      />
-                      <InputTile
-                        tone="video"
-                        icon={<Film size={15} />}
-                        title="Reference videos"
-                        pill={`up to ${REF_VIDEO_LIMIT} videos`}
-                        count={board.refVideos.length}
-                        cap={String(REF_VIDEO_LIMIT)}
-                        desc="Clips whose motion & energy to match. #V1–#V3"
-                        fileTypes="MP4 · MOV"
-                        thumbs={refVideoAssets}
-                        dim={!!board.firstFrame}
-                        highlight={dragZone === "refVideos"}
-                        onOpen={() => setBoardPickZone("refVideos")}
-                        {...zoneDropProps("refVideos")}
-                      />
-                    </div>
-                  </div>
+                  </InputGroup>
 
-                  <div>
-                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg">
-                      Prompt flavor <span className="font-normal normal-case text-faint">— written into the prompt, nothing uploaded</span>
+                  <InputGroup
+                    tone="video"
+                    icon={<Film size={15} />}
+                    title="Reference videos"
+                    pill={`up to ${REF_VIDEO_LIMIT}`}
+                    count={board.refVideos.length}
+                    cap={REF_VIDEO_LIMIT}
+                    desc="Clips whose motion and energy the model imitates. Reference them as #V1–#V3."
+                    fileTypes="MP4 · MOV"
+                    dim={!!board.firstFrame}
+                  >
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: REF_VIDEO_LIMIT }).map((_, i) => (
+                        <SlotSquare
+                          key={`rv-${i}`}
+                          asset={refVideoAssets[i] ?? null}
+                          tag={`V${i + 1}`}
+                          wide
+                          isNext={i === refVideoAssets.length}
+                          highlight={dragZone === 'refVideos'}
+                          onPress={() => setBoardPickZone('refVideos')}
+                          onRemove={() => refVideoAssets[i] && removeFromBoard('refVideos', refVideoAssets[i].id)}
+                          {...zoneDropProps('refVideos')}
+                        />
+                      ))}
                     </div>
-                    <InputTile
-                      tone="audio"
-                      icon={<Music size={15} />}
-                      title="Sound & style"
-                      pill={`up to ${STYLE_LIMIT}`}
-                      count={board.influences.length}
-                      cap={String(STYLE_LIMIT)}
-                      desc="Audio, dances or any asset whose description flavors the text. #A1–#A5"
-                      fileTypes="Text only — no file sent"
-                      thumbs={board.influences.map((id) => byId[id]).filter(Boolean) as Asset[]}
-                      highlight={dragZone === "influences"}
-                      onOpen={() => setBoardPickZone("influences")}
-                      {...zoneDropProps("influences")}
-                    />
-                  </div>
+                  </InputGroup>
+
+                  <InputGroup
+                    tone="audio"
+                    icon={<Music size={15} />}
+                    title="Sound & style"
+                    pill={`up to ${STYLE_LIMIT}`}
+                    count={board.influences.length}
+                    cap={STYLE_LIMIT}
+                    desc="Audio, dances or any asset — its description is woven into the prompt as #A1–#A5. Nothing is uploaded."
+                    fileTypes="Text only — no file sent"
+                  >
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: STYLE_LIMIT }).map((_, i) => {
+                        const id = board.influences[i];
+                        const a = id ? byId[id] ?? null : null;
+                        return (
+                          <SlotSquare
+                            key={`in-${i}`}
+                            asset={a}
+                            tag={`A${i + 1}`}
+                            isNext={i === board.influences.length}
+                            highlight={dragZone === 'influences'}
+                            onPress={() => setBoardPickZone('influences')}
+                            onRemove={() => id && removeFromBoard('influences', id)}
+                            {...zoneDropProps('influences')}
+                          />
+                        );
+                      })}
+                    </div>
+                  </InputGroup>
                 </div>
               </div>
             )}
