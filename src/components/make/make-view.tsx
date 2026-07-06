@@ -182,14 +182,12 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [prompt, setPrompt] = useState("");
   const [picks, setPicks] = useState<Picks>({});
   const [board, setBoard] = useState<Board>(EMPTY_BOARD);
-  const [trayFilter, setTrayFilter] = useState<"all" | AssetClass>("all");
   const [boardPickZone, setBoardPickZone] = useState<BoardZone | null>(null);
   const [dragZone, setDragZone] = useState<BoardZone | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialPurpose.aspectRatio);
   const [durationSec, setDurationSec] = useState<number>(initialPurpose.durationSec);
   const [tier, setTier] = useState<Tier>("standard");
   const [audio, setAudio] = useState(true);
-  const [showOptions, setShowOptions] = useState(false);
   const [pickClass, setPickClass] = useState<AssetClass | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
@@ -579,9 +577,45 @@ export function MakeView({ mode }: { mode?: Modality }) {
         ))}
       </div>
 
+      {/* Selected model summary — what it is, what it does, its numbers */}
+      {(() => {
+        const m = getModel(modelId);
+        const chips =
+          m.modality === "video"
+            ? [
+                m.arkResolution?.toUpperCase(),
+                "4–15s clips",
+                `${m.creditsPerSec} credits/sec`,
+                `refs: ${REF_IMAGE_LIMIT} img + ${REF_VIDEO_LIMIT} vid`,
+                "native audio",
+              ]
+            : [
+                m.arkSize === "2k" ? "2K output" : "1K output",
+                `${m.creditsPerImage} credits/image`,
+                "text → image",
+              ];
+        return (
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-line bg-surface-2 px-4 py-3">
+            <span className="text-xl leading-none">{m.glyph}</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-fg">
+                {m.name} <span className="font-normal text-faint">· {m.vendor}</span>
+              </div>
+              <div className="text-[12px] text-muted">{m.blurb}</div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {chips.filter(Boolean).map((chip) => (
+                <Badge key={chip}>{chip}</Badge>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <Card className="overflow-hidden">
         <div className="p-5">
           {/* Prompt — type # to reference added media by tag */}
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">Prompt</div>
           <div className="relative">
             <textarea
               ref={promptRef}
@@ -678,79 +712,17 @@ export function MakeView({ mode }: { mode?: Modality }) {
           </div>
           {directorError && <p className="mt-1.5 text-xs text-danger">{directorError}</p>}
 
-          {/* Try-this chips */}
-          {!prompt && pickedCount === 0 && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              <span className="flex items-center gap-1 text-[11px] font-medium text-faint">
-                <Wand2 size={12} /> Try
-              </span>
-              {purpose.ideas.map((idea) => (
-                <button
-                  key={idea}
-                  onClick={() => setPrompt(idea)}
-                  className="rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] text-muted transition-colors hover:border-accent/40 hover:text-fg"
-                >
-                  {idea.length > 38 ? idea.slice(0, 38) + "…" : idea}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Inputs this model accepts — always visible, empty until filled */}
-          <div className="mt-4 border-t border-line pt-4">
-            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">
-              {getModel(modelId).name} inputs
-            </div>
+          <div className="mt-5 border-t border-line pt-4">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-faint">Inputs</div>
             <p className="mb-3 text-[11.5px] text-faint">
               {modality === "video"
-                ? `Text prompt — plus exact frames (first ± last) OR references (up to ${REF_IMAGE_LIMIT} images + ${REF_VIDEO_LIMIT} videos). Drag from the tray or press +. Added media get tags (#I1, #V1…) — type # in the prompt to reference them.`
-                : "Text prompt — the pickers below just help you write it."}
+                ? "All optional — tap a tile to add from your library. Added media get tags (#I1, #V1…) you can reference in the prompt."
+                : "The pickers below just help you write the prompt."}
             </p>
 
             {modality === "video" && (
               <div className="mt-3 space-y-4">
-                {/* Asset tray — drag from here */}
-                <div>
-                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    {(["all", ...ASSET_CLASSES.map((c) => c.key)] as const).map((k) => (
-                      <button
-                        key={k}
-                        onClick={() => setTrayFilter(k as "all" | AssetClass)}
-                        className={cn(
-                          "rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors",
-                          trayFilter === k
-                            ? "border-accent/60 bg-accent-soft text-fg"
-                            : "border-line text-faint hover:text-fg",
-                        )}
-                      >
-                        {k === "all" ? "All" : CLASS_BY_KEY[k as AssetClass].plural}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1.5">
-                    {assets
-                      .filter((a) => trayFilter === "all" || a.class === trayFilter)
-                      .map((a) => (
-                        <div
-                          key={a.id}
-                          draggable
-                          onDragStart={(e) => e.dataTransfer.setData("text/plain", a.id)}
-                          onClick={() => assignToZone("refs", a.id)}
-                          title="Drag into a spot, or tap to add as a reference"
-                          className={cn(
-                            "flex shrink-0 cursor-grab items-center gap-1.5 rounded-xl border py-1.5 pl-1.5 pr-2.5 text-[12px] font-medium transition-colors active:cursor-grabbing",
-                            boardIds.includes(a.id)
-                              ? "border-accent/50 bg-accent-soft text-fg"
-                              : "border-line bg-surface text-muted hover:border-line-2",
-                          )}
-                        >
-                          <AssetThumb a={a} className="h-8 w-8 rounded-lg" />
-                          <span className="max-w-[90px] truncate">{a.name}</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
                 {/* Input tiles — tap one to open its picker popup */}
                 <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
                   <InputTile
@@ -851,63 +823,53 @@ export function MakeView({ mode }: { mode?: Modality }) {
             )}
           </div>
 
-          {/* Model & options (disclosed; the purpose already set sane defaults) */}
-          <div className="mt-4 border-t border-line pt-4">
-            <button
-              onClick={() => setShowOptions((v) => !v)}
-              className="flex w-full items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-fg"
-            >
-              <ChevronDown size={15} className={cn("transition-transform", showOptions && "rotate-180")} /> Options
-              <span className="ml-auto text-[12px] font-normal text-faint">
-                {getModel(modelId).name} · {aspectRatio}
-                {modality === "video" ? ` · ${durationSec}s` : ""}
-              </span>
-            </button>
-
-            {showOptions && (
-              <div className="mt-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-muted">Aspect</label>
-                    <Segmented<AspectRatio>
-                      value={aspectRatio}
-                      onChange={setAspectRatio}
-                      options={ASPECT_RATIOS.map((r) => ({ value: r, label: r }))}
-                    />
-                  </div>
-                  {modality === "video" && (
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-muted">Duration</label>
-                      <Segmented<number>
-                        value={durationSec}
-                        onChange={setDurationSec}
-                        options={DURATIONS.map((d) => ({ value: d, label: `${d}s` }))}
-                      />
-                    </div>
-                  )}
+          {/* Spec — the technical panel, always open */}
+          <div className="mt-5 border-t border-line pt-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">
+              {modality === "video" ? "Video spec" : "Image spec"}
+            </div>
+            <div className="rounded-2xl bg-[#0d0d15] p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-white/60">Aspect</label>
+                  <Segmented<AspectRatio>
+                    value={aspectRatio}
+                    onChange={setAspectRatio}
+                    options={ASPECT_RATIOS.map((r) => ({ value: r, label: r }))}
+                  />
                 </div>
                 {modality === "video" && (
-                  <>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-muted">Quality</label>
-                      <Segmented<Tier>
-                        value={tier}
-                        onChange={setTier}
-                        options={(Object.keys(TIERS) as Tier[]).map((t) => ({
-                          value: t,
-                          label: TIERS[t].label,
-                          hint: `${TIERS[t].resolution} · ${TIERS[t].creditsPerSec}/s`,
-                        }))}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-3.5 py-2.5">
-                      <span className="text-sm font-medium text-fg">Native audio</span>
-                      <Toggle checked={audio} onChange={setAudio} />
-                    </div>
-                  </>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-white/60">Duration</label>
+                    <Segmented<number>
+                      value={durationSec}
+                      onChange={setDurationSec}
+                      options={DURATIONS.map((d) => ({ value: d, label: `${d}s` }))}
+                    />
+                  </div>
                 )}
               </div>
-            )}
+              {modality === "video" && (
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-white/60">Quality</label>
+                    <Segmented<Tier>
+                      value={tier}
+                      onChange={setTier}
+                      options={(Object.keys(TIERS) as Tier[]).map((t) => ({
+                        value: t,
+                        label: TIERS[t].label,
+                        hint: `${TIERS[t].resolution} · ${TIERS[t].creditsPerSec}/s`,
+                      }))}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5">
+                    <span className="text-sm font-medium text-white">Native audio</span>
+                    <Toggle checked={audio} onChange={setAudio} />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Generate */}
