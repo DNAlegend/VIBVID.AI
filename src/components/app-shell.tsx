@@ -18,9 +18,9 @@ const NAV = [
 ];
 
 const CREDIT_PACKS = [
-  { credits: 500, price: "$7", label: "Mini" },
-  { credits: 1600, price: "$20", label: "Plus", popular: true },
-  { credits: 5500, price: "$60", label: "Mega" },
+  { credits: 300, price: "$6", label: "Small" },
+  { credits: 1200, price: "$20", label: "Popular", popular: true },
+  { credits: 3000, price: "$45", label: "Big" },
 ];
 
 function Brand() {

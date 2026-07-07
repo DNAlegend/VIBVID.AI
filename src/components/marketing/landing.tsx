@@ -4,7 +4,6 @@ import {
   Sparkles,
   FolderOpen,
   Film,
-  Image as ImageIcon,
   ArrowRight,
   Check,
   ChevronDown,
@@ -138,7 +137,7 @@ function Hero() {
             See how it works <ArrowRight size={16} />
           </CTA>
         </div>
-        <p className="mt-3 text-[13px] text-faint">No credit card needed · 1,200 free credits to start</p>
+        <p className="mt-3 text-[13px] text-faint">No credit card needed · your first video is free</p>
 
         {/* Hero visual — the studio in action */}
         <div className="relative mx-auto mt-12 max-w-4xl">
@@ -376,83 +375,54 @@ const PLANS = [
   {
     name: "Free",
     price: "$0",
-    period: "to start",
-    credits: "300",
-    capacity: "Starter capacity",
+    period: "",
+    headline: "1 free video / month",
+    credits: "120",
     blurb: "Try the studio — no card needed.",
     popular: false,
-    video: "720p drafts · up to 6s",
-    image: "1K images",
-    perks: ["1,200-credit welcome boost", "Full MightyMak engine", "Personal asset library", "≈10 draft clips or 35 images / mo"],
+    perks: ["1 video every month", "All Mak models", "Personal asset library"],
     cta: "Start free",
   },
   {
     name: "Basic",
-    price: "$19",
+    price: "$12",
     period: "/ month",
-    credits: "2,000",
-    capacity: null,
-    blurb: "For creators publishing every week.",
+    headline: "≈ 10 videos / month",
+    credits: "600",
+    blurb: "Get started — a few videos a week.",
     popular: false,
-    video: "1080p HD · up to 10s · native audio",
-    image: "2K images",
-    perks: ["Every MightyMak model", "Image-to-video with your assets", "≈25 HD clips or 250 images / mo"],
+    perks: [
+      "≈ 10 videos every month",
+      "All Mak models — Pro, Fast & Mini",
+      "Up to 15s · 1080p · native audio",
+      "Top up credits any time",
+    ],
     cta: "Get Basic",
   },
   {
-    name: "Pro",
-    price: "$49",
-    period: "/ month",
-    credits: "10,000",
-    capacity: "5x Basic capacity",
-    blurb: "For serious creators and small teams.",
-    popular: true,
-    video: "2K cinematic · up to 10s · native audio",
-    image: "2K images · rich detail",
-    perks: ["Everything in Basic", "Business library + composite assets", "Priority rendering"],
-    cta: "Get Pro",
-  },
-  {
     name: "Max",
-    price: "$149",
+    price: "$50",
     period: "/ month",
-    credits: "40,000",
-    capacity: "20x Basic capacity",
-    blurb: "For studios in full production.",
-    popular: false,
-    video: "2K cinematic · bulk generation",
-    image: "2K images · bulk generation",
-    perks: ["Everything in Pro", "Highest queue priority", "Early access to new models"],
+    headline: "≈ 50 videos / month",
+    credits: "3,000",
+    blurb: "For regular creators — best value.",
+    popular: true,
+    perks: ["≈ 50 videos every month", "Everything in Basic", "Priority rendering", "Lowest cost per video"],
     cta: "Get Max",
   },
 ];
 
-function PlanOutput({ icon: Icon, label, value }: { icon: typeof Film; label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-2">
-        <Icon size={13} />
-      </span>
-      <span>
-        <span className="block text-[11px] font-medium uppercase tracking-wide text-faint">{label}</span>
-        <span className="block text-[13px] font-medium leading-snug text-fg">{value}</span>
-      </span>
-    </div>
-  );
-}
-
 function Pricing() {
   return (
     <section id="pricing" className="border-t border-line bg-surface-2/40">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Plans that scale with you</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Simple pricing</h2>
           <p className="mt-3 text-[17px] text-muted">
-            Every plan refills monthly with credits — your generation capacity across all video and image models.
-            Bigger plans buy more capacity and higher-fidelity output.
+            Start free with a video every month. Upgrade for more — and top up credits whenever you need them.
           </p>
         </div>
-        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-3">
           {PLANS.map((p) => (
             <div
               key={p.name}
@@ -474,16 +444,8 @@ function Pricing() {
               <p className="mt-1 text-[13px] text-faint">{p.blurb}</p>
 
               <div className="mt-5 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold tabular-nums tracking-tight">{p.credits}</span>
-                  <span className="text-[12px] text-faint">credits / month</span>
-                </div>
-                {p.capacity && <div className="mt-0.5 text-[12px] font-medium text-accent-2">{p.capacity}</div>}
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <PlanOutput icon={Film} label="Video" value={p.video} />
-                <PlanOutput icon={ImageIcon} label="Images" value={p.image} />
+                <div className="text-[15px] font-semibold text-fg">{p.headline}</div>
+                <div className="mt-0.5 text-[12px] text-faint">{p.credits} credits / month</div>
               </div>
 
               <ul className="mt-4 space-y-2.5 border-t border-line pt-4">
@@ -500,7 +462,7 @@ function Pricing() {
           ))}
         </div>
         <p className="mt-6 text-center text-[13px] text-faint">
-          Credits work across every model. Running hot? Top up any time from inside the studio — no plan change needed.
+          Run out of credits? Buy more any time from inside the studio — packs from $6, no plan change needed.
         </p>
       </div>
     </section>
@@ -518,7 +480,7 @@ const FAQS = [
   },
   {
     q: "How do credits work?",
-    a: "Every plan refills monthly with credits that work across all models. A 5-second HD video runs about 60 credits; an image about 8. You start with a 1,200-credit welcome boost — roughly 20 videos or 150 images, free.",
+    a: "Every video costs credits — a 5-second clip runs about 60, and each plan refills monthly (Free ≈ 1 video, Basic ≈ 10, Max ≈ 50). Run out before your refill? Buy a top-up pack any time from inside the studio — starting at $6.",
   },
   {
     q: "Do I own what I make?",
@@ -571,7 +533,7 @@ function FinalCTA() {
           Start producing today
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-[16px] text-white/85">
-          Spin up your studio in seconds. Your first 1,200 credits are on us.
+          Spin up your studio in seconds. Your first video is on us.
         </p>
         <div className="mt-7 flex justify-center">
           <Link

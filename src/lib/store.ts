@@ -32,7 +32,7 @@ import {
   uploadDataUrl,
 } from "./cloud";
 
-const STARTING_CREDITS = 1200;
+const STARTING_CREDITS = 120;
 
 // Module-level (non-persisted) handles for the in-flight simulation timers.
 const timers = new Map<string, ReturnType<typeof setInterval>>();
