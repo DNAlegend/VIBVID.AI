@@ -16,7 +16,14 @@ The user's brief may be written in ANY language — always answer with the final
 Weave in every provided asset description naturally (they are visual references the model will also receive as images).
 Structure the prompt as one flowing paragraph covering: subject and action, setting, camera movement, lighting, mood, and style.
 Be concrete and visual; prefer verbs of motion; 40–90 words.
+Avoid real brand names, logos, trademarked or copyrighted characters, franchises, and real public figures unless the user explicitly supplies them as their own assets — prefer generic, original descriptions.
 Output ONLY the prompt paragraph — no preamble, no quotes, no lists, no explanations.`;
+
+const SAFE_SYSTEM = `A previous attempt to generate a video from this prompt was blocked by automated content and copyright filters.
+Rewrite the prompt so it passes the filters: remove or replace any real brand names, logos, trademarked or copyrighted characters, franchises, recognizable protected designs, and real public figures or celebrities with generic, original equivalents.
+Preserve the creative intent — the subject's action, setting, camera movement, lighting and mood.
+Answer in ENGLISH as one flowing paragraph, 40–90 words.
+Output ONLY the rewritten prompt — no preamble, no quotes, no explanations.`;
 
 export async function POST(req: Request) {
   if (!process.env.ARK_API_KEY) {
@@ -41,12 +48,16 @@ export async function POST(req: Request) {
   const assets: string[] = Array.isArray(body?.assets)
     ? body.assets.filter((a: unknown) => typeof a === "string").slice(0, 12)
     : [];
+  // "safe" mode = rewrite a prompt that a content/copyright filter rejected.
+  const safe = body?.mode === "safe";
+  const avoid = typeof body?.avoid === "string" ? body.avoid.slice(0, 300) : null;
 
   const userMsg = [
     `Output format: a ${modality}.`,
     purpose ? `Purpose: ${purpose}.` : null,
     assets.length ? `Visual reference assets the model will receive: ${assets.join("; ")}.` : null,
-    `Creator's brief: ${brief}`,
+    safe && avoid ? `The filter that blocked it reported: ${avoid}` : null,
+    `${safe ? "Prompt to rewrite" : "Creator's brief"}: ${brief}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -60,11 +71,11 @@ export async function POST(req: Request) {
     body: JSON.stringify({
       model: DIRECTOR_MODEL,
       messages: [
-        { role: "system", content: SYSTEM },
+        { role: "system", content: safe ? SAFE_SYSTEM : SYSTEM },
         { role: "user", content: userMsg },
       ],
       max_tokens: 300,
-      temperature: 0.7,
+      temperature: safe ? 0.85 : 0.7,
     }),
   });
   if (!res.ok) {

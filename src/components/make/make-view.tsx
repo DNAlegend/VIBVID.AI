@@ -17,6 +17,7 @@ import {
   Undo2,
   Film,
   Music,
+  RefreshCw,
   Image as ImageIcon,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -38,7 +39,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button, Card, Badge, Modal } from "@/components/ui";
-import { AssetThumb, ClassIcon, ResultHero, CompositeBadge } from "@/components/shared";
+import { AssetThumb, ClassIcon, ResultHero, CompositeBadge, classifyGenError } from "@/components/shared";
 
 type Picks = Partial<Record<AssetClass, string>>;
 
@@ -218,6 +219,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
   const [directing, setDirecting] = useState(false);
+  const [rewriting, setRewriting] = useState(false);
   const [directorError, setDirectorError] = useState<string | null>(null);
   const [draftBackup, setDraftBackup] = useState<string | null>(null);
   /** Open state of the # mention picker: null = closed, else the partial tag. */
@@ -512,12 +514,12 @@ export function MakeView({ mode }: { mode?: Modality }) {
     }
   }
 
-  function onGenerate() {
-    if (!canGenerate || rendering) return;
+  function startGenerate(promptText: string) {
+    if (rendering) return;
     const scene = pickedAssets.find((a) => a.class === "scene");
     const posterUrl = (scene ?? pickedAssets[0])?.posterUrl ?? (scene ?? pickedAssets[0])?.url;
     const id = generate({
-      prompt: finalPrompt,
+      prompt: promptText,
       tier,
       durationSec,
       aspectRatio,
@@ -525,7 +527,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
       modelId,
       modality,
       elements: pickedAssets.map((a) => a.id),
-      direction: prompt,
+      direction: promptText,
       posterUrl,
       firstFrameUrl: firstFrameUrl ?? undefined,
       lastFrameUrl: firstFrameUrl ? lastFrameUrl ?? undefined : undefined,
@@ -535,6 +537,46 @@ export function MakeView({ mode }: { mode?: Modality }) {
     });
     setActiveJobId(id);
     setSavedMsg(false);
+  }
+
+  function onGenerate() {
+    if (!canGenerate || rendering) return;
+    startGenerate(finalPrompt);
+  }
+
+  // After a content-policy failure: let the LLM rewrite the prompt to pass
+  // the filters, drop it into the box, and generate again.
+  async function onRewriteRetry() {
+    if (rewriting || rendering || !activeJob) return;
+    setRewriting(true);
+    setDirectorError(null);
+    try {
+      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+      if (!token) {
+        setAuthOpen(true);
+        return;
+      }
+      const res = await fetch("/api/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          brief: activeJob.direction || activeJob.prompt,
+          mode: "safe",
+          avoid: activeJob.error?.slice(0, 300),
+          modality,
+          assets: taggedMedia.map((t) => `${t.tag} = ${t.asset.promptFragment ?? t.asset.name}`),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.prompt) throw new Error(data.error ?? "Couldn’t rewrite the prompt");
+      setDraftBackup(prompt);
+      setPrompt(data.prompt);
+      startGenerate(data.prompt);
+    } catch (e) {
+      setDirectorError(e instanceof Error ? e.message : "Couldn’t rewrite the prompt");
+    } finally {
+      setRewriting(false);
+    }
   }
 
   return (
@@ -847,6 +889,32 @@ export function MakeView({ mode }: { mode?: Modality }) {
         <div ref={resultRef}>
         <Card className="mt-5 p-5">
           <ResultHero job={activeJob} />
+          {activeJob.status === "failed" && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {classifyGenError(activeJob.error).kind === "policy" && (
+                <Button size="sm" disabled={rewriting || rendering} onClick={onRewriteRetry}>
+                  {rewriting ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" /> Rewriting…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 size={15} /> Rewrite &amp; try again
+                    </>
+                  )}
+                </Button>
+              )}
+              <Button
+                variant={classifyGenError(activeJob.error).kind === "policy" ? "outline" : "primary"}
+                size="sm"
+                disabled={rewriting || rendering || !canGenerate}
+                onClick={onGenerate}
+              >
+                <RefreshCw size={15} /> Try again
+              </Button>
+              {directorError && <span className="text-xs text-danger">{directorError}</span>}
+            </div>
+          )}
           {activeJob.status === "succeeded" && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button

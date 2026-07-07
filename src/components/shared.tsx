@@ -11,6 +11,8 @@ import {
   Check,
   Layers,
   Package,
+  ShieldAlert,
+  AlertTriangle,
 } from "lucide-react";
 import type { ClassMeta } from "@/lib/catalog";
 import { listModels, type ModelProvider } from "@/lib/models";
@@ -24,6 +26,55 @@ import {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge, Progress } from "@/components/ui";
+
+/* --------------------------- Failure messaging -------------------------- */
+
+/** Pull a human sentence out of an Ark/route error string (often JSON). */
+function extractMessage(raw?: string): string {
+  if (!raw) return "";
+  const s = raw.replace(/^Model error:\s*/i, "").trim();
+  try {
+    const j = JSON.parse(s);
+    return String(j?.error?.message ?? j?.message ?? s);
+  } catch {
+    return s.replace(/^["']|["']$/g, "");
+  }
+}
+
+export type GenErrorKind = "policy" | "timeout" | "credits" | "generic";
+
+/** Turn a raw failure into a friendly, on-brand title + detail. */
+export function classifyGenError(raw?: string): { kind: GenErrorKind; title: string; detail: string } {
+  const low = (raw ?? "").toLowerCase();
+  if (/sensitive|policyviolation|copyright|prohibited|nsfw|violat|risky|not\s*allowed/.test(low)) {
+    return {
+      kind: "policy",
+      title: "Blocked by content checks",
+      detail:
+        "Your prompt may reference protected material — a brand, logo, real person or known character. Rewrite it to be more original and try again.",
+    };
+  }
+  if (/timed out|timeout/.test(low)) {
+    return {
+      kind: "timeout",
+      title: "This took too long",
+      detail: "The render timed out. Your credits weren’t spent — give it another try.",
+    };
+  }
+  if (/not enough credits|insufficient|402/.test(low)) {
+    return {
+      kind: "credits",
+      title: "Not enough credits",
+      detail: "Top up with the Buy button in the top bar, then try again.",
+    };
+  }
+  const msg = extractMessage(raw);
+  return {
+    kind: "generic",
+    title: "That render didn’t finish",
+    detail: msg || "Something went wrong — your credits weren’t spent. Try again.",
+  };
+}
 
 /* ----------------------------- Class icon ------------------------------- */
 const CLASS_ICONS: Record<ClassMeta["icon"], typeof User> = {
@@ -199,17 +250,19 @@ export function ResultHero({ job }: { job: VideoJob }) {
   }
 
   if (job.status === "failed") {
+    const info = classifyGenError(job.error);
     return (
       <div
         className={cn(
-          "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-danger/30 bg-surface-2 p-6 text-center",
+          "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface-2 p-6 text-center",
           aspectClass[ar],
         )}
       >
-        <p className="text-sm font-semibold text-danger">Generation failed</p>
-        <p className="max-w-md break-words text-xs leading-relaxed text-muted">
-          {job.error ?? "Something went wrong — your credits were not spent."}
-        </p>
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-danger/10 text-danger">
+          {info.kind === "policy" ? <ShieldAlert size={22} /> : <AlertTriangle size={22} />}
+        </span>
+        <p className="mt-1 text-sm font-semibold text-fg">{info.title}</p>
+        <p className="max-w-sm text-xs leading-relaxed text-muted">{info.detail}</p>
       </div>
     );
   }
