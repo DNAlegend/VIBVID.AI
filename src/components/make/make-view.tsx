@@ -6,7 +6,6 @@ import {
   Sparkles,
   Loader2,
   Wand2,
-  ChevronDown,
   X,
   Plus,
   Coins,
@@ -14,21 +13,18 @@ import {
   Bookmark,
   Check,
   ArrowRight,
-  Layers,
   ImagePlus,
   Undo2,
   Film,
   Music,
-  Flag,
   Image as ImageIcon,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
-import { getModel, listModels, priceFor, DEFAULT_MODEL_ID } from "@/lib/models";
+import { getModel, priceFor, DEFAULT_MODEL_ID } from "@/lib/models";
 import { ASSET_CLASSES, CLASS_BY_KEY, composeFromAssets } from "@/lib/catalog";
-import { PURPOSES, PURPOSE_BY_ID, DEFAULT_PURPOSE_ID } from "@/lib/purposes";
+import { PURPOSE_BY_ID, DEFAULT_PURPOSE_ID } from "@/lib/purposes";
 import {
-  ASPECT_RATIOS,
   DURATIONS,
   REF_IMAGE_LIMIT,
   REF_VIDEO_LIMIT,
@@ -41,7 +37,7 @@ import {
 } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { Button, Card, Badge, Segmented, Toggle, Modal } from "@/components/ui";
+import { Button, Card, Badge, Modal } from "@/components/ui";
 import { AssetThumb, ClassIcon, ResultHero, CompositeBadge } from "@/components/shared";
 
 type Picks = Partial<Record<AssetClass, string>>;
@@ -81,53 +77,37 @@ const INPUT_TONES = {
   },
 } as const;
 
-/** A titled, tinted panel for one input type: header, description, squares. */
-function InputGroup({
+/** A bare row for one input type: tiny label + count, then the squares. */
+function SlotRow({
   tone,
   icon,
-  title,
-  pill,
+  label,
   count,
   cap,
-  desc,
-  fileTypes,
   dim,
   children,
 }: {
   tone: keyof typeof INPUT_TONES;
   icon: React.ReactNode;
-  title: string;
-  pill: string;
+  label: string;
   count: number;
   cap: number;
-  desc: string;
-  fileTypes: string;
   dim?: boolean;
   children: React.ReactNode;
 }) {
   const t = INPUT_TONES[tone];
   return (
-    <div className={cn('rounded-2xl border p-3.5 transition-opacity', t.border, t.bg, dim && 'opacity-45')}>
-      <div className="flex items-start gap-2.5">
-        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', t.chip)}>
+    <div className={cn('transition-opacity', dim && 'opacity-40')}>
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md', t.chip)}>
           {icon}
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13px] font-semibold text-fg">{title}</span>
-            <span className={cn('rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider', t.pill)}>
-              {pill}
-            </span>
-          </div>
-          <p className="mt-0.5 text-[11px] leading-snug text-muted">{desc}</p>
-          <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-faint">{fileTypes}</p>
-        </div>
-        <span className="ml-auto shrink-0 text-[12.5px] font-semibold tabular-nums text-muted">
-          {count}
-          <span className="font-normal text-faint">/{cap}</span>
+        <span className="text-[12px] font-semibold text-fg">{label}</span>
+        <span className="ml-auto text-[11px] font-medium tabular-nums text-faint">
+          {count}/{cap}
         </span>
       </div>
-      <div className="mt-2.5">{children}</div>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
   );
 }
@@ -233,7 +213,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [durationSec, setDurationSec] = useState<number>(initialPurpose.durationSec);
   const [tier] = useState<Tier>("standard");
   const [resolution, setResolution] = useState<string>(getModel(initialPurpose.modelId).arkResolution ?? "720p");
-  const [audio, setAudio] = useState(true);
+  const [audio] = useState(true);
   const [pickClass, setPickClass] = useState<AssetClass | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
@@ -326,18 +306,11 @@ export function MakeView({ mode }: { mode?: Modality }) {
   }
 
   const purpose = PURPOSE_BY_ID[purposeId] ?? PURPOSE_BY_ID[DEFAULT_PURPOSE_ID];
-  // Dedicated generator pages only offer purposes of their modality.
-  const availablePurposes = PURPOSES.filter((p) => !mode || p.modality === mode);
   // Surface this purpose's asset classes first; the rest stay available.
   const orderedClasses = [
     ...purpose.classes,
     ...ASSET_CLASSES.map((c) => c.key).filter((k) => !purpose.classes.includes(k)),
   ];
-
-  const heading =
-    mode === "image"
-      ? { kicker: "Image", h1: "Image generator", sub: "Pick what you're making, type your idea, Generate." }
-      : { kicker: "Video", h1: "Video generator", sub: "Pick a model — everything it accepts appears below." };
 
   const model = getModel(modelId);
 
@@ -486,13 +459,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const canGenerate = hydrated && finalPrompt.trim().length > 0 && canAfford && aspectValid;
   const activeJob = videos.find((v) => v.id === activeJobId) ?? null;
   const rendering = activeJob?.status === "rendering";
-  const pickedCount = pickedAssets.length;
-
-  function switchModality(m: Modality) {
-    // Flipping the toggle on the universal Make page re-anchors the purpose
-    // so format and model stay coherent with the chosen modality.
-    applyPurpose(m === "image" ? "still" : "custom");
-  }
 
   function setPick(cls: AssetClass, id: string | null) {
     setPicks((p) => ({ ...p, [cls]: id ?? undefined }));
@@ -572,105 +538,14 @@ export function MakeView({ mode }: { mode?: Modality }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <header className="mb-5 text-center">
-        <div className="mb-1.5 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-2">
-          <Sparkles size={14} /> {heading.kicker}
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{heading.h1}</h1>
-        <p className="mt-1.5 text-sm text-muted">{heading.sub}</p>
-      </header>
-
-      {/* Purpose picker (image page only — video is model-first) */}
-      {mode === "image" && (
-        <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1.5">
-          {availablePurposes.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => applyPurpose(p.id)}
-              className={cn(
-                "flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors",
-                purposeId === p.id
-                  ? "border-accent/60 bg-accent-soft"
-                  : "border-line bg-surface hover:border-line-2",
-              )}
-            >
-              <span className="text-lg leading-none">{p.glyph}</span>
-              <span>
-                <span className="block text-[13px] font-semibold leading-tight text-fg">{p.label}</span>
-                <span className="block text-[11px] leading-tight text-faint">{p.tagline}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* The model — the very first choice; its inputs render below */}
-      <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-        {listModels({ modality, enabledOnly: true }).map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setModelId(m.id)}
-            className={cn(
-              "rounded-2xl border p-3.5 text-left transition-all",
-              modelId === m.id
-                ? "border-accent/60 bg-accent-soft shadow-[0_10px_28px_-16px_rgba(124,108,255,0.5)]"
-                : "border-line bg-surface hover:border-line-2",
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-lg leading-none">{m.glyph}</span>
-              <span className="text-[14px] font-semibold text-fg">{m.name}</span>
-              {m.badge && (
-                <Badge tone={m.badge === "recommended" ? "accent" : "neutral"} className="ml-auto capitalize">
-                  {m.badge}
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-muted">{m.blurb}</p>
-          </button>
-        ))}
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-4 flex items-center justify-center gap-2 text-[13px] font-semibold text-muted">
+        <span className="text-base leading-none">{getModel(modelId).glyph}</span> {getModel(modelId).name}
       </div>
-
-      {/* Selected model summary — what it is, what it does, its numbers */}
-      {(() => {
-        const m = getModel(modelId);
-        const chips =
-          m.modality === "video"
-            ? [
-                m.arkResolution?.toUpperCase(),
-                "4–15s clips",
-                `${m.creditsPerSec} credits/sec`,
-                `refs: ${REF_IMAGE_LIMIT} img + ${REF_VIDEO_LIMIT} vid`,
-                "native audio",
-              ]
-            : [
-                m.arkSize === "2k" ? "2K output" : "1K output",
-                `${m.creditsPerImage} credits/image`,
-                "text → image",
-              ];
-        return (
-          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-line bg-surface-2 px-4 py-3">
-            <span className="text-xl leading-none">{m.glyph}</span>
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold text-fg">
-                {m.name} <span className="font-normal text-faint">· {m.vendor}</span>
-              </div>
-              <div className="text-[12px] text-muted">{m.blurb}</div>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {chips.filter(Boolean).map((chip) => (
-                <Badge key={chip}>{chip}</Badge>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       <Card className="overflow-hidden">
         <div className="p-5">
           {/* Prompt — type # to reference added media by tag */}
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">Prompt</div>
           <div className="relative">
             <textarea
               ref={promptRef}
@@ -763,157 +638,118 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 <Undo2 size={13} /> Undo
               </Button>
             )}
-            <span className="text-[11.5px] text-faint">Any language — عربي · 中文 · English</span>
           </div>
           {directorError && <p className="mt-1.5 text-xs text-danger">{directorError}</p>}
 
-          {/* Inputs this model accepts — always visible, empty until filled */}
+          {/* Inputs — add only what you need, then Generate */}
           <div className="mt-5 border-t border-line pt-4">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-faint">Inputs</div>
-            <p className="mb-3 text-[11.5px] text-faint">
-              {modality === "video"
-                ? "All optional — tap a tile to add from your library. Added media get tags (#I1, #V1…) you can reference in the prompt."
-                : "The pickers below just help you write the prompt."}
-            </p>
+            {modality === "video" ? (
+              <div className="space-y-3.5">
+                <SlotRow
+                  tone="image"
+                  icon={<ImageIcon size={12} />}
+                  label="Images"
+                  count={board.refs.length}
+                  cap={REF_IMAGE_LIMIT}
+                  dim={!!board.firstFrame}
+                >
+                  {Array.from({ length: REF_IMAGE_LIMIT }).map((_, i) => (
+                    <SlotSquare
+                      key={`ri-${i}`}
+                      asset={refImageAssets[i] ?? null}
+                      tag={`I${i + 1}`}
+                      isNext={i === refImageAssets.length}
+                      highlight={dragZone === 'refs'}
+                      onPress={() => setBoardPickZone('refs')}
+                      onRemove={() => refImageAssets[i] && removeFromBoard('refs', refImageAssets[i].id)}
+                      {...zoneDropProps('refs')}
+                    />
+                  ))}
+                </SlotRow>
 
-            {modality === "video" && (
-              <div className="mt-3 space-y-4">
-                {/* Individual slot squares, grouped by what they do; press any to pick */}
-                <div className="space-y-3">
-                  <InputGroup
-                    tone="image"
-                    icon={<ImagePlus size={15} />}
-                    title="Exact frames"
-                    pill="2 images"
-                    count={(board.firstFrame ? 1 : 0) + (board.lastFrame ? 1 : 0)}
-                    cap={2}
-                    desc="F1: the clip opens exactly on this picture. F2 (optional): it lands on this one — reveals & transforms."
-                    fileTypes="JPG · PNG · WebP"
-                    dim={board.refs.length + board.refVideos.length > 0}
-                  >
-                    <div className="flex flex-wrap gap-1.5">
+                <SlotRow
+                  tone="video"
+                  icon={<Film size={12} />}
+                  label="Videos"
+                  count={board.refVideos.length}
+                  cap={REF_VIDEO_LIMIT}
+                  dim={!!board.firstFrame}
+                >
+                  {Array.from({ length: REF_VIDEO_LIMIT }).map((_, i) => (
+                    <SlotSquare
+                      key={`rv-${i}`}
+                      asset={refVideoAssets[i] ?? null}
+                      tag={`V${i + 1}`}
+                      wide
+                      isNext={i === refVideoAssets.length}
+                      highlight={dragZone === 'refVideos'}
+                      onPress={() => setBoardPickZone('refVideos')}
+                      onRemove={() => refVideoAssets[i] && removeFromBoard('refVideos', refVideoAssets[i].id)}
+                      {...zoneDropProps('refVideos')}
+                    />
+                  ))}
+                </SlotRow>
+
+                <SlotRow
+                  tone="audio"
+                  icon={<Music size={12} />}
+                  label="Sound"
+                  count={board.influences.length}
+                  cap={STYLE_LIMIT}
+                >
+                  {Array.from({ length: STYLE_LIMIT }).map((_, i) => {
+                    const id = board.influences[i];
+                    const a = id ? byId[id] ?? null : null;
+                    return (
                       <SlotSquare
-                        asset={board.firstFrame ? byId[board.firstFrame] ?? null : null}
-                        tag="F1"
-                        wide
-                        isNext
-                        emptyLabel="F1 · first"
-                        highlight={dragZone === 'firstFrame'}
-                        onPress={() => setBoardPickZone('firstFrame')}
-                        onRemove={() => removeFromBoard('firstFrame')}
-                        {...zoneDropProps('firstFrame')}
+                        key={`in-${i}`}
+                        asset={a}
+                        tag={`A${i + 1}`}
+                        isNext={i === board.influences.length}
+                        highlight={dragZone === 'influences'}
+                        onPress={() => setBoardPickZone('influences')}
+                        onRemove={() => id && removeFromBoard('influences', id)}
+                        {...zoneDropProps('influences')}
                       />
-                      <SlotSquare
-                        asset={board.lastFrame ? byId[board.lastFrame] ?? null : null}
-                        tag="F2"
-                        wide
-                        isNext
-                        disabled={!board.firstFrame}
-                        emptyLabel={board.firstFrame ? 'F2 · last' : 'F2 · needs F1'}
-                        highlight={dragZone === 'lastFrame'}
-                        onPress={() => setBoardPickZone('lastFrame')}
-                        onRemove={() => removeFromBoard('lastFrame')}
-                        {...zoneDropProps('lastFrame')}
-                      />
-                    </div>
-                  </InputGroup>
+                    );
+                  })}
+                </SlotRow>
 
-                  <div className="flex items-center gap-3">
-                    <span className="h-px flex-1 bg-line" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-faint">or</span>
-                    <span className="h-px flex-1 bg-line" />
-                  </div>
-
-                  <InputGroup
-                    tone="image"
-                    icon={<ImageIcon size={15} />}
-                    title="Reference images"
-                    pill={`up to ${REF_IMAGE_LIMIT}`}
-                    count={board.refs.length}
-                    cap={REF_IMAGE_LIMIT}
-                    desc="Faces, products, outfits, places the model copies. Reference them in the prompt as #I1–#I9."
-                    fileTypes="JPG · PNG · WebP"
-                    dim={!!board.firstFrame}
-                  >
-                    <div className="flex flex-wrap gap-1.5">
-                      {Array.from({ length: REF_IMAGE_LIMIT }).map((_, i) => (
-                        <SlotSquare
-                          key={`ri-${i}`}
-                          asset={refImageAssets[i] ?? null}
-                          tag={`I${i + 1}`}
-                          isNext={i === refImageAssets.length}
-                          highlight={dragZone === 'refs'}
-                          onPress={() => setBoardPickZone('refs')}
-                          onRemove={() => refImageAssets[i] && removeFromBoard('refs', refImageAssets[i].id)}
-                          {...zoneDropProps('refs')}
-                        />
-                      ))}
-                    </div>
-                  </InputGroup>
-
-                  <InputGroup
-                    tone="video"
-                    icon={<Film size={15} />}
-                    title="Reference videos"
-                    pill={`up to ${REF_VIDEO_LIMIT}`}
-                    count={board.refVideos.length}
-                    cap={REF_VIDEO_LIMIT}
-                    desc="Clips whose motion and energy the model imitates. Reference them as #V1–#V3."
-                    fileTypes="MP4 · MOV"
-                    dim={!!board.firstFrame}
-                  >
-                    <div className="flex flex-wrap gap-1.5">
-                      {Array.from({ length: REF_VIDEO_LIMIT }).map((_, i) => (
-                        <SlotSquare
-                          key={`rv-${i}`}
-                          asset={refVideoAssets[i] ?? null}
-                          tag={`V${i + 1}`}
-                          wide
-                          isNext={i === refVideoAssets.length}
-                          highlight={dragZone === 'refVideos'}
-                          onPress={() => setBoardPickZone('refVideos')}
-                          onRemove={() => refVideoAssets[i] && removeFromBoard('refVideos', refVideoAssets[i].id)}
-                          {...zoneDropProps('refVideos')}
-                        />
-                      ))}
-                    </div>
-                  </InputGroup>
-
-                  <InputGroup
-                    tone="audio"
-                    icon={<Music size={15} />}
-                    title="Sound & style"
-                    pill={`up to ${STYLE_LIMIT}`}
-                    count={board.influences.length}
-                    cap={STYLE_LIMIT}
-                    desc="Audio, dances or any asset — its description is woven into the prompt as #A1–#A5. Nothing is uploaded."
-                    fileTypes="Text only — no file sent"
-                  >
-                    <div className="flex flex-wrap gap-1.5">
-                      {Array.from({ length: STYLE_LIMIT }).map((_, i) => {
-                        const id = board.influences[i];
-                        const a = id ? byId[id] ?? null : null;
-                        return (
-                          <SlotSquare
-                            key={`in-${i}`}
-                            asset={a}
-                            tag={`A${i + 1}`}
-                            isNext={i === board.influences.length}
-                            highlight={dragZone === 'influences'}
-                            onPress={() => setBoardPickZone('influences')}
-                            onRemove={() => id && removeFromBoard('influences', id)}
-                            {...zoneDropProps('influences')}
-                          />
-                        );
-                      })}
-                    </div>
-                  </InputGroup>
-                </div>
+                <SlotRow
+                  tone="image"
+                  icon={<ImagePlus size={12} />}
+                  label="Start / end frame"
+                  count={(board.firstFrame ? 1 : 0) + (board.lastFrame ? 1 : 0)}
+                  cap={2}
+                  dim={board.refs.length + board.refVideos.length > 0}
+                >
+                  <SlotSquare
+                    asset={board.firstFrame ? byId[board.firstFrame] ?? null : null}
+                    tag="F1"
+                    wide
+                    isNext
+                    emptyLabel="F1"
+                    highlight={dragZone === 'firstFrame'}
+                    onPress={() => setBoardPickZone('firstFrame')}
+                    onRemove={() => removeFromBoard('firstFrame')}
+                    {...zoneDropProps('firstFrame')}
+                  />
+                  <SlotSquare
+                    asset={board.lastFrame ? byId[board.lastFrame] ?? null : null}
+                    tag="F2"
+                    wide
+                    isNext
+                    disabled={!board.firstFrame}
+                    emptyLabel="F2"
+                    highlight={dragZone === 'lastFrame'}
+                    onPress={() => setBoardPickZone('lastFrame')}
+                    onRemove={() => removeFromBoard('lastFrame')}
+                    {...zoneDropProps('lastFrame')}
+                  />
+                </SlotRow>
               </div>
-            )}
-
-            {modality === "image" && (
-              <div className="mt-1 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            ) : (
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {orderedClasses.map((key) => (
                   <SlotCard
                     key={key}
@@ -925,118 +761,46 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 ))}
               </div>
             )}
-
-            {pickedCount > 0 && finalPrompt && (
-              <div className="mt-3 rounded-xl border border-line bg-surface-2 p-3">
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
-                  What the model will be told
-                </div>
-                <p className="text-[13px] leading-relaxed text-muted">{finalPrompt}</p>
-              </div>
-            )}
           </div>
 
-          {/* Spec — the technical panel, always open */}
-          <div className="mt-5 border-t border-line pt-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">
-              {modality === "video" ? "Video spec" : "Image spec"}
+          {/* Format — kept minimal */}
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-4">
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
+              {["16:9", "9:16", "1:1"].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setAspectRatio(r)}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    aspectRatio === r
+                      ? "border-accent bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-line-2",
+                  )}
+                >
+                  {r}
+                </button>
+              ))}
             </div>
-            <div className="space-y-4 rounded-2xl bg-[#0d0d15] p-4">
-              {/* Aspect — three standards, described, plus custom */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-white/60">Aspect ratio</label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[
-                    { v: "16:9", label: "16:9 · Widescreen", desc: "YouTube · web · TV" },
-                    { v: "9:16", label: "9:16 · Vertical", desc: "TikTok · Reels · Shorts" },
-                    { v: "1:1", label: "1:1 · Square", desc: "Feeds & profiles" },
-                  ].map((a) => (
-                    <button
-                      key={a.v}
-                      onClick={() => setAspectRatio(a.v)}
-                      className={cn(
-                        "rounded-xl border px-3 py-2 text-left transition-colors",
-                        aspectRatio === a.v
-                          ? "border-accent bg-accent/20"
-                          : "border-white/10 bg-white/5 hover:border-white/25",
-                      )}
-                    >
-                      <span className="block text-[12.5px] font-semibold text-white">{a.label}</span>
-                      <span className="block text-[10.5px] text-white/50">{a.desc}</span>
-                    </button>
-                  ))}
-                  <div
+            {modality === "video" && (
+              <div className="flex items-center gap-1.5">
+                <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDurationSec(d)}
                     className={cn(
-                      "rounded-xl border px-3 py-2 transition-colors",
-                      !["16:9", "9:16", "1:1"].includes(aspectRatio)
-                        ? "border-accent bg-accent/20"
-                        : "border-white/10 bg-white/5",
+                      "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                      durationSec === d
+                        ? "border-accent bg-accent-soft text-fg"
+                        : "border-line text-muted hover:border-line-2",
                     )}
                   >
-                    <span className="block text-[12.5px] font-semibold text-white">Custom</span>
-                    <input
-                      value={["16:9", "9:16", "1:1"].includes(aspectRatio) ? "" : aspectRatio}
-                      onChange={(e) => setAspectRatio(e.target.value.trim() || "16:9")}
-                      placeholder="e.g. 21:9"
-                      className="mt-0.5 w-full bg-transparent text-[11px] text-white/80 placeholder:text-white/35 focus:outline-none"
-                    />
-                  </div>
-                </div>
-                {!aspectValid && (
-                  <p className="mt-1.5 text-[11px] text-danger">
-                    Custom ratio must look like W:H — e.g. 21:9 or 4:3.
-                  </p>
-                )}
+                    {d}s
+                  </button>
+                ))}
               </div>
-
-              {modality === "video" && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {/* Duration */}
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-white/60">
-                      Duration <span className="text-white/35">· 4–15s supported</span>
-                    </label>
-                    <Segmented<number>
-                      value={durationSec}
-                      onChange={setDurationSec}
-                      options={DURATIONS.map((d) => ({ value: d, label: `${d}s` }))}
-                    />
-                  </div>
-                  {/* Resolution — real: sent to the model */}
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-white/60">
-                      Resolution <span className="text-white/35">· up to {getModel(modelId).arkResolution}</span>
-                    </label>
-                    <Segmented<string>
-                      value={resolution}
-                      onChange={setResolution}
-                      options={["480p", "720p", "1080p"]
-                        .slice(
-                          0,
-                          ["480p", "720p", "1080p"].indexOf(getModel(modelId).arkResolution ?? "720p") + 1,
-                        )
-                        .map((r) => ({
-                          value: r,
-                          label: r,
-                          hint: r === "480p" ? "draft" : r === "720p" ? "HD" : "Full HD",
-                        }))}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {modality === "video" && (
-                <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5">
-                  <span className="text-sm font-medium text-white">
-                    Native audio
-                    <span className="ml-2 text-[11px] font-normal text-white/45">
-                      the model generates sound with the clip
-                    </span>
-                  </span>
-                  <Toggle checked={audio} onChange={setAudio} />
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Generate */}
