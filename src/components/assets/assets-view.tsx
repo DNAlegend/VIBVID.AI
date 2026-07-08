@@ -4,9 +4,6 @@ import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Upload,
-  FolderOpen,
-  Plus,
-  MoreHorizontal,
   Pencil,
   Trash2,
   Sparkles,
@@ -15,13 +12,17 @@ import {
   Image as ImageIcon,
   TextQuote,
   Layers,
+  Check,
+  ChevronLeft,
+  FolderPlus,
+  X,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-import type { Asset, AssetKind } from "@/lib/types";
+import type { Asset, AssetKind, Category } from "@/lib/types";
 import { isComposite } from "@/lib/types";
-import { cn, formatBytes, timeAgo, pluralize } from "@/lib/utils";
-import { Button, Card, Badge, EmptyState, Modal, TextInput } from "@/components/ui";
-import { CompositeBadge } from "@/components/shared";
+import { cn, timeAgo } from "@/lib/utils";
+import { Button, EmptyState, Modal, TextInput } from "@/components/ui";
+import { AssetThumb } from "@/components/shared";
 
 const MAX_BYTES = 8 * 1024 * 1024; // keep within browser storage for the demo
 
@@ -33,7 +34,8 @@ const kindIcon: Record<AssetKind, typeof ImageIcon> = {
 };
 
 /** The raw type buckets the library is organized into — nothing fancier. */
-const TYPE_ROWS: { key: AssetKind; label: string }[] = [
+const TYPE_CHIPS: { key: AssetKind | "all"; label: string }[] = [
+  { key: "all", label: "All" },
   { key: "video", label: "Videos" },
   { key: "image", label: "Pictures" },
   { key: "audio", label: "Sound" },
@@ -76,22 +78,56 @@ function readAsDataURL(file: File): Promise<string> {
 export function AssetsView() {
   const router = useRouter();
   const assets = useStore((s) => s.assets);
+  const categories = useStore((s) => s.categories);
   const hydrated = useStore((s) => s.hasHydrated);
   const addAsset = useStore((s) => s.addAsset);
+  const addCategory = useStore((s) => s.addCategory);
+  const renameCategory = useStore((s) => s.renameCategory);
+  const removeCategory = useStore((s) => s.removeCategory);
+  const moveAsset = useStore((s) => s.moveAsset);
+  const removeAsset = useStore((s) => s.removeAsset);
   const setDraftRef = useStore((s) => s.setDraftRef);
 
-  const [selected, setSelected] = useState<AssetKind | "all">("all");
+  const [filter, setFilter] = useState<AssetKind | "all">("all");
+  const [openCol, setOpenCol] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [sel, setSel] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
   const [newPromptOpen, setNewPromptOpen] = useState(false);
+  const [collectFor, setCollectFor] = useState<string[] | null>(null); // asset ids picking a collection
+  const [actionAsset, setActionAsset] = useState<Asset | null>(null);
+  const [renameColOpen, setRenameColOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const filtered = useMemo(
-    () => assets.filter((a) => selected === "all" || a.kind === selected),
-    [assets, selected],
-  );
+  const colIds = useMemo(() => new Set(categories.map((c) => c.id)), [categories]);
+  const openColMeta = openCol ? categories.find((c) => c.id === openCol) ?? null : null;
+
+  // The collection was deleted (possibly from another tab) — fall back home.
+  useEffect(() => {
+    if (openCol && !colIds.has(openCol)) setOpenCol(null);
+  }, [openCol, colIds]);
+
+  const inCollection = (id: string) => assets.filter((a) => a.categoryId === id);
+
+  /** Tiles for the current view. Home ("All") hides collection members — they live in their folder. */
+  const visible = useMemo(() => {
+    if (openCol) return assets.filter((a) => a.categoryId === openCol);
+    if (filter !== "all") return assets.filter((a) => a.kind === filter);
+    return assets.filter((a) => !a.categoryId || !colIds.has(a.categoryId));
+  }, [assets, filter, openCol, colIds]);
+
   const countFor = (key: AssetKind | "all") =>
     key === "all" ? assets.length : assets.filter((a) => a.kind === key).length;
+
+  function exitSelect() {
+    setSelecting(false);
+    setSel([]);
+  }
+
+  function toggleSel(id: string) {
+    setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
 
   async function ingest(files: FileList | File[]) {
     let skipped = 0;
@@ -113,7 +149,7 @@ export function AssetsView() {
         kind,
         url,
         posterUrl: kind === "image" ? url : undefined,
-        categoryId: null,
+        categoryId: openCol, // uploading inside a collection files it there
         source: "upload",
       });
     }
@@ -128,23 +164,23 @@ export function AssetsView() {
     if (e.dataTransfer.files?.length) ingest(e.dataTransfer.files);
   }
 
-  if (!hydrated) return <div className="mx-auto h-8 max-w-6xl w-40 rounded bg-surface-2" />;
+  if (!hydrated) return <div className="mx-auto h-8 max-w-5xl w-40 rounded bg-surface-2" />;
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Assets</h1>
-          <p className="mt-1 text-sm text-muted">
-            Everything you work with — videos, pictures, sound and prompts.
-          </p>
-        </div>
+    <div className="mx-auto max-w-5xl">
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Assets</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setNewPromptOpen(true)}>
-            <TextQuote size={16} /> New prompt
+          {assets.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => (selecting ? exitSelect() : setSelecting(true))}>
+              {selecting ? "Done" : "Select"}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setNewPromptOpen(true)}>
+            <TextQuote size={15} /> New prompt
           </Button>
-          <Button onClick={() => fileRef.current?.click()}>
-            <Upload size={16} /> Upload
+          <Button size="sm" onClick={() => fileRef.current?.click()}>
+            <Upload size={15} /> Upload
           </Button>
         </div>
         <input
@@ -157,95 +193,169 @@ export function AssetsView() {
         />
       </header>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-[230px_1fr]">
-        {/* Rail */}
-        <aside className="space-y-3">
-          <div className="space-y-1">
-            <CatRow
-              label="All assets"
-              icon={<FolderOpen size={16} />}
-              count={countFor("all")}
-              active={selected === "all"}
-              onClick={() => setSelected("all")}
-            />
-            {TYPE_ROWS.map((t) => {
-              const Icon = kindIcon[t.key];
-              return (
-                <CatRow
-                  key={t.key}
-                  label={t.label}
-                  icon={<Icon size={16} />}
-                  count={countFor(t.key)}
-                  active={selected === t.key}
-                  onClick={() => setSelected(t.key)}
-                />
-              );
-            })}
-          </div>
-        </aside>
-
-        {/* Grid */}
-        <section
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-          className={cn(
-            "rounded-[var(--radius-xl2)] transition-colors",
-            dragOver && "outline-2 outline-dashed outline-accent/60",
-          )}
-        >
-          {warn && (
-            <div className="mb-3 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
-              {warn}
-            </div>
-          )}
-
-          {filtered.length === 0 ? (
-            assets.length === 0 && selected === "all" ? (
-              <StartHere
-                onUpload={() => fileRef.current?.click()}
-                onNewPrompt={() => setNewPromptOpen(true)}
-              />
-            ) : (
-              <EmptyState
-                icon={selected === "prompt" ? <TextQuote size={24} /> : <Upload size={24} />}
-                title={EMPTY_HINTS[selected].title}
-                description={EMPTY_HINTS[selected].desc}
-                action={
-                  selected === "prompt" ? (
-                    <Button variant="soft" onClick={() => setNewPromptOpen(true)}>
-                      <TextQuote size={16} /> New prompt
-                    </Button>
-                  ) : (
-                    <Button variant="soft" onClick={() => fileRef.current?.click()}>
-                      <Upload size={16} /> Upload files
-                    </Button>
-                  )
+      {/* Inside a collection: back + name + manage. Home: type chips. */}
+      {openColMeta ? (
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            onClick={() => { setOpenCol(null); exitSelect(); }}
+            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            <ChevronLeft size={16} /> Library
+          </button>
+          <h2 className="text-[15px] font-semibold">{openColMeta.name}</h2>
+          <span className="text-xs text-faint">{inCollection(openColMeta.id).length}</span>
+          <span className="ml-auto flex items-center gap-1">
+            <button
+              onClick={() => setRenameColOpen(true)}
+              className="rounded-lg p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-fg"
+              aria-label="Rename collection"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={() => {
+                if (confirm(`Delete “${openColMeta.name}”? Its items go back to the library.`)) {
+                  removeCategory(openColMeta.id);
+                  setOpenCol(null);
                 }
+              }}
+              className="rounded-lg p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-danger"
+              aria-label="Delete collection"
+            >
+              <Trash2 size={14} />
+            </button>
+          </span>
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          {TYPE_CHIPS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setFilter(t.key)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors",
+                filter === t.key
+                  ? "border-accent/40 bg-accent-soft text-fg"
+                  : "border-line text-muted hover:border-faint hover:text-fg",
+              )}
+            >
+              {t.label} <span className="text-faint">{countFor(t.key)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <section
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        className={cn(
+          "min-h-[300px] rounded-[var(--radius-xl2)] transition-colors",
+          dragOver && "outline-2 outline-dashed outline-accent/60",
+        )}
+      >
+        {warn && (
+          <div className="mb-3 rounded-xl border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
+            {warn}
+          </div>
+        )}
+
+        {assets.length === 0 ? (
+          <StartHere onUpload={() => fileRef.current?.click()} onNewPrompt={() => setNewPromptOpen(true)} />
+        ) : openCol && visible.length === 0 ? (
+          <EmptyState
+            icon={<Layers size={24} />}
+            title="Empty collection"
+            description="Upload here to file things directly into it, or go back, hit Select, and add existing assets."
+            action={
+              <Button variant="soft" onClick={() => fileRef.current?.click()}>
+                <Upload size={16} /> Upload into this collection
+              </Button>
+            }
+          />
+        ) : !openCol && visible.length === 0 && (filter !== "all" || categories.length === 0) ? (
+          <EmptyState
+            icon={filter === "prompt" ? <TextQuote size={24} /> : <Upload size={24} />}
+            title={EMPTY_HINTS[filter].title}
+            description={EMPTY_HINTS[filter].desc}
+            action={
+              filter === "prompt" ? (
+                <Button variant="soft" onClick={() => setNewPromptOpen(true)}>
+                  <TextQuote size={16} /> New prompt
+                </Button>
+              ) : (
+                <Button variant="soft" onClick={() => fileRef.current?.click()}>
+                  <Upload size={16} /> Upload files
+                </Button>
+              )
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7">
+            {!openCol &&
+              filter === "all" &&
+              categories.map((c) => (
+                <FolderTile
+                  key={c.id}
+                  c={c}
+                  items={inCollection(c.id)}
+                  dimmed={selecting}
+                  onOpen={() => !selecting && setOpenCol(c.id)}
+                />
+              ))}
+            {visible.map((a) => (
+              <IconTile
+                key={a.id}
+                a={a}
+                selecting={selecting}
+                selected={sel.includes(a.id)}
+                onClick={() => (selecting ? toggleSel(a.id) : setActionAsset(a))}
               />
-            )
-          ) : (
-            <>
-              <div className="mb-3 text-xs text-faint">{pluralize(filtered.length, "asset")}</div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {filtered.map((a) => (
-                  <AssetCard
-                    key={a.id}
-                    asset={a}
-                    onUse={() => {
-                      setDraftRef(a.id);
-                      router.push("/app");
-                    }}
-                  />
-                ))}
-              </div>
-            </>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Selection action bar */}
+      {selecting && sel.length > 0 && (
+        <div className="animate-rise fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-line bg-surface px-2 py-1.5 shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)] md:bottom-6">
+          <span className="px-2 text-sm font-medium tabular-nums">{sel.length} selected</span>
+          <Button size="sm" variant="soft" onClick={() => setCollectFor(sel)}>
+            <FolderPlus size={15} /> Collect
+          </Button>
+          {openCol && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                sel.forEach((id) => moveAsset(id, null));
+                exitSelect();
+              }}
+            >
+              Remove
+            </Button>
           )}
-        </section>
-      </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-danger"
+            onClick={() => {
+              if (confirm(`Delete ${sel.length} asset${sel.length > 1 ? "s" : ""}? This can't be undone.`)) {
+                sel.forEach((id) => removeAsset(id));
+                exitSelect();
+              }
+            }}
+          >
+            <Trash2 size={15} />
+          </Button>
+          <button onClick={exitSelect} className="rounded-lg p-1.5 text-faint hover:text-fg" aria-label="Cancel selection">
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       <NewPromptModal
         open={newPromptOpen}
@@ -255,17 +365,151 @@ export function AssetsView() {
             name,
             kind: "prompt",
             url: "",
-            categoryId: null,
+            categoryId: openCol,
             source: "upload",
             promptFragment: text,
           });
-          setSelected("prompt");
           setNewPromptOpen(false);
+        }}
+      />
+
+      <CollectModal
+        open={collectFor !== null}
+        collections={categories}
+        countFor={(id) => inCollection(id).length}
+        onClose={() => setCollectFor(null)}
+        onPick={(catId) => {
+          (collectFor ?? []).forEach((id) => moveAsset(id, catId));
+          setCollectFor(null);
+          exitSelect();
+        }}
+        onCreate={(name) => {
+          const cat = addCategory(name);
+          (collectFor ?? []).forEach((id) => moveAsset(id, cat.id));
+          setCollectFor(null);
+          exitSelect();
+        }}
+      />
+
+      {actionAsset && (
+        <AssetActions
+          asset={actionAsset}
+          onClose={() => setActionAsset(null)}
+          onUse={() => {
+            setDraftRef(actionAsset.id);
+            router.push("/app");
+          }}
+          onCollect={() => {
+            setCollectFor([actionAsset.id]);
+            setActionAsset(null);
+          }}
+        />
+      )}
+
+      <RenameModal
+        open={renameColOpen}
+        initial={openColMeta?.name ?? ""}
+        onClose={() => setRenameColOpen(false)}
+        onSubmit={(name) => {
+          if (openCol) renameCategory(openCol, name);
+          setRenameColOpen(false);
         }}
       />
     </div>
   );
 }
+
+/* --------------------------------- Tiles --------------------------------- */
+
+function IconTile({
+  a,
+  selecting,
+  selected,
+  onClick,
+}: {
+  a: Asset;
+  selecting: boolean;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const Icon = kindIcon[a.kind];
+  return (
+    <button onClick={onClick} className="group text-center">
+      <span
+        className={cn(
+          "relative block aspect-square w-full overflow-hidden rounded-2xl border bg-surface-2 transition-all",
+          selected ? "border-accent ring-2 ring-accent/40" : "border-line group-hover:border-faint",
+        )}
+      >
+        {a.kind === "prompt" ? (
+          <span className="flex h-full w-full items-center justify-center bg-accent-soft text-accent-2">
+            <TextQuote size={20} />
+          </span>
+        ) : (
+          <AssetThumb a={a} className="h-full w-full" />
+        )}
+        {a.kind !== "prompt" && (
+          <span className="absolute bottom-1 right-1 rounded-md bg-black/55 p-[3px] text-white">
+            <Icon size={9} />
+          </span>
+        )}
+        {selecting && (
+          <span
+            className={cn(
+              "absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border",
+              selected ? "border-accent bg-accent text-white" : "border-white/70 bg-black/25 backdrop-blur-sm",
+            )}
+          >
+            {selected && <Check size={12} />}
+          </span>
+        )}
+      </span>
+      <span className="mt-1 block truncate text-[11px] text-muted">{a.name}</span>
+    </button>
+  );
+}
+
+/** iPhone-folder-style tile: a mini grid of the collection's first items. */
+function FolderTile({
+  c,
+  items,
+  dimmed,
+  onOpen,
+}: {
+  c: Category;
+  items: Asset[];
+  dimmed: boolean;
+  onOpen: () => void;
+}) {
+  const previews = items.slice(0, 4);
+  return (
+    <button onClick={onOpen} className={cn("group text-center", dimmed && "cursor-default opacity-40")}>
+      <span className="block aspect-square w-full rounded-2xl border border-line bg-surface-3/60 p-1.5 transition-colors group-hover:border-faint">
+        <span className="grid h-full w-full grid-cols-2 grid-rows-2 gap-1">
+          {Array.from({ length: 4 }).map((_, i) =>
+            previews[i] ? (
+              <span key={i} className="overflow-hidden rounded-lg bg-surface-2">
+                {previews[i].kind === "prompt" ? (
+                  <span className="flex h-full w-full items-center justify-center bg-accent-soft text-accent-2">
+                    <TextQuote size={11} />
+                  </span>
+                ) : (
+                  <AssetThumb a={previews[i]} className="h-full w-full" />
+                )}
+              </span>
+            ) : (
+              <span key={i} className="rounded-lg bg-surface-2/70" />
+            ),
+          )}
+        </span>
+      </span>
+      <span className="mt-1 block truncate text-[11px] font-medium text-fg">{c.name}</span>
+      <span className="block text-[10px] tabular-nums text-faint">{items.length}</span>
+    </button>
+  );
+}
+
+/* --------------------------- First-run guidance --------------------------- */
 
 /** First-run guide: the library is empty by design — show how to fill it. */
 function StartHere({ onUpload, onNewPrompt }: { onUpload: () => void; onNewPrompt: () => void }) {
@@ -306,7 +550,8 @@ function StartHere({ onUpload, onNewPrompt }: { onUpload: () => void; onNewPromp
         <p className="mx-auto mt-1.5 max-w-lg text-[13.5px] leading-relaxed text-muted">
           Assets are the raw material your videos are made from. Three ways to add them: upload
           files (or drag &amp; drop anywhere on this page), save something you generated in{" "}
-          <span className="font-medium text-fg">Video</span>, or write a reusable prompt.
+          <span className="font-medium text-fg">Video</span>, or write a reusable prompt. Then
+          group anything into collections — select a few items and hit Collect.
         </p>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -327,6 +572,195 @@ function StartHere({ onUpload, onNewPrompt }: { onUpload: () => void; onNewPromp
         ))}
       </div>
     </div>
+  );
+}
+
+/* --------------------------------- Modals -------------------------------- */
+
+/** Pick an existing collection or create a new one for the given assets. */
+function CollectModal({
+  open,
+  collections,
+  countFor,
+  onClose,
+  onPick,
+  onCreate,
+}: {
+  open: boolean;
+  collections: Category[];
+  countFor: (id: string) => number;
+  onClose: () => void;
+  onPick: (catId: string) => void;
+  onCreate: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  useEffect(() => {
+    if (open) setName("");
+  }, [open]);
+  return (
+    <Modal open={open} onClose={onClose} title="Add to collection" size="sm">
+      {collections.length > 0 && (
+        <div className="mb-4 space-y-1">
+          {collections.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => onPick(c.id)}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-fg transition-colors hover:bg-surface-2"
+            >
+              <span className="flex items-center gap-2.5">
+                <Layers size={16} className="text-faint" /> {c.name}
+              </span>
+              <span className="text-xs tabular-nums text-faint">{countFor(c.id)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim()) onCreate(name.trim());
+        }}
+        className="flex gap-2"
+      >
+        <TextInput
+          autoFocus={collections.length === 0}
+          value={name}
+          placeholder="New collection — e.g. Spring campaign"
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Button type="submit" size="sm" disabled={!name.trim()}>
+          <FolderPlus size={15} /> Create
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+function AssetActions({
+  asset,
+  onClose,
+  onUse,
+  onCollect,
+}: {
+  asset: Asset;
+  onClose: () => void;
+  onUse: () => void;
+  onCollect: () => void;
+}) {
+  const removeAsset = useStore((s) => s.removeAsset);
+  const renameAsset = useStore((s) => s.renameAsset);
+  const [mode, setMode] = useState<"menu" | "rename">("menu");
+  const [name, setName] = useState(asset.name);
+
+  return (
+    <Modal open onClose={onClose} title={mode === "rename" ? "Rename asset" : asset.name} size="sm">
+      {mode === "menu" && (
+        <div className="space-y-1">
+          <div className="mb-2 flex items-center gap-1.5 px-1 text-[11.5px] text-faint">
+            <span className="capitalize">{asset.kind}</span>
+            <span>·</span>
+            {timeAgo(asset.createdAt)}
+            {isComposite(asset) && (
+              <>
+                <span>·</span>
+                <Layers size={11} /> {asset.parts!.length} parts
+              </>
+            )}
+          </div>
+          {asset.kind === "prompt" && asset.promptFragment && (
+            <p className="mb-2 rounded-xl border border-line bg-surface-2 p-3 text-[13px] leading-relaxed text-muted">
+              “{asset.promptFragment}”
+            </p>
+          )}
+          <ActionItem icon={<Sparkles size={16} />} label="Use in Make" onClick={() => { onUse(); onClose(); }} />
+          <ActionItem icon={<FolderPlus size={16} />} label="Add to collection" onClick={onCollect} />
+          <ActionItem icon={<Pencil size={16} />} label="Rename" onClick={() => setMode("rename")} />
+          <ActionItem
+            icon={<Trash2 size={16} />}
+            label="Delete"
+            danger
+            onClick={() => {
+              removeAsset(asset.id);
+              onClose();
+            }}
+          />
+        </div>
+      )}
+
+      {mode === "rename" && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) renameAsset(asset.id, name.trim());
+            onClose();
+          }}
+        >
+          <TextInput value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <div className="mt-4 flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+            <Button type="submit" size="sm">Save</Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
+
+function ActionItem({
+  icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+        danger ? "text-danger hover:bg-danger/10" : "text-fg hover:bg-surface-2",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function RenameModal({
+  open,
+  initial,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  initial: string;
+  onClose: () => void;
+  onSubmit: (name: string) => void;
+}) {
+  const [name, setName] = useState(initial);
+  useEffect(() => {
+    if (open) setName(initial);
+  }, [open, initial]);
+  return (
+    <Modal open={open} onClose={onClose} title="Rename collection" size="sm">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim()) onSubmit(name.trim());
+        }}
+      >
+        <TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm">Save</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -380,200 +814,3 @@ function NewPromptModal({
     </Modal>
   );
 }
-
-function CatRow({
-  label,
-  icon,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
-        active ? "bg-accent-soft text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
-      )}
-    >
-      <button onClick={onClick} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
-        <span className={active ? "text-accent-2" : ""}>{icon}</span>
-        <span className="truncate">{label}</span>
-      </button>
-      <span className="text-xs tabular-nums text-faint">{count}</span>
-    </div>
-  );
-}
-
-function AssetCard({ asset, onUse }: { asset: Asset; onUse: () => void }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const Icon = kindIcon[asset.kind];
-  const composite = isComposite(asset);
-  return (
-    <Card className="group overflow-hidden">
-      <div className="relative aspect-square bg-surface-2">
-        {asset.kind === "image" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={asset.posterUrl ?? asset.url} alt={asset.name} className="h-full w-full object-cover" />
-        ) : asset.kind === "video" ? (
-          asset.posterUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={asset.posterUrl} alt={asset.name} className="h-full w-full object-cover" />
-          ) : (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
-            <video src={asset.url} preload="metadata" muted className="h-full w-full object-cover" />
-          )
-        ) : asset.kind === "prompt" ? (
-          <div className="flex h-full w-full items-start bg-gradient-to-br from-accent-soft to-surface-2 p-3 pt-9">
-            <p className="line-clamp-4 text-[12.5px] leading-relaxed text-fg/80">
-              “{asset.promptFragment}”
-            </p>
-          </div>
-        ) : /\.(svg|png|jpe?g|webp)$/.test(asset.url) ? (
-          // Audio with cover art (starter tracks ship generated album art).
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={asset.url} alt={asset.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface-2 to-surface-3">
-            <Music size={28} className="text-faint" />
-          </div>
-        )}
-        <span className="absolute left-2 top-2 flex gap-1">
-          <Badge tone="neutral" className="bg-black/55 capitalize text-white border-white/20 backdrop-blur-sm">
-            <Icon size={11} /> {asset.kind}
-          </Badge>
-          <CompositeBadge a={asset} />
-        </span>
-        <button
-          onClick={() => setMenuOpen(true)}
-          className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/75 group-hover:opacity-100"
-          aria-label="Asset actions"
-        >
-          <MoreHorizontal size={15} />
-        </button>
-      </div>
-      <div className="p-2.5">
-        <div className="truncate text-[13px] font-medium text-fg">{asset.name}</div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-faint">
-          {composite ? (
-            <>
-              <Layers size={11} /> {asset.parts!.length} parts
-            </>
-          ) : asset.source === "generation" ? (
-            "Generated"
-          ) : asset.source === "starter" ? (
-            "Starter"
-          ) : (
-            formatBytes(asset.sizeBytes)
-          )}
-          <span>·</span>
-          {timeAgo(asset.createdAt)}
-        </div>
-      </div>
-      <AssetActions asset={asset} open={menuOpen} onClose={() => setMenuOpen(false)} onUse={onUse} />
-    </Card>
-  );
-}
-
-function AssetActions({
-  asset,
-  open,
-  onClose,
-  onUse,
-}: {
-  asset: Asset;
-  open: boolean;
-  onClose: () => void;
-  onUse: () => void;
-}) {
-  const removeAsset = useStore((s) => s.removeAsset);
-  const renameAsset = useStore((s) => s.renameAsset);
-  const [mode, setMode] = useState<"menu" | "rename">("menu");
-  const [name, setName] = useState(asset.name);
-
-  function close() {
-    setMode("menu");
-    onClose();
-  }
-
-  return (
-    <Modal open={open} onClose={close} title={mode === "rename" ? "Rename asset" : asset.name} size="sm">
-      {mode === "menu" && (
-        <div className="space-y-1">
-          {isComposite(asset) && (
-            <div className="mb-2 rounded-xl border border-line bg-surface-2 p-3">
-              <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
-                <Layers size={12} /> Composite — {asset.parts!.length} parts
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {asset.parts!.map((p, i) => (
-                  <Badge key={i} tone="neutral" className="capitalize">
-                    {p.role}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          <ActionItem icon={<Sparkles size={16} />} label="Use in Make" onClick={() => { onUse(); close(); }} />
-          <ActionItem icon={<Pencil size={16} />} label="Rename" onClick={() => setMode("rename")} />
-          <ActionItem
-            icon={<Trash2 size={16} />}
-            label="Delete"
-            danger
-            onClick={() => {
-              removeAsset(asset.id);
-              close();
-            }}
-          />
-        </div>
-      )}
-
-      {mode === "rename" && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (name.trim()) renameAsset(asset.id, name.trim());
-            close();
-          }}
-        >
-          <TextInput value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          <div className="mt-4 flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={close}>Cancel</Button>
-            <Button type="submit" size="sm">Save</Button>
-          </div>
-        </form>
-      )}
-    </Modal>
-  );
-}
-
-function ActionItem({
-  icon,
-  label,
-  onClick,
-  danger,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
-        danger ? "text-danger hover:bg-danger/10" : "text-fg hover:bg-surface-2",
-      )}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
