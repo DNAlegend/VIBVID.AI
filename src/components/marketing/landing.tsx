@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
-import { LogoMark } from "@/components/logo";
+import { LogoMark, LogoWordmark } from "@/components/logo";
 import { HERO, HERO_CHIPS, HERO_PROMPT, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
 import { DEMO_CONTENT, generatedSrc, type DemoItem } from "@/lib/demo-content";
 
@@ -79,7 +79,7 @@ function Brand() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <LogoMark size={36} className="drop-shadow-[0_6px_14px_rgba(124,108,255,0.45)]" />
-      <span className="text-[17px] font-extrabold tracking-tight text-fg">MightyMak</span>
+      <LogoWordmark />
     </Link>
   );
 }
@@ -92,10 +92,10 @@ function Header() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Brand />
         <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
+          <a href="#pricing" className="transition-colors hover:text-fg">Pricing</a>
           <a href="#features" className="transition-colors hover:text-fg">Features</a>
           <a href="#usecases" className="transition-colors hover:text-fg">Use cases</a>
           <a href="#showcase" className="transition-colors hover:text-fg">Showcase</a>
-          <a href="#pricing" className="transition-colors hover:text-fg">Pricing</a>
         </nav>
         <div className="flex items-center gap-2">
           <CTA href={APP} variant="soft" size="md" className="hidden sm:inline-flex">Sign in</CTA>
@@ -121,7 +121,7 @@ function Hero() {
         <div className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[12px] font-medium text-muted">
           <Sparkles size={13} className="text-accent-2" /> Powered by our own MightyMak engine
         </div>
-        <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-bold leading-[1.07] tracking-tight sm:text-6xl">
+        <h1 className="font-display mx-auto mt-5 max-w-4xl text-4xl font-bold leading-[1.07] tracking-tight sm:text-[56px]">
           Your AI video &amp; image studio,
           <br className="hidden sm:block" /> <span className="gradient-text">one prompt away.</span>
         </h1>
@@ -133,8 +133,8 @@ function Hero() {
           <CTA href={APP}>
             <Sparkles size={18} /> Start creating free
           </CTA>
-          <CTA href="#how" variant="outline">
-            See how it works <ArrowRight size={16} />
+          <CTA href="#pricing" variant="outline">
+            See plans &amp; pricing <ArrowRight size={16} />
           </CTA>
         </div>
         <p className="mt-3 text-[13px] text-faint">No credit card needed · your first video is free</p>
@@ -224,7 +224,7 @@ function Features() {
   return (
     <section id="features" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">One studio, the whole pipeline</h2>
+        <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">One studio, the whole pipeline</h2>
         <p className="mt-3 text-[17px] text-muted">From raw brand assets to finished, managed content — without juggling five different tools.</p>
       </div>
       <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -253,7 +253,7 @@ function Steps() {
     <section id="how" className="border-y border-line bg-surface-2/40">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">From idea to output in three steps</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">From idea to output in three steps</h2>
           <p className="mt-3 text-[17px] text-muted">Simple enough for a first-timer, deep enough for a real production.</p>
         </div>
         <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -323,7 +323,7 @@ function UseCases() {
     <section id="usecases" className="border-y border-line bg-surface-2/40">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Every format, one prompt</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Every format, one prompt</h2>
           <p className="mt-3 text-[17px] text-muted">
             Vertical UGC ads, product films, fashion, brand spots — these are the exact prompts.
             Tap one to open it in the studio and make it yours.
@@ -344,7 +344,7 @@ function Showcase() {
     <section id="showcase" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
         <Badge tone="accent" className="mb-3">Made with MightyMak</Badge>
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Output that looks the part</h2>
+        <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Output that looks the part</h2>
         <p className="mt-3 text-[17px] text-muted">Video and images generated in seconds — every one ready to drop into your campaign.</p>
       </div>
       <div className="mt-12 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
@@ -382,6 +382,8 @@ const PLANS = [
     popular: false,
     perks: ["1 video every month", "All Mak models", "Personal asset library"],
     cta: "Start free",
+    /** Billing catalog id — when set, the CTA jumps straight into checkout. */
+    itemId: null as string | null,
   },
   {
     name: "Basic",
@@ -398,6 +400,7 @@ const PLANS = [
       "Top up credits any time",
     ],
     cta: "Get Basic",
+    itemId: "plan-basic" as string | null,
   },
   {
     name: "Max",
@@ -409,15 +412,17 @@ const PLANS = [
     popular: true,
     perks: ["≈ 50 videos every month", "Everything in Basic", "Priority rendering", "Lowest cost per video"],
     cta: "Get Max",
+    itemId: "plan-max" as string | null,
   },
 ];
 
 function Pricing() {
   return (
-    <section id="pricing" className="border-t border-line bg-surface-2/40">
+    <section id="pricing" className="border-b border-line bg-surface-2/40">
       <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Simple pricing</h2>
+          <Badge tone="accent" className="mb-3">Pricing</Badge>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Simple pricing, in US dollars</h2>
           <p className="mt-3 text-[17px] text-muted">
             Start free with a video every month. Upgrade for more — and top up credits whenever you need them.
           </p>
@@ -455,7 +460,12 @@ function Pricing() {
                   </li>
                 ))}
               </ul>
-              <CTA href={APP} variant={p.popular ? "primary" : "outline"} size="md" className="mt-6 w-full">
+              <CTA
+                href={p.itemId ? `${APP}?buy=${p.itemId}` : APP}
+                variant={p.popular ? "primary" : "outline"}
+                size="md"
+                className="mt-6 w-full"
+              >
                 {p.cta}
               </CTA>
             </div>
@@ -501,7 +511,7 @@ function FAQ() {
     <section id="faq" className="border-t border-line bg-surface-2/40">
       <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions, answered</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Questions, answered</h2>
         </div>
         <div className="mt-10 space-y-3">
           {FAQS.map((f) => (
@@ -528,8 +538,8 @@ function FAQ() {
 function FinalCTA() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-      <div className="relative overflow-hidden rounded-[24px] border border-accent/30 bg-gradient-to-br from-accent to-teal px-6 py-14 text-center text-white shadow-[0_30px_80px_-30px_rgba(124,108,255,0.7)]">
-        <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
+      <div className="relative overflow-hidden rounded-[24px] border border-accent/30 bg-gradient-to-br from-accent via-[#8b5cf6] to-teal px-6 py-14 text-center text-white shadow-[0_30px_80px_-30px_rgba(124,108,255,0.7)]">
+        <h2 className="mx-auto max-w-2xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
           Start producing today
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-[16px] text-white/85">
@@ -572,11 +582,11 @@ export function Landing() {
       <main>
         <Hero />
         <ModelBand />
+        <Pricing />
         <Features />
         <Steps />
         <UseCases />
         <Showcase />
-        <Pricing />
         <FAQ />
         <FinalCTA />
       </main>

@@ -23,8 +23,11 @@
 
   --radius-xl2: 18px;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
-    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  /* Display face for headings & the wordmark (utility: font-display). */
+  --font-display: var(--font-grotesk), var(--font-inter), ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
 }
 
 html {
@@ -68,8 +71,9 @@ body {
 }
 
 /* utilities */
+/* The one brand gradient — matches the logo mark (violet → purple → teal). */
 .gradient-text {
-  background: linear-gradient(92deg, var(--color-accent-2), var(--color-teal));
+  background: linear-gradient(92deg, var(--color-accent-2), #a55dff 52%, var(--color-teal));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

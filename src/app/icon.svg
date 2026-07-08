@@ -1,17 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="64" height="64">
  <defs>
-  <linearGradient id="g" x1="5" y1="35" x2="35" y2="5" gradientUnits="userSpaceOnUse">
-   <stop offset="0" stop-color="#7c6cff"/><stop offset="0.55" stop-color="#c05dff"/><stop offset="1" stop-color="#2dd4bf"/>
+  <linearGradient id="g" x1="6" y1="34" x2="34" y2="6" gradientUnits="userSpaceOnUse">
+   <stop offset="0" stop-color="#7c6cff"/><stop offset="0.52" stop-color="#a55dff"/><stop offset="1" stop-color="#2dd4bf"/>
   </linearGradient>
  </defs>
  <rect width="40" height="40" rx="10" fill="#0d0d15"/>
- <g fill="url(#g)">
-  <rect x="5.5" y="5.5" width="5" height="5" rx="1.4"/><rect x="29.5" y="5.5" width="5" height="5" rx="1.4"/>
-  <rect x="5.5" y="11.5" width="5" height="5" rx="1.4"/><rect x="11.5" y="11.5" width="5" height="5" rx="1.4"/><rect x="23.5" y="11.5" width="5" height="5" rx="1.4"/><rect x="29.5" y="11.5" width="5" height="5" rx="1.4"/>
-  <rect x="5.5" y="17.5" width="5" height="5" rx="1.4"/><rect x="17.5" y="17.5" width="5" height="5" rx="1.4"/><rect x="29.5" y="17.5" width="5" height="5" rx="1.4"/>
-  <rect x="5.5" y="23.5" width="5" height="5" rx="1.4"/><rect x="29.5" y="23.5" width="5" height="5" rx="1.4"/>
-  <rect x="5.5" y="29.5" width="5" height="5" rx="1.4"/><rect x="29.5" y="29.5" width="5" height="5" rx="1.4"/>
- </g>
- <rect x="23.6" y="1.6" width="3.2" height="3.2" rx="1" fill="#2dd4bf"/>
- <rect x="17.8" y="0.9" width="2.2" height="2.2" rx="0.8" fill="#ff5d8f"/>
+ <path d="M9.5 30.5 V11 L20 21 L30.5 11 V30.5" fill="none" stroke="url(#g)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M17.8 24.6 L24.2 27.7 L17.8 30.8 Z" fill="#2dd4bf"/>
 </svg>
