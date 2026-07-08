@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Upload,
   FolderOpen,
-  Folder,
   Plus,
   MoreHorizontal,
   Pencil,
@@ -14,18 +13,15 @@ import {
   Music,
   Film,
   Image as ImageIcon,
-  Inbox,
-  FolderInput,
-  Check,
+  TextQuote,
   Layers,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { ASSET_CLASSES } from "@/lib/catalog";
-import type { Asset, AssetClass, AssetKind, AssetOwner } from "@/lib/types";
+import type { Asset, AssetKind, AssetOwner } from "@/lib/types";
 import { isComposite } from "@/lib/types";
 import { cn, formatBytes, timeAgo, pluralize } from "@/lib/utils";
 import { Button, Card, Badge, EmptyState, Modal, TextInput, Segmented } from "@/components/ui";
-import { ClassIcon, CompositeBadge } from "@/components/shared";
+import { CompositeBadge } from "@/components/shared";
 
 const MAX_BYTES = 8 * 1024 * 1024; // keep within browser storage for the demo
 
@@ -33,9 +29,16 @@ const kindIcon: Record<AssetKind, typeof ImageIcon> = {
   image: ImageIcon,
   video: Film,
   audio: Music,
+  prompt: TextQuote,
 };
 
-const CLASS_BY_CATEGORY = Object.fromEntries(ASSET_CLASSES.map((c) => [c.categoryId, c]));
+/** The raw type buckets the library is organized into — nothing fancier. */
+const TYPE_ROWS: { key: AssetKind; label: string }[] = [
+  { key: "video", label: "Videos" },
+  { key: "image", label: "Pictures" },
+  { key: "audio", label: "Sound" },
+  { key: "prompt", label: "Prompts" },
+];
 
 type Scope = "all" | AssetOwner;
 
@@ -51,42 +54,26 @@ function readAsDataURL(file: File): Promise<string> {
 export function AssetsView() {
   const router = useRouter();
   const assets = useStore((s) => s.assets);
-  const categories = useStore((s) => s.categories);
   const hydrated = useStore((s) => s.hasHydrated);
   const addAsset = useStore((s) => s.addAsset);
-  const addCategory = useStore((s) => s.addCategory);
-  const renameCategory = useStore((s) => s.renameCategory);
-  const removeCategory = useStore((s) => s.removeCategory);
   const setDraftRef = useStore((s) => s.setDraftRef);
 
   const [scope, setScope] = useState<Scope>("all");
-  const [selected, setSelected] = useState<string | "all" | "none">("all");
+  const [selected, setSelected] = useState<AssetKind | "all">("all");
   const [dragOver, setDragOver] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
-  const [newCatOpen, setNewCatOpen] = useState(false);
-  const [editCat, setEditCat] = useState<{ id: string; name: string } | null>(null);
+  const [newPromptOpen, setNewPromptOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const systemCats = categories.filter((c) => c.system);
-  const userCats = categories.filter((c) => !c.system);
 
   const inScope = useMemo(
     () => assets.filter((a) => scope === "all" || (a.owner ?? "user") === scope),
     [assets, scope],
   );
-  const filtered = inScope.filter((a) =>
-    selected === "all" ? true : selected === "none" ? a.categoryId === null : a.categoryId === selected,
-  );
-  const countFor = (id: string | "all" | "none") =>
-    id === "all"
-      ? inScope.length
-      : id === "none"
-        ? inScope.filter((a) => a.categoryId === null).length
-        : inScope.filter((a) => a.categoryId === id).length;
+  const filtered = inScope.filter((a) => selected === "all" || a.kind === selected);
+  const countFor = (key: AssetKind | "all") =>
+    key === "all" ? inScope.length : inScope.filter((a) => a.kind === key).length;
 
   async function ingest(files: FileList | File[]) {
-    const sysClass = (CLASS_BY_CATEGORY[selected as string] as { key: AssetClass } | undefined)?.key;
-    const targetCat = selected !== "all" && selected !== "none" ? selected : null;
     const owner: AssetOwner = scope === "business" ? "business" : "user";
     let skipped = 0;
     for (const file of Array.from(files)) {
@@ -107,8 +94,7 @@ export function AssetsView() {
         kind,
         url,
         posterUrl: kind === "image" ? url : undefined,
-        categoryId: targetCat,
-        class: sysClass,
+        categoryId: null,
         owner,
         source: "upload",
       });
@@ -132,12 +118,17 @@ export function AssetsView() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Assets</h1>
           <p className="mt-1 text-sm text-muted">
-            Your library of building blocks — organized into classes, ready to drop into a production.
+            Everything you work with — videos, pictures, sound and prompts.
           </p>
         </div>
-        <Button onClick={() => fileRef.current?.click()}>
-          <Upload size={16} /> Upload
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setNewPromptOpen(true)}>
+            <TextQuote size={16} /> New prompt
+          </Button>
+          <Button onClick={() => fileRef.current?.click()}>
+            <Upload size={16} /> Upload
+          </Button>
+        </div>
         <input
           ref={fileRef}
           type="file"
@@ -169,56 +160,19 @@ export function AssetsView() {
               active={selected === "all"}
               onClick={() => setSelected("all")}
             />
-
-            <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-faint">Classes</div>
-            {systemCats.map((c) => {
-              const meta = CLASS_BY_CATEGORY[c.id];
+            {TYPE_ROWS.map((t) => {
+              const Icon = kindIcon[t.key];
               return (
                 <CatRow
-                  key={c.id}
-                  label={c.name}
-                  icon={meta ? <ClassIcon icon={meta.icon} size={16} /> : <Folder size={16} />}
-                  count={countFor(c.id)}
-                  active={selected === c.id}
-                  onClick={() => setSelected(c.id)}
+                  key={t.key}
+                  label={t.label}
+                  icon={<Icon size={16} />}
+                  count={countFor(t.key)}
+                  active={selected === t.key}
+                  onClick={() => setSelected(t.key)}
                 />
               );
             })}
-
-            {userCats.length > 0 && (
-              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-faint">Folders</div>
-            )}
-            {userCats.map((c) => (
-              <CatRow
-                key={c.id}
-                label={c.name}
-                icon={<Folder size={16} />}
-                count={countFor(c.id)}
-                active={selected === c.id}
-                onClick={() => setSelected(c.id)}
-                onEdit={() => setEditCat({ id: c.id, name: c.name })}
-                onDelete={() => {
-                  if (confirm(`Delete folder “${c.name}”? Its assets move to Uncategorized.`)) {
-                    removeCategory(c.id);
-                    if (selected === c.id) setSelected("all");
-                  }
-                }}
-              />
-            ))}
-
-            <CatRow
-              label="Uncategorized"
-              icon={<Inbox size={16} />}
-              count={countFor("none")}
-              active={selected === "none"}
-              onClick={() => setSelected("none")}
-            />
-            <button
-              onClick={() => setNewCatOpen(true)}
-              className="mt-1 flex w-full items-center gap-2 rounded-xl border border-dashed border-line-2 px-3 py-2 text-sm text-muted transition-colors hover:border-accent/40 hover:text-fg"
-            >
-              <Plus size={15} /> New folder
-            </button>
           </div>
         </aside>
 
@@ -243,13 +197,23 @@ export function AssetsView() {
 
           {filtered.length === 0 ? (
             <EmptyState
-              icon={<Upload size={24} />}
+              icon={selected === "prompt" ? <TextQuote size={24} /> : <Upload size={24} />}
               title={inScope.length === 0 ? "No assets yet" : "Nothing here"}
-              description="Drag & drop files here, or use the Upload button. Images, video and audio are supported."
+              description={
+                selected === "prompt"
+                  ? "Save prompt snippets you want to reuse — styles, camera moves, brand lines."
+                  : "Drag & drop files here, or use the Upload button. Pictures, videos and sound are supported."
+              }
               action={
-                <Button variant="soft" onClick={() => fileRef.current?.click()}>
-                  <Upload size={16} /> Upload files
-                </Button>
+                selected === "prompt" ? (
+                  <Button variant="soft" onClick={() => setNewPromptOpen(true)}>
+                    <TextQuote size={16} /> New prompt
+                  </Button>
+                ) : (
+                  <Button variant="soft" onClick={() => fileRef.current?.click()}>
+                    <Upload size={16} /> Upload files
+                  </Button>
+                )
               }
             />
           ) : (
@@ -272,28 +236,75 @@ export function AssetsView() {
         </section>
       </div>
 
-      <NameModal
-        open={newCatOpen}
-        title="New folder"
-        placeholder="e.g. Spring campaign"
-        onClose={() => setNewCatOpen(false)}
-        onSubmit={(name) => {
-          const cat = addCategory(name);
-          setSelected(cat.id);
-          setNewCatOpen(false);
-        }}
-      />
-      <NameModal
-        open={!!editCat}
-        title="Rename folder"
-        initial={editCat?.name}
-        onClose={() => setEditCat(null)}
-        onSubmit={(name) => {
-          if (editCat) renameCategory(editCat.id, name);
-          setEditCat(null);
+      <NewPromptModal
+        open={newPromptOpen}
+        onClose={() => setNewPromptOpen(false)}
+        onSubmit={(name, text) => {
+          addAsset({
+            name,
+            kind: "prompt",
+            url: "",
+            categoryId: null,
+            owner: scope === "business" ? "business" : "user",
+            source: "upload",
+            promptFragment: text,
+          });
+          setSelected("prompt");
+          setNewPromptOpen(false);
         }}
       />
     </div>
+  );
+}
+
+function NewPromptModal({
+  open,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, text: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setText("");
+    }
+  }, [open]);
+  return (
+    <Modal open={open} onClose={onClose} title="New prompt" size="md">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const body = text.trim();
+          if (!body) return;
+          onSubmit(name.trim() || body.slice(0, 40), body);
+        }}
+      >
+        <div className="space-y-3">
+          <TextInput
+            autoFocus
+            value={name}
+            placeholder="Name (optional) — e.g. Brand look"
+            onChange={(e) => setName(e.target.value)}
+          />
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="The prompt text — e.g. warm golden-hour light, shallow depth of field, filmed on 35mm"
+            rows={5}
+            className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none"
+          />
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" disabled={!text.trim()}>Save prompt</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -303,21 +314,17 @@ function CatRow({
   count,
   active,
   onClick,
-  onEdit,
-  onDelete,
 }: {
   label: string;
   icon: React.ReactNode;
   count: number;
   active: boolean;
   onClick: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
 }) {
   return (
     <div
       className={cn(
-        "group flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
+        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
         active ? "bg-accent-soft text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
       )}
     >
@@ -326,20 +333,6 @@ function CatRow({
         <span className="truncate">{label}</span>
       </button>
       <span className="text-xs tabular-nums text-faint">{count}</span>
-      {(onEdit || onDelete) && (
-        <span className="hidden items-center gap-0.5 group-hover:flex">
-          {onEdit && (
-            <button onClick={onEdit} className="rounded p-1 text-faint hover:text-fg" aria-label="Rename">
-              <Pencil size={13} />
-            </button>
-          )}
-          {onDelete && (
-            <button onClick={onDelete} className="rounded p-1 text-faint hover:text-danger" aria-label="Delete">
-              <Trash2 size={13} />
-            </button>
-          )}
-        </span>
-      )}
     </div>
   );
 }
@@ -362,6 +355,12 @@ function AssetCard({ asset, onUse }: { asset: Asset; onUse: () => void }) {
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video src={asset.url} preload="metadata" muted className="h-full w-full object-cover" />
           )
+        ) : asset.kind === "prompt" ? (
+          <div className="flex h-full w-full items-start bg-gradient-to-br from-accent-soft to-surface-2 p-3 pt-9">
+            <p className="line-clamp-4 text-[12.5px] leading-relaxed text-fg/80">
+              “{asset.promptFragment}”
+            </p>
+          </div>
         ) : /\.(svg|png|jpe?g|webp)$/.test(asset.url) ? (
           // Audio with cover art (starter tracks ship generated album art).
           // eslint-disable-next-line @next/next/no-img-element
@@ -426,11 +425,9 @@ function AssetActions({
   onClose: () => void;
   onUse: () => void;
 }) {
-  const categories = useStore((s) => s.categories);
-  const moveAsset = useStore((s) => s.moveAsset);
   const removeAsset = useStore((s) => s.removeAsset);
   const renameAsset = useStore((s) => s.renameAsset);
-  const [mode, setMode] = useState<"menu" | "move" | "rename">("menu");
+  const [mode, setMode] = useState<"menu" | "rename">("menu");
   const [name, setName] = useState(asset.name);
 
   function close() {
@@ -457,7 +454,6 @@ function AssetActions({
             </div>
           )}
           <ActionItem icon={<Sparkles size={16} />} label="Use in Make" onClick={() => { onUse(); close(); }} />
-          <ActionItem icon={<FolderInput size={16} />} label="Move to folder" onClick={() => setMode("move")} />
           <ActionItem icon={<Pencil size={16} />} label="Rename" onClick={() => setMode("rename")} />
           <ActionItem
             icon={<Trash2 size={16} />}
@@ -468,24 +464,6 @@ function AssetActions({
               close();
             }}
           />
-        </div>
-      )}
-
-      {mode === "move" && (
-        <div className="space-y-1">
-          <MoveTarget
-            label="Uncategorized"
-            active={asset.categoryId === null}
-            onClick={() => { moveAsset(asset.id, null); close(); }}
-          />
-          {categories.map((c) => (
-            <MoveTarget
-              key={c.id}
-              label={c.name}
-              active={asset.categoryId === c.id}
-              onClick={() => { moveAsset(asset.id, c.id); close(); }}
-            />
-          ))}
         </div>
       )}
 
@@ -533,59 +511,3 @@ function ActionItem({
   );
 }
 
-function MoveTarget({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-fg transition-colors hover:bg-surface-2"
-    >
-      <span className="flex items-center gap-2.5">
-        <Folder size={16} className="text-faint" /> {label}
-      </span>
-      {active && <Check size={16} className="text-teal" />}
-    </button>
-  );
-}
-
-function NameModal({
-  open,
-  title,
-  placeholder,
-  initial,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  title: string;
-  placeholder?: string;
-  initial?: string;
-  onClose: () => void;
-  onSubmit: (name: string) => void;
-}) {
-  const [name, setName] = useState(initial ?? "");
-  useEffect(() => {
-    if (open) setName(initial ?? "");
-  }, [open, initial]);
-  return (
-    <Modal open={open} onClose={onClose} title={title} size="sm">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (name.trim()) onSubmit(name.trim());
-          setName("");
-        }}
-      >
-        <TextInput
-          autoFocus
-          value={name}
-          placeholder={placeholder}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm">Save</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}

@@ -269,7 +269,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
           ids.forEach((id) => {
             const a = byId[id];
             if (!a) return;
-            if (a.kind === "audio") {
+            if (a.kind === "audio" || a.kind === "prompt") {
               if (!next.influences.includes(id)) next.influences.push(id);
             } else if (a.kind === "video") {
               if (!next.refVideos.includes(id) && next.refVideos.length < REF_VIDEO_LIMIT)
@@ -392,7 +392,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
     const a = byId[assetId];
     if (!a) return;
     // Route by kind so any drop lands somewhere sensible.
-    if (a.kind === "audio") zone = "influences";
+    if (a.kind === "audio" || a.kind === "prompt") zone = "influences";
     else if (a.kind === "video" && zone !== "influences") zone = "refVideos";
     if (zone === "firstFrame" || zone === "lastFrame") {
       if (a.kind !== "image") return;
@@ -1032,7 +1032,7 @@ function BoardPickerModal({
     influences: {
       title: "Sound & style · #A1–#A5",
       hint: "Flavors the written prompt only — nothing is uploaded to the model. Up to 5.",
-      kinds: ["image", "video", "audio"],
+      kinds: ["image", "video", "audio", "prompt"],
       cap: 5,
       types: "Any asset — only its description is used",
     },

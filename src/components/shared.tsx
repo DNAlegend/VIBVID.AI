@@ -13,6 +13,7 @@ import {
   Package,
   ShieldAlert,
   AlertTriangle,
+  TextQuote,
 } from "lucide-react";
 import type { ClassMeta } from "@/lib/catalog";
 import { listModels, type ModelProvider } from "@/lib/models";
@@ -105,7 +106,7 @@ export function AssetThumb({ a, className }: { a: Asset; className?: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={a.name} className={cn("object-cover", className)} />;
   }
-  const Icon = a.kind === "audio" ? Music : Film;
+  const Icon = a.kind === "audio" ? Music : a.kind === "prompt" ? TextQuote : Film;
   return (
     <div className={cn("flex items-center justify-center bg-surface-3 text-faint", className)}>
       <Icon size={20} />

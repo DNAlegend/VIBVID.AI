@@ -15,7 +15,7 @@ export const SHOT_LIMIT = 6;
 
 /* --------------------------------- Assets -------------------------------- */
 
-export type AssetKind = "image" | "video" | "audio";
+export type AssetKind = "image" | "video" | "audio" | "prompt";
 
 /** The library taxonomy a client organizes their assets into. */
 export type AssetClass = "character" | "dress" | "scene" | "dance" | "audio" | "product";
