@@ -1,10 +1,14 @@
 // Start a MamoPay checkout for a top-up pack or a subscription plan.
-// Authenticates the caller, records a pending purchase (server-priced from the
-// billing catalog — never trusts the client's amount), creates the MamoPay
-// hosted link, and returns its URL for the browser to redirect to.
+// Records a pending purchase (server-priced from the billing catalog — never
+// trusts the client's amount), creates the MamoPay hosted link, and returns
+// its URL for the browser to redirect to.
+//
+// Two ways in: a signed-in caller (Authorization header), or a guest with just
+// an email — we create their account server-side so they can pay first and
+// confirm the account after payment.
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin, userIdFromRequest } from "@/lib/supabase-admin";
+import { supabaseAdmin, userIdFromRequest, userIdForEmail } from "@/lib/supabase-admin";
 import { billingItem } from "@/lib/billing";
 import { createPaymentLink, mamoConfigured } from "@/lib/mamopay";
 
@@ -15,12 +19,22 @@ export async function POST(req: Request) {
     // No payment provider wired up — the client falls back to demo credits.
     return NextResponse.json({ error: "Payments not configured" }, { status: 501 });
   }
-  const userId = await userIdFromRequest(req);
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const body = await req.json().catch(() => null);
   const item = billingItem(typeof body?.itemId === "string" ? body.itemId : "");
   if (!item) return NextResponse.json({ error: "Unknown item" }, { status: 400 });
+
+  let userId = await userIdFromRequest(req);
+  if (!userId) {
+    // Guest checkout: email → account created silently → straight to payment.
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return NextResponse.json({ error: "Enter your email to continue" }, { status: 401 });
+    }
+    userId = await userIdForEmail(email);
+    if (!userId) {
+      return NextResponse.json({ error: "Could not set up your account" }, { status: 500 });
+    }
+  }
 
   // The browser origin drives the return URLs so this works on any domain.
   const origin =

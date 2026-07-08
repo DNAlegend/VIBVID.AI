@@ -28,3 +28,18 @@ export async function userIdFromRequest(req: Request): Promise<string | null> {
   if (error) return null;
   return data.user?.id ?? null;
 }
+
+/**
+ * Create-or-fetch a user for an email address, for guest checkout: the buyer
+ * pays first and confirms the account afterwards (via the magic link the app
+ * sends when they return from payment). No email is sent from here.
+ */
+export async function userIdForEmail(email: string): Promise<string | null> {
+  if (!supabaseAdmin) return null;
+  const created = await supabaseAdmin.auth.admin.createUser({ email });
+  if (created.data.user) return created.data.user.id;
+  // Already registered — generateLink is the admin API that returns the
+  // existing user by email (the link itself is discarded, nothing is sent).
+  const existing = await supabaseAdmin.auth.admin.generateLink({ type: "magiclink", email });
+  return existing.data.user?.id ?? null;
+}

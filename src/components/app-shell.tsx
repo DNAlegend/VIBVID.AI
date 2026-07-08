@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clapperboard, Film, FolderOpen, LogOut, Loader2, Plus, Coins, UserCircle, Sparkles } from "lucide-react";
+import { Clapperboard, Film, FolderOpen, LogOut, Loader2, Mail, Plus, Coins, UserCircle, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
-import { TOPUPS, PLAN_ITEMS, type BillingItem } from "@/lib/billing";
+import { TOPUPS, PLAN_ITEMS, billingItem, type BillingItem } from "@/lib/billing";
 import { cn } from "@/lib/utils";
-import { Button, Modal, Badge } from "@/components/ui";
+import { Button, Modal, Badge, TextInput } from "@/components/ui";
 import { AuthModal } from "@/components/auth/auth-modal";
-import { LogoMark } from "@/components/logo";
+import { LogoMark, LogoWordmark } from "@/components/logo";
 
 const NAV = [
   { href: "/app", label: "Video", icon: Clapperboard },
@@ -22,7 +22,7 @@ function Brand() {
   return (
     <Link href="/app" className="flex items-center gap-2.5">
       <LogoMark size={36} className="drop-shadow-[0_6px_14px_rgba(124,108,255,0.45)]" />
-      <span className="text-[17px] font-extrabold tracking-tight text-fg">MightyMak</span>
+      <LogoWordmark />
     </Link>
   );
 }
@@ -73,36 +73,80 @@ function CreditWidget({ onBuy }: { onBuy: () => void }) {
   );
 }
 
-function BuyCreditsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** localStorage key remembering a guest buyer's email across the MamoPay redirect. */
+const CHECKOUT_EMAIL_KEY = "mm-checkout-email";
+
+/**
+ * Ask the server for a MamoPay payment URL. Pass a `token` for a signed-in
+ * buyer, or an `email` for a guest (their account is created server-side).
+ * Returns null when payments aren't configured on the server (501).
+ */
+async function requestCheckout(
+  item: BillingItem,
+  auth: { token?: string; email?: string },
+): Promise<string | null> {
+  const res = await fetch("/api/checkout", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
+    },
+    body: JSON.stringify({
+      itemId: item.id,
+      origin: window.location.origin,
+      ...(auth.token ? {} : { email: auth.email }),
+    }),
+  });
+  if (res.status === 501) return null;
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error(d.error ?? "Checkout failed");
+  }
+  return (await res.json()).url ?? null;
+}
+
+function BuyCreditsModal({
+  open,
+  onClose,
+  autostart,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** When set, checkout for this item starts as soon as the modal opens. */
+  autostart?: BillingItem | null;
+}) {
   const addCredits = useStore((s) => s.addCredits);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const autostarted = useRef<string | null>(null);
 
-  // Start a real MamoPay checkout; if payments aren't configured (or the user
-  // is signed out), fall back to the instant demo top-up so the app still works.
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+    setSelected(autostart?.id ?? null);
+  }, [open, autostart]);
+
+  // Start a real MamoPay checkout. Only signed-in users reach this modal (the
+  // paywall gate handles guests); without cloud keys, fall back to demo credits.
   async function buy(item: BillingItem) {
     if (busy) return;
+    setSelected(item.id);
     setBusy(item.id);
     setError(null);
     try {
       const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+      if (cloudConfigured && !token) {
+        setError("Your session expired — sign in again to continue.");
+        return;
+      }
       if (token) {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ itemId: item.id, origin: window.location.origin }),
-        });
-        if (res.ok) {
-          const { url } = await res.json();
-          if (url) {
-            window.location.href = url; // hand off to MamoPay's hosted checkout
-            return;
-          }
-        } else if (res.status !== 501) {
-          const d = await res.json().catch(() => ({}));
-          throw new Error(d.error ?? "Checkout failed");
+        const url = await requestCheckout(item, { token });
+        if (url) {
+          window.location.href = url; // hand off to MamoPay's hosted checkout
+          return;
         }
-        // 501 → payments not configured yet; fall through to demo.
+        // null → payments not configured yet; fall through to demo.
       }
       // Demo fallback: instant credits, no charge.
       addCredits(item.credits);
@@ -113,6 +157,15 @@ function BuyCreditsModal({ open, onClose }: { open: boolean; onClose: () => void
       setBusy(null);
     }
   }
+
+  // A plan picked on the landing page (?buy=) starts checkout on open — the
+  // user already chose it there, so don't make them click it a second time.
+  useEffect(() => {
+    if (!open || !autostart || autostarted.current === autostart.id) return;
+    autostarted.current = autostart.id;
+    void buy(autostart);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autostart]);
 
   return (
     <Modal open={open} onClose={onClose} title="Get more credits" size="lg">
@@ -125,7 +178,11 @@ function BuyCreditsModal({ open, onClose }: { open: boolean; onClose: () => void
             onClick={() => buy(p)}
             className={cn(
               "relative rounded-2xl border bg-surface-2 p-4 text-left transition-colors hover:border-accent/50 disabled:opacity-60",
-              p.popular ? "border-accent/40" : "border-line",
+              selected === p.id
+                ? "border-accent ring-1 ring-accent/40"
+                : p.popular
+                  ? "border-accent/40"
+                  : "border-line",
             )}
           >
             {p.popular && (
@@ -154,7 +211,11 @@ function BuyCreditsModal({ open, onClose }: { open: boolean; onClose: () => void
             onClick={() => buy(p)}
             className={cn(
               "relative flex items-center justify-between rounded-2xl border bg-surface-2 p-4 text-left transition-colors hover:border-accent/50 disabled:opacity-60",
-              p.popular ? "border-accent/40" : "border-line",
+              selected === p.id
+                ? "border-accent ring-1 ring-accent/40"
+                : p.popular
+                  ? "border-accent/40"
+                  : "border-line",
             )}
           >
             <div>
@@ -176,6 +237,198 @@ function BuyCreditsModal({ open, onClose }: { open: boolean; onClose: () => void
   );
 }
 
+/**
+ * Full-screen gate shown to visitors who aren't signed in: pick a paid plan
+ * (email → payment → confirm) or create a free account. Nothing behind it is
+ * usable until they've done one of the two.
+ */
+function PaywallGate({
+  preselect,
+  confirmEmail,
+  onSignInInstead,
+  onStartOver,
+}: {
+  /** Plan carried over from the landing page (?buy=…). */
+  preselect: BillingItem | null;
+  /** Guest just paid — show the "confirm your email" step instead of plans. */
+  confirmEmail: string | null;
+  onSignInInstead: (resume: BillingItem | null) => void;
+  onStartOver: () => void;
+}) {
+  const setAuthOpen = useStore((s) => s.setAuthOpen);
+  const [email, setEmail] = useState("");
+  const [selectedId, setSelectedId] = useState(preselect?.id ?? "free");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
+
+  useEffect(() => {
+    if (preselect) setSelectedId(preselect.id);
+  }, [preselect]);
+
+  const paid = PLAN_ITEMS.find((p) => p.id === selectedId) ?? null; // null → Free
+  const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+
+  async function go() {
+    if (busy) return;
+    setError(null);
+    if (!paid) {
+      setAuthOpen(true); // Free — just create an account
+      return;
+    }
+    if (!emailValid) {
+      setError("Enter your email — you’ll go straight to payment.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const url = await requestCheckout(paid, { email: email.trim() });
+      if (!url) {
+        setError("Payments aren’t configured on this server yet — start free instead.");
+        return;
+      }
+      // Remember who's paying so we can confirm their account on return.
+      localStorage.setItem(CHECKOUT_EMAIL_KEY, email.trim().toLowerCase());
+      window.location.href = url; // hand off to MamoPay's hosted checkout
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Checkout failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    if (!supabase || !confirmEmail) return;
+    await supabase.auth.signInWithOtp({
+      email: confirmEmail,
+      options: { emailRedirectTo: `${window.location.origin}/app` },
+    });
+    setResent(true);
+  }
+
+  if (confirmEmail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
+            <Mail size={26} />
+          </span>
+          <h1 className="font-display mt-5 text-2xl font-bold tracking-tight">Confirm your email</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-muted">
+            Payment received — your credits are already in your account. We sent a sign-in
+            link to <span className="font-semibold text-fg">{confirmEmail}</span>. Click it to
+            activate your account and open the studio.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <Button variant="outline" onClick={resend} disabled={resent}>
+              <Mail size={15} /> {resent ? "Link sent again — check your inbox" : "Resend the link"}
+            </Button>
+            <button className="text-[13px] font-medium text-accent-2 hover:underline" onClick={onStartOver}>
+              Wrong email? Start over
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="w-full max-w-lg">
+        <div className="text-center">
+          <LogoMark size={44} className="mx-auto drop-shadow-[0_6px_14px_rgba(124,108,255,0.45)]" />
+          <h1 className="font-display mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
+          <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
+            Paid plans go straight to payment — your account is created on the way and
+            confirmed right after. Or start free with an account.
+          </p>
+        </div>
+
+        <div className="mt-7 space-y-3">
+          {[
+            { id: "free", label: "Free", priceLabel: "$0", credits: 120, sublabel: "1 video / month" },
+            ...PLAN_ITEMS,
+          ].map((p) => {
+            const active = selectedId === p.id || (p.id === "free" && !paid);
+            const isPlan = p.id !== "free";
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedId(p.id)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
+                  active ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 items-center justify-center rounded-full border",
+                      active ? "border-accent" : "border-line-2",
+                    )}
+                  >
+                    {active && <span className="h-2 w-2 rounded-full bg-accent" />}
+                  </span>
+                  <span>
+                    <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
+                      {p.label}
+                      {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
+                    </span>
+                    <span className="block text-[12.5px] text-faint">
+                      {p.credits.toLocaleString()} credits / mo · {p.sublabel}
+                    </span>
+                  </span>
+                </span>
+                <span className="text-lg font-bold text-fg">
+                  {p.priceLabel}
+                  {isPlan && <span className="text-xs font-normal text-faint">/mo</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {paid && (
+          <div className="mt-4">
+            <TextInput
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && go()}
+            />
+          </div>
+        )}
+
+        <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
+          {busy ? (
+            <Loader2 size={17} className="animate-spin" />
+          ) : paid ? (
+            <>Continue to payment — {paid.priceLabel}/mo</>
+          ) : (
+            <>Create your free account</>
+          )}
+        </Button>
+        {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
+
+        <p className="mt-4 text-center text-[13px] text-muted">
+          Already have an account?{" "}
+          <button
+            className="font-medium text-accent-2 hover:underline"
+            onClick={() => onSignInInstead(preselect ? paid : null)}
+          >
+            Sign in
+          </button>
+        </p>
+        <p className="mt-5 text-center text-[12px] text-faint">
+          Secure checkout by MamoPay · charged in US dollars · cancel anytime.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [buyOpen, setBuyOpen] = useState(false);
   const authOpen = useStore((s) => s.authOpen);
@@ -185,36 +438,89 @@ export function AppShell({ children }: { children: ReactNode }) {
   const signOutToLocal = useStore((s) => s.signOutToLocal);
   const lastUser = useRef<string | null>(null);
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
+  const [autoBuy, setAutoBuy] = useState<BillingItem | null>(null);
+  const pendingBuy = useRef<BillingItem | null>(null);
+  // True once Supabase has reported the initial session (gate vs app decision).
+  const [authReady, setAuthReady] = useState(false);
+  // Guest who just paid — the gate shows the "confirm your email" step.
+  const [guestConfirmEmail, setGuestConfirmEmail] = useState<string | null>(null);
 
-  // Returning from MamoPay checkout — the webhook adds credits async, so poll
-  // the cloud a few times for them to land, and confirm to the user.
+  // ?buy=<itemId> — a plan chosen on the landing page. Signed in: open the
+  // credits modal and start checkout immediately. Signed out: preselect it on
+  // the paywall gate (email → payment → confirmation).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const item = billingItem(params.get("buy") ?? "");
+    if (!item) return;
+    params.delete("buy");
+    const qs = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    if (!supabase) {
+      setBuyOpen(true); // demo mode — just show the options
+      return;
+    }
+    void supabase.auth.getSession().then(({ data }) => {
+      setAutoBuy(item);
+      if (data.session) setBuyOpen(true);
+      // signed out → the gate picks up `autoBuy` as its preselected plan
+    });
+  }, []);
+
+  // Returning from MamoPay checkout. Signed in: the webhook adds credits
+  // async, so poll the cloud a few times for them to land. Guest checkout:
+  // their account already exists (created at checkout) and holds the credits —
+  // email them a confirmation link that signs them in and confirms the account.
   useEffect(() => {
     if (typeof window === "undefined" || !supabase) return;
     const status = new URLSearchParams(window.location.search).get("purchase");
     if (!status) return;
     window.history.replaceState({}, "", window.location.pathname);
     if (status === "failed") {
+      localStorage.removeItem(CHECKOUT_EMAIL_KEY);
       setPurchaseNote("Payment didn’t go through — no charge was made.");
       const t = setTimeout(() => setPurchaseNote(null), 6000);
       return () => clearTimeout(t);
     }
-    setPurchaseNote("Payment received — adding your credits…");
-    let n = 0;
-    const poll = setInterval(async () => {
-      const uid = (await supabase!.auth.getSession()).data.session?.user?.id;
-      if (uid) void hydrateFromCloud(uid);
-      if (++n >= 5) {
-        clearInterval(poll);
-        setPurchaseNote("Credits added — you’re all set.");
-        setTimeout(() => setPurchaseNote(null), 4000);
+    let poll: ReturnType<typeof setInterval> | null = null;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        localStorage.removeItem(CHECKOUT_EMAIL_KEY);
+        setPurchaseNote("Payment received — adding your credits…");
+        let n = 0;
+        poll = setInterval(async () => {
+          const uid = (await supabase!.auth.getSession()).data.session?.user?.id;
+          if (uid) void hydrateFromCloud(uid);
+          if (++n >= 5) {
+            if (poll) clearInterval(poll);
+            setPurchaseNote("Credits added — you’re all set.");
+            setTimeout(() => setPurchaseNote(null), 4000);
+          }
+        }, 3000);
+        return;
       }
-    }, 3000);
-    return () => clearInterval(poll);
+      const guestEmail = localStorage.getItem(CHECKOUT_EMAIL_KEY);
+      if (guestEmail) {
+        localStorage.removeItem(CHECKOUT_EMAIL_KEY);
+        void supabase!.auth.signInWithOtp({
+          email: guestEmail,
+          options: { emailRedirectTo: `${window.location.origin}/app` },
+        });
+        setGuestConfirmEmail(guestEmail); // gate shows the confirm-email step
+      } else {
+        setPurchaseNote("Payment received — sign in to see your credits.");
+        setTimeout(() => setPurchaseNote(null), 15000);
+      }
+    });
+    return () => {
+      if (poll) clearInterval(poll);
+    };
   }, [hydrateFromCloud]);
 
   useEffect(() => {
     if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthReady(true);
       if (session?.user) {
         setEmail(session.user.email ?? "Account");
         // Covers sign-ins completed outside the modal too (e.g. the email
@@ -223,6 +529,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (lastUser.current !== session.user.id) {
           lastUser.current = session.user.id;
           void hydrateFromCloud(session.user.id);
+        }
+        // They picked a plan while signed out — resume checkout now.
+        if (pendingBuy.current) {
+          setAutoBuy(pendingBuy.current);
+          pendingBuy.current = null;
+          setBuyOpen(true);
         }
       } else {
         setEmail(null);
@@ -234,6 +546,39 @@ export function AppShell({ children }: { children: ReactNode }) {
     });
     return () => subscription.unsubscribe();
   }, [hydrateFromCloud, signOutToLocal, setAuthOpen]);
+
+  // Payment-first: when the cloud is live, nobody uses the studio anonymously.
+  // Wait for the initial session check, then gate signed-out visitors.
+  if (cloudConfigured && !authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <LogoMark size={40} className="animate-pulse" />
+      </div>
+    );
+  }
+  if (cloudConfigured && !email) {
+    return (
+      <div className="min-h-screen">
+        <PaywallGate
+          preselect={autoBuy}
+          confirmEmail={guestConfirmEmail}
+          onStartOver={() => setGuestConfirmEmail(null)}
+          onSignInInstead={(resume) => {
+            pendingBuy.current = resume;
+            setAuthOpen(true);
+          }}
+        />
+        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+        {purchaseNote && (
+          <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
+            <span className="flex items-center gap-2">
+              <Coins size={15} className="text-teal" /> {purchaseNote}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -299,7 +644,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <MobileNav />
       </nav>
 
-      <BuyCreditsModal open={buyOpen} onClose={() => setBuyOpen(false)} />
+      <BuyCreditsModal
+        open={buyOpen}
+        autostart={autoBuy}
+        onClose={() => {
+          setBuyOpen(false);
+          setAutoBuy(null);
+        }}
+      />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       {purchaseNote && (
