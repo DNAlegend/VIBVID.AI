@@ -26,7 +26,8 @@ function headers() {
 export interface CreateLinkInput {
   title: string;
   amount: number;
-  currency: string;
+  /** Charges are USD-only. */
+  currency: "USD";
   returnUrl: string;
   failureUrl: string;
   /** Our purchase id — echoed back so the webhook can find the purchase. */

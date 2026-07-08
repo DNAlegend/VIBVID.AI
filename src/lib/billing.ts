@@ -10,7 +10,8 @@ export interface BillingItem {
   credits: number;
   /** Price in major units of `currency` (e.g. 12 = $12.00). */
   amount: number;
-  currency: "USD" | "AED" | "EUR" | "GBP" | "SAR";
+  /** All charges are in US dollars only. */
+  currency: "USD";
   priceLabel: string;
   sublabel: string;
   popular?: boolean;

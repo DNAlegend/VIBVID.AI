@@ -77,6 +77,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // All charges are USD-only — a matching number in another currency doesn't count.
+  if (charge.amount_currency !== "USD") {
+    console.warn(`[mamo webhook] currency mismatch: charge in ${charge.amount_currency}, expected USD`);
+    return NextResponse.json({ ok: true });
+  }
+
   // Layer 3: idempotent grant (also updates the balance atomically).
   const { data: granted, error } = await supabaseAdmin.rpc("settle_charge", {
     p_charge_id: chargeId,
