@@ -17,10 +17,10 @@ import {
   Layers,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-import type { Asset, AssetKind, AssetOwner } from "@/lib/types";
+import type { Asset, AssetKind } from "@/lib/types";
 import { isComposite } from "@/lib/types";
 import { cn, formatBytes, timeAgo, pluralize } from "@/lib/utils";
-import { Button, Card, Badge, EmptyState, Modal, TextInput, Segmented } from "@/components/ui";
+import { Button, Card, Badge, EmptyState, Modal, TextInput } from "@/components/ui";
 import { CompositeBadge } from "@/components/shared";
 
 const MAX_BYTES = 8 * 1024 * 1024; // keep within browser storage for the demo
@@ -39,8 +39,6 @@ const TYPE_ROWS: { key: AssetKind; label: string }[] = [
   { key: "audio", label: "Sound" },
   { key: "prompt", label: "Prompts" },
 ];
-
-type Scope = "all" | AssetOwner;
 
 /** What to say when a type bucket is empty — teach, don't just apologize. */
 const EMPTY_HINTS: Record<AssetKind | "all", { title: string; desc: string }> = {
@@ -82,23 +80,20 @@ export function AssetsView() {
   const addAsset = useStore((s) => s.addAsset);
   const setDraftRef = useStore((s) => s.setDraftRef);
 
-  const [scope, setScope] = useState<Scope>("all");
   const [selected, setSelected] = useState<AssetKind | "all">("all");
   const [dragOver, setDragOver] = useState(false);
   const [warn, setWarn] = useState<string | null>(null);
   const [newPromptOpen, setNewPromptOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const inScope = useMemo(
-    () => assets.filter((a) => scope === "all" || (a.owner ?? "user") === scope),
-    [assets, scope],
+  const filtered = useMemo(
+    () => assets.filter((a) => selected === "all" || a.kind === selected),
+    [assets, selected],
   );
-  const filtered = inScope.filter((a) => selected === "all" || a.kind === selected);
   const countFor = (key: AssetKind | "all") =>
-    key === "all" ? inScope.length : inScope.filter((a) => a.kind === key).length;
+    key === "all" ? assets.length : assets.filter((a) => a.kind === key).length;
 
   async function ingest(files: FileList | File[]) {
-    const owner: AssetOwner = scope === "business" ? "business" : "user";
     let skipped = 0;
     for (const file of Array.from(files)) {
       const kind: AssetKind | null = file.type.startsWith("image/")
@@ -119,7 +114,6 @@ export function AssetsView() {
         url,
         posterUrl: kind === "image" ? url : undefined,
         categoryId: null,
-        owner,
         source: "upload",
       });
     }
@@ -166,16 +160,6 @@ export function AssetsView() {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-[230px_1fr]">
         {/* Rail */}
         <aside className="space-y-3">
-          <Segmented<Scope>
-            value={scope}
-            onChange={setScope}
-            options={[
-              { value: "all", label: "All" },
-              { value: "user", label: "My" },
-              { value: "business", label: "Business" },
-            ]}
-          />
-
           <div className="space-y-1">
             <CatRow
               label="All assets"
@@ -220,7 +204,7 @@ export function AssetsView() {
           )}
 
           {filtered.length === 0 ? (
-            inScope.length === 0 && selected === "all" ? (
+            assets.length === 0 && selected === "all" ? (
               <StartHere
                 onUpload={() => fileRef.current?.click()}
                 onNewPrompt={() => setNewPromptOpen(true)}
@@ -272,7 +256,6 @@ export function AssetsView() {
             kind: "prompt",
             url: "",
             categoryId: null,
-            owner: scope === "business" ? "business" : "user",
             source: "upload",
             promptFragment: text,
           });
@@ -466,13 +449,6 @@ function AssetCard({ asset, onUse }: { asset: Asset; onUse: () => void }) {
           </Badge>
           <CompositeBadge a={asset} />
         </span>
-        {asset.owner === "business" && (
-          <span className="absolute bottom-2 left-2">
-            <Badge tone="neutral" className="bg-black/55 text-white border-white/20 backdrop-blur-sm">
-              Business
-            </Badge>
-          </span>
-        )}
         <button
           onClick={() => setMenuOpen(true)}
           className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/75 group-hover:opacity-100"
