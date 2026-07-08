@@ -24,7 +24,12 @@ export async function POST(req: Request) {
   if (!item) return NextResponse.json({ error: "Unknown item" }, { status: 400 });
 
   let userId = await userIdFromRequest(req);
-  if (!userId) {
+  let customerEmail: string | null = null;
+  if (userId) {
+    // Inline (on-page) checkout needs the payer's email — look it up.
+    const { data } = await supabaseAdmin.auth.admin.getUserById(userId);
+    customerEmail = data.user?.email ?? null;
+  } else {
     // Guest checkout: email → account created silently → straight to payment.
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     if (!/^\S+@\S+\.\S+$/.test(email)) {
@@ -34,6 +39,7 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: "Could not set up your account" }, { status: 500 });
     }
+    customerEmail = email;
   }
 
   // The browser origin drives the return URLs so this works on any domain.
@@ -70,6 +76,7 @@ export async function POST(req: Request) {
     customData: { purchase_id: purchase.id, user_id: userId, credits: String(item.credits) },
     subscription:
       item.kind === "subscription" ? { frequency: "monthly", frequency_interval: 1 } : undefined,
+    customer: customerEmail ? { email: customerEmail } : undefined,
   });
 
   if ("error" in link) {

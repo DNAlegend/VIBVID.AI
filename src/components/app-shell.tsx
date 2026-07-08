@@ -105,30 +105,80 @@ async function requestCheckout(
   return (await res.json()).url ?? null;
 }
 
+/**
+ * MamoPay's inline checkout, embedded on our page. The hosted payment page
+ * runs in an iframe and talks to us via postMessage (same protocol as Mamo's
+ * official checkout-inline script): "checkout-complete" on success,
+ * "closeIframe" when the payer backs out, and a `confirmation_required`
+ * payload when 3-D Secure needs a full-page redirect (that flow returns via
+ * the normal ?purchase=success handler).
+ */
+function MamoInlineCheckout({
+  url,
+  onComplete,
+  onDismiss,
+}: {
+  url: string;
+  onComplete: () => void;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const origin = new URL(url).origin;
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== origin) return;
+      const data = e.data as { message?: string; type?: string; payload?: string } | string;
+      const msg = typeof data === "string" ? data : data?.message;
+      if (msg === "checkout-complete") onComplete();
+      else if (msg === "closeIframe") onDismiss();
+      else if (typeof data === "object" && data?.type === "confirmation_required" && data.payload) {
+        window.location.replace(data.payload); // 3-D Secure hop
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
+
+  return (
+    <iframe
+      src={`${url}${url.includes("?") ? "&" : "?"}consumer=${encodeURIComponent(window.location.href)}`}
+      allow="payment"
+      title="Secure MamoPay checkout"
+      className="h-[600px] w-full rounded-2xl bg-transparent"
+    />
+  );
+}
+
 function BuyCreditsModal({
   open,
   onClose,
   autostart,
+  onPaid,
 }: {
   open: boolean;
   onClose: () => void;
   /** When set, checkout for this item starts as soon as the modal opens. */
   autostart?: BillingItem | null;
+  /** Called after an embedded payment completes on-page. */
+  onPaid: () => void;
 }) {
   const addCredits = useStore((s) => s.addCredits);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [payUrl, setPayUrl] = useState<string | null>(null);
   const autostarted = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setPayUrl(null);
     setSelected(autostart?.id ?? null);
   }, [open, autostart]);
 
-  // Start a real MamoPay checkout. Only signed-in users reach this modal (the
-  // paywall gate handles guests); without cloud keys, fall back to demo credits.
+  // Start a real MamoPay checkout — embedded right here in the modal. Only
+  // signed-in users reach this modal (the paywall gate handles guests);
+  // without cloud keys, fall back to demo credits.
   async function buy(item: BillingItem) {
     if (busy) return;
     setSelected(item.id);
@@ -143,7 +193,7 @@ function BuyCreditsModal({
       if (token) {
         const url = await requestCheckout(item, { token });
         if (url) {
-          window.location.href = url; // hand off to MamoPay's hosted checkout
+          setPayUrl(url); // pay on this page, in the modal
           return;
         }
         // null → payments not configured yet; fall through to demo.
@@ -166,6 +216,31 @@ function BuyCreditsModal({
     void buy(autostart);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, autostart]);
+
+  if (payUrl) {
+    return (
+      <Modal open={open} onClose={onClose} title="Complete your payment" size="lg">
+        <MamoInlineCheckout
+          url={payUrl}
+          onComplete={() => {
+            setPayUrl(null);
+            onClose();
+            onPaid();
+          }}
+          onDismiss={() => setPayUrl(null)}
+        />
+        <div className="mt-3 flex items-center justify-between">
+          <button
+            className="text-[13px] font-medium text-muted hover:text-fg"
+            onClick={() => setPayUrl(null)}
+          >
+            ← Back to packs &amp; plans
+          </button>
+          <span className="text-[12px] text-faint">Secure checkout by MamoPay · USD</span>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal open={open} onClose={onClose} title="Get more credits" size="lg">
@@ -261,6 +336,9 @@ function PaywallGate({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
+  const [payUrl, setPayUrl] = useState<string | null>(null);
+  // Set when an embedded payment completes on-page (no redirect happened).
+  const [paidEmail, setPaidEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (preselect) setSelectedId(preselect.id);
@@ -268,6 +346,8 @@ function PaywallGate({
 
   const paid = PLAN_ITEMS.find((p) => p.id === selectedId) ?? null; // null → Free
   const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+  // Confirm step: reached via full-page return (?purchase=success) or on-page.
+  const confirmingEmail = confirmEmail ?? paidEmail;
 
   async function go() {
     if (busy) return;
@@ -287,9 +367,9 @@ function PaywallGate({
         setError("Payments aren’t configured on this server yet — start free instead.");
         return;
       }
-      // Remember who's paying so we can confirm their account on return.
+      // Remember who's paying in case 3-D Secure forces a full-page round trip.
       localStorage.setItem(CHECKOUT_EMAIL_KEY, email.trim().toLowerCase());
-      window.location.href = url; // hand off to MamoPay's hosted checkout
+      setPayUrl(url); // pay right here on the page
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");
     } finally {
@@ -297,16 +377,29 @@ function PaywallGate({
     }
   }
 
+  // Embedded payment finished without leaving the page — email the sign-in
+  // link ourselves (the redirect handler would have done this otherwise).
+  function handlePaid() {
+    const e = email.trim().toLowerCase();
+    localStorage.removeItem(CHECKOUT_EMAIL_KEY);
+    void supabase?.auth.signInWithOtp({
+      email: e,
+      options: { emailRedirectTo: `${window.location.origin}/app` },
+    });
+    setPayUrl(null);
+    setPaidEmail(e);
+  }
+
   async function resend() {
-    if (!supabase || !confirmEmail) return;
+    if (!supabase || !confirmingEmail) return;
     await supabase.auth.signInWithOtp({
-      email: confirmEmail,
+      email: confirmingEmail,
       options: { emailRedirectTo: `${window.location.origin}/app` },
     });
     setResent(true);
   }
 
-  if (confirmEmail) {
+  if (confirmingEmail) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-10">
         <div className="w-full max-w-md text-center">
@@ -316,16 +409,50 @@ function PaywallGate({
           <h1 className="font-display mt-5 text-2xl font-bold tracking-tight">Confirm your email</h1>
           <p className="mt-3 text-[15px] leading-relaxed text-muted">
             Payment received — your credits are already in your account. We sent a sign-in
-            link to <span className="font-semibold text-fg">{confirmEmail}</span>. Click it to
+            link to <span className="font-semibold text-fg">{confirmingEmail}</span>. Click it to
             activate your account and open the studio.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <Button variant="outline" onClick={resend} disabled={resent}>
               <Mail size={15} /> {resent ? "Link sent again — check your inbox" : "Resend the link"}
             </Button>
-            <button className="text-[13px] font-medium text-accent-2 hover:underline" onClick={onStartOver}>
+            <button
+              className="text-[13px] font-medium text-accent-2 hover:underline"
+              onClick={() => {
+                setPaidEmail(null);
+                onStartOver();
+              }}
+            >
               Wrong email? Start over
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (payUrl && paid) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="w-full max-w-lg">
+          <div className="mb-5 text-center">
+            <h1 className="font-display text-2xl font-bold tracking-tight">Complete your payment</h1>
+            <p className="mt-1.5 text-[14px] text-muted">
+              MightyMak {paid.label} — {paid.priceLabel}/mo · {paid.credits.toLocaleString()} credits
+              every month, for <span className="font-medium text-fg">{email.trim()}</span>.
+            </p>
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_16px_40px_-24px_rgba(16,18,27,0.3)]">
+            <MamoInlineCheckout url={payUrl} onComplete={handlePaid} onDismiss={() => setPayUrl(null)} />
+          </div>
+          <div className="mt-3 flex items-center justify-between">
+            <button
+              className="text-[13px] font-medium text-muted hover:text-fg"
+              onClick={() => setPayUrl(null)}
+            >
+              ← Back to plans
+            </button>
+            <span className="text-[12px] text-faint">Secure checkout by MamoPay · USD</span>
           </div>
         </div>
       </div>
@@ -547,6 +674,22 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [hydrateFromCloud, signOutToLocal, setAuthOpen]);
 
+  // An embedded (on-page) payment just completed — the webhook grants credits
+  // async, so poll the cloud for them to land, mirroring the redirect flow.
+  function celebratePurchase() {
+    setPurchaseNote("Payment received — adding your credits…");
+    let n = 0;
+    const poll = setInterval(async () => {
+      const uid = (await supabase!.auth.getSession()).data.session?.user?.id;
+      if (uid) void hydrateFromCloud(uid);
+      if (++n >= 5) {
+        clearInterval(poll);
+        setPurchaseNote("Credits added — you’re all set.");
+        setTimeout(() => setPurchaseNote(null), 4000);
+      }
+    }, 3000);
+  }
+
   // Payment-first: when the cloud is live, nobody uses the studio anonymously.
   // Wait for the initial session check, then gate signed-out visitors.
   if (cloudConfigured && !authReady) {
@@ -647,6 +790,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <BuyCreditsModal
         open={buyOpen}
         autostart={autoBuy}
+        onPaid={celebratePurchase}
         onClose={() => {
           setBuyOpen(false);
           setAutoBuy(null);

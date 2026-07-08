@@ -35,6 +35,11 @@ export interface CreateLinkInput {
   customData: Record<string, string>;
   /** When set, MamoPay creates a recurring subscription link. */
   subscription?: { frequency: "monthly" | "weekly" | "annually"; frequency_interval: number };
+  /**
+   * When set, the link is created as an inline (iframe) checkout so payment
+   * happens on our page — Mamo requires the payer's email for that.
+   */
+  customer?: { email: string; firstName?: string; lastName?: string };
 }
 
 /** Create a hosted payment (or subscription) link. Returns { id, payment_url }. */
@@ -53,6 +58,12 @@ export async function createPaymentLink(
     send_customer_receipt: true,
   };
   if (input.subscription) body.subscription = input.subscription;
+  if (input.customer) {
+    body.link_type = "inline";
+    body.email = input.customer.email;
+    if (input.customer.firstName) body.first_name = input.customer.firstName;
+    if (input.customer.lastName) body.last_name = input.customer.lastName;
+  }
 
   const res = await fetch(`${mamoBase()}/links`, {
     method: "POST",
