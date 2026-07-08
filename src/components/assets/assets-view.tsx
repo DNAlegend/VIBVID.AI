@@ -42,6 +42,30 @@ const TYPE_ROWS: { key: AssetKind; label: string }[] = [
 
 type Scope = "all" | AssetOwner;
 
+/** What to say when a type bucket is empty — teach, don't just apologize. */
+const EMPTY_HINTS: Record<AssetKind | "all", { title: string; desc: string }> = {
+  all: {
+    title: "Nothing here",
+    desc: "Drag & drop files anywhere on this page, or use the Upload button.",
+  },
+  video: {
+    title: "No videos yet",
+    desc: "Upload reference clips (MP4 · MOV, under 8 MB) — the model imitates their motion and energy. Videos you generate can be saved here too.",
+  },
+  image: {
+    title: "No pictures yet",
+    desc: "Upload product shots, faces or scenes (JPG · PNG · WebP). Pictures steer your videos — as the exact first/last frame, or as reference images the model copies.",
+  },
+  audio: {
+    title: "No sound yet",
+    desc: "Upload music or voice snippets (MP3 · WAV). Sound flavors the written prompt when you generate.",
+  },
+  prompt: {
+    title: "No prompts yet",
+    desc: "Save prompt snippets you want to reuse — a brand look, a camera move, a style line for every shot.",
+  },
+};
+
 function readAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -196,26 +220,29 @@ export function AssetsView() {
           )}
 
           {filtered.length === 0 ? (
-            <EmptyState
-              icon={selected === "prompt" ? <TextQuote size={24} /> : <Upload size={24} />}
-              title={inScope.length === 0 ? "No assets yet" : "Nothing here"}
-              description={
-                selected === "prompt"
-                  ? "Save prompt snippets you want to reuse — styles, camera moves, brand lines."
-                  : "Drag & drop files here, or use the Upload button. Pictures, videos and sound are supported."
-              }
-              action={
-                selected === "prompt" ? (
-                  <Button variant="soft" onClick={() => setNewPromptOpen(true)}>
-                    <TextQuote size={16} /> New prompt
-                  </Button>
-                ) : (
-                  <Button variant="soft" onClick={() => fileRef.current?.click()}>
-                    <Upload size={16} /> Upload files
-                  </Button>
-                )
-              }
-            />
+            inScope.length === 0 && selected === "all" ? (
+              <StartHere
+                onUpload={() => fileRef.current?.click()}
+                onNewPrompt={() => setNewPromptOpen(true)}
+              />
+            ) : (
+              <EmptyState
+                icon={selected === "prompt" ? <TextQuote size={24} /> : <Upload size={24} />}
+                title={EMPTY_HINTS[selected].title}
+                description={EMPTY_HINTS[selected].desc}
+                action={
+                  selected === "prompt" ? (
+                    <Button variant="soft" onClick={() => setNewPromptOpen(true)}>
+                      <TextQuote size={16} /> New prompt
+                    </Button>
+                  ) : (
+                    <Button variant="soft" onClick={() => fileRef.current?.click()}>
+                      <Upload size={16} /> Upload files
+                    </Button>
+                  )
+                }
+              />
+            )
           ) : (
             <>
               <div className="mb-3 text-xs text-faint">{pluralize(filtered.length, "asset")}</div>
@@ -253,6 +280,69 @@ export function AssetsView() {
           setNewPromptOpen(false);
         }}
       />
+    </div>
+  );
+}
+
+/** First-run guide: the library is empty by design — show how to fill it. */
+function StartHere({ onUpload, onNewPrompt }: { onUpload: () => void; onNewPrompt: () => void }) {
+  const tiles = [
+    {
+      icon: ImageIcon,
+      title: "Pictures",
+      body: "Product shots, faces, scenes. Use one as the exact first or last frame, or as reference images the model copies — so the video shows your thing, not a lookalike.",
+      action: "Upload JPG · PNG · WebP",
+      onClick: onUpload,
+    },
+    {
+      icon: Film,
+      title: "Videos",
+      body: "Reference clips whose motion and energy the model imitates. Anything you generate in Video can be saved back here and reused.",
+      action: "Upload MP4 · MOV",
+      onClick: onUpload,
+    },
+    {
+      icon: Music,
+      title: "Sound",
+      body: "Music and voice snippets. They flavor the written prompt, steering the mood of the soundtrack your video is generated with.",
+      action: "Upload MP3 · WAV",
+      onClick: onUpload,
+    },
+    {
+      icon: TextQuote,
+      title: "Prompts",
+      body: "Reusable text — your brand look, a favorite camera move, a style line you want in every shot. Drop one into any generation.",
+      action: "Write a prompt",
+      onClick: onNewPrompt,
+    },
+  ];
+  return (
+    <div>
+      <div className="rounded-[var(--radius-xl2)] border border-line bg-surface p-6 text-center">
+        <h2 className="font-display text-lg font-bold tracking-tight">Your library is empty — that&apos;s the starting point</h2>
+        <p className="mx-auto mt-1.5 max-w-lg text-[13.5px] leading-relaxed text-muted">
+          Assets are the raw material your videos are made from. Three ways to add them: upload
+          files (or drag &amp; drop anywhere on this page), save something you generated in{" "}
+          <span className="font-medium text-fg">Video</span>, or write a reusable prompt.
+        </p>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {tiles.map((t) => (
+          <div key={t.title} className="flex flex-col rounded-[var(--radius-xl2)] border border-line bg-surface p-5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent-2">
+              <t.icon size={19} />
+            </span>
+            <h3 className="mt-3 text-[15px] font-semibold">{t.title}</h3>
+            <p className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">{t.body}</p>
+            <button
+              onClick={t.onClick}
+              className="mt-3 self-start text-[13px] font-semibold text-accent-2 transition-colors hover:text-accent"
+            >
+              {t.action} →
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

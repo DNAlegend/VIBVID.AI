@@ -10,7 +10,6 @@ import {
 } from "./types";
 import { pickSample } from "./samples";
 import { getModel, priceFor } from "./models";
-import { ASSET_CLASSES, CATALOG, categoryIdForClass, thumbFor } from "./catalog";
 import { uid } from "./utils";
 import { supabase } from "./supabase";
 import {
@@ -24,7 +23,6 @@ import {
   pushAsset,
   pushCategory,
   pushGeneration,
-  seedCloud,
   setCloudUser,
   updateAssetRow,
   updateCategoryRow,
@@ -37,90 +35,9 @@ const STARTING_CREDITS = 120;
 // Module-level (non-persisted) handles for the in-flight simulation timers.
 const timers = new Map<string, ReturnType<typeof setInterval>>();
 
-/** Seeded class folders mirror the five asset classes; they're system folders. */
-function seedCategories(): Category[] {
-  const now = Date.now();
-  return ASSET_CLASSES.map((c, i) => ({
-    id: c.categoryId,
-    name: c.plural,
-    createdAt: now + i,
-    system: true,
-  }));
-}
-
-/** Curated starter library so the studio is "properly set up" from first load. */
-function seedAssets(): Asset[] {
-  const now = Date.now();
-  const starters: Asset[] = CATALOG.map((e, i) => ({
-    id: e.id,
-    name: e.name,
-    kind: e.kind,
-    url: thumbFor(e.id),
-    posterUrl: e.kind === "image" ? thumbFor(e.id) : undefined,
-    categoryId: categoryIdForClass(e.class),
-    source: "starter" as const,
-    class: e.class,
-    owner: "user" as const,
-    promptFragment: e.promptFragment,
-    accent: e.accent,
-    createdAt: now + i,
-  }));
-
-  // An example composite Character — a face image + reference clip + voice
-  // bundled as one reusable identity, scoped to the Business library.
-  const aria: Asset = {
-    id: "ast-composite-aria",
-    name: "Aria — Brand Host",
-    kind: "image",
-    url: thumbFor("cast-cyber-detective"),
-    posterUrl: thumbFor("cast-cyber-detective"),
-    categoryId: categoryIdForClass("character"),
-    source: "starter",
-    class: "character",
-    owner: "business",
-    promptFragment: "the brand host Aria",
-    accent: "#36c5d6",
-    createdAt: now + 100,
-    parts: [
-      { role: "face", kind: "image", url: thumbFor("cast-cyber-detective"), posterUrl: thumbFor("cast-cyber-detective"), label: "Face" },
-      { role: "reference", kind: "video", url: "/samples/clip1.mp4", posterUrl: "/samples/poster1.svg", label: "Reference clip" },
-      { role: "voice", kind: "audio", url: thumbFor("score-ambient"), label: "Voice sample" },
-    ],
-  };
-
-  // A couple more Business-scoped assets so the My / Business toggle has content.
-  const businessExtras: Asset[] = [
-    {
-      id: "ast-biz-uniform",
-      name: "Brand Uniform",
-      kind: "image",
-      url: thumbFor("dress-tuxedo"),
-      posterUrl: thumbFor("dress-tuxedo"),
-      categoryId: categoryIdForClass("dress"),
-      source: "starter",
-      class: "dress",
-      owner: "business",
-      promptFragment: "the official brand uniform",
-      accent: "#3a4a7a",
-      createdAt: now + 101,
-    },
-    {
-      id: "ast-biz-jingle",
-      name: "Brand Jingle",
-      kind: "audio",
-      url: thumbFor("score-synthwave"),
-      categoryId: categoryIdForClass("audio"),
-      source: "starter",
-      class: "audio",
-      owner: "business",
-      promptFragment: "the upbeat brand jingle",
-      accent: "#ff5db8",
-      createdAt: now + 102,
-    },
-  ];
-
-  return [aria, ...businessExtras, ...starters];
-}
+// The library starts EMPTY — no demo starter content. Users fill it by
+// uploading, saving generations, or writing prompt snippets. Accounts seeded
+// by older builds are cleaned up in hydrateFromCloud below.
 
 function hasRefs(p: GenerateParams): boolean {
   return !!(p.refAssetId || (p.elements && p.elements.length > 0));
@@ -352,8 +269,8 @@ export const useStore = create<StoreState>()(
       authOpen: false,
       credits: STARTING_CREDITS,
       videos: [],
-      assets: seedAssets(),
-      categories: seedCategories(),
+      assets: [],
+      categories: [],
       draftDirection: null,
       draftElements: null,
       draftRefAssetId: null,
@@ -375,34 +292,19 @@ export const useStore = create<StoreState>()(
           return;
         }
         if (cloud.empty) {
-          // Fresh account: provision it with the starter library.
-          const categories = seedCategories();
-          const assets = seedAssets();
-          void seedCloud(categories, assets);
-          set({ cloudUser: userId, credits: cloud.credits, categories, assets, videos: [], hasHydrated: true });
+          // Fresh account: the library starts empty — the Assets page explains
+          // how to fill it.
+          set({ cloudUser: userId, credits: cloud.credits, categories: [], assets: [], videos: [], hasHydrated: true });
           return;
         }
-        // Heal older accounts: add starter assets/folders introduced since
-        // signup, and refresh starter thumbnails that moved from SVG
-        // placeholders to real renders (ids are stable → idempotent upsert).
-        let cloudAssets = cloud.assets;
-        let cloudCategories = cloud.categories;
-        const existingById = new Map(cloud.assets.map((a) => [a.id, a]));
-        const haveCats = new Set(cloud.categories.map((c) => c.id));
-        const toUpsert = seedAssets().filter((s) => {
-          const existing = existingById.get(s.id);
-          return !existing || (existing.source === "starter" && existing.url !== s.url);
-        });
-        const missingCats = seedCategories().filter((c) => !haveCats.has(c.id));
-        if (toUpsert.length || missingCats.length) {
-          void seedCloud(missingCats, toUpsert);
-          const upserted = new Map(toUpsert.map((a) => [a.id, a]));
-          cloudAssets = [
-            ...cloud.assets.map((a) => upserted.get(a.id) ?? a),
-            ...toUpsert.filter((a) => !existingById.has(a.id)),
-          ];
-          cloudCategories = [...cloud.categories, ...missingCats];
-        }
+        // Clean up accounts seeded by older builds: demo starter content is
+        // gone from the product — remove it (only rows this user owns; their
+        // own uploads and generations are untouched).
+        const starters = cloud.assets.filter((a) => a.source === "starter");
+        starters.forEach((a) => deleteAssetRow(a.id));
+        cloud.categories.filter((c) => c.system).forEach((c) => deleteCategoryRow(c.id));
+        const cloudAssets = cloud.assets.filter((a) => a.source !== "starter");
+        const cloudCategories = cloud.categories.filter((c) => !c.system);
         // Renders left "rendering" by a closed tab: real Ark tasks resume
         // polling (the render likely finished server-side); only simulated
         // rows (no task id) get settled with a sample.
@@ -442,8 +344,8 @@ export const useStore = create<StoreState>()(
           cloudUser: null,
           credits: STARTING_CREDITS,
           videos: [],
-          assets: seedAssets(),
-          categories: seedCategories(),
+          assets: [],
+          categories: [],
           hasHydrated: true,
         });
       },
@@ -608,14 +510,18 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: "mightymak-v3",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
-      // Reseed the library when the starter taxonomy grows (v4 added Products
-      // + real Seedream thumbnails); keep the user's credits and videos.
+      // v5: the demo starter library is gone — drop seeded content but keep
+      // everything the user added themselves (and their credits and videos).
       migrate: (persisted, version) => {
         const s = (persisted ?? {}) as Partial<StoreState>;
-        if (version < 4) {
-          return { ...s, assets: seedAssets(), categories: seedCategories() } as StoreState;
+        if (version < 5) {
+          return {
+            ...s,
+            assets: (s.assets ?? []).filter((a) => a.source !== "starter"),
+            categories: [],
+          } as StoreState;
         }
         return s as StoreState;
       },
