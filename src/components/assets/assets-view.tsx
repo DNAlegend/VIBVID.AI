@@ -33,36 +33,44 @@ const kindIcon: Record<AssetKind, typeof ImageIcon> = {
   prompt: TextQuote,
 };
 
+/** User-facing names for the raw kinds. */
+const kindLabel: Record<AssetKind, string> = {
+  image: "picture",
+  video: "video",
+  audio: "sound",
+  prompt: "script",
+};
+
 /** The raw type buckets the library is organized into — nothing fancier. */
 const TYPE_CHIPS: { key: AssetKind | "all"; label: string }[] = [
   { key: "all", label: "All" },
   { key: "video", label: "Videos" },
   { key: "image", label: "Pictures" },
   { key: "audio", label: "Sound" },
-  { key: "prompt", label: "Prompts" },
+  { key: "prompt", label: "Scripts" },
 ];
 
-/** What to say when a type bucket is empty — teach, don't just apologize. */
+/** What to say when a type bucket is empty. */
 const EMPTY_HINTS: Record<AssetKind | "all", { title: string; desc: string }> = {
   all: {
     title: "Nothing here",
-    desc: "Drag & drop files anywhere on this page, or use the Upload button.",
+    desc: "Use the add buttons above, or drag & drop files anywhere on this page.",
   },
   video: {
     title: "No videos yet",
-    desc: "Upload reference clips (MP4 · MOV, under 8 MB) — the model imitates their motion and energy. Videos you generate can be saved here too.",
+    desc: "Add reference clips (MP4 · MOV, under 8 MB) — the model imitates their motion. Videos you generate in Make can be saved here too.",
   },
   image: {
     title: "No pictures yet",
-    desc: "Upload product shots, faces or scenes (JPG · PNG · WebP). Pictures steer your videos — as the exact first/last frame, or as reference images the model copies.",
+    desc: "Add product shots, faces or scenes (JPG · PNG · WebP) — used as exact frames or references so the video shows your thing.",
   },
   audio: {
     title: "No sound yet",
-    desc: "Upload music or voice snippets (MP3 · WAV). Sound flavors the written prompt when you generate.",
+    desc: "Add music or voice snippets (MP3 · WAV) — they set the mood of the soundtrack.",
   },
   prompt: {
-    title: "No prompts yet",
-    desc: "Save prompt snippets you want to reuse — a brand look, a camera move, a style line for every shot.",
+    title: "No scripts yet",
+    desc: "Write reusable text — a brand look, a camera move, a style line for every shot.",
   },
 };
 
@@ -168,21 +176,13 @@ export function AssetsView() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Assets</h1>
-        <div className="flex items-center gap-2">
-          {assets.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => (selecting ? exitSelect() : setSelecting(true))}>
-              {selecting ? "Done" : "Select"}
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => setNewPromptOpen(true)}>
-            <TextQuote size={15} /> New prompt
+        {assets.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => (selecting ? exitSelect() : setSelecting(true))}>
+            {selecting ? "Done" : "Select"}
           </Button>
-          <Button size="sm" onClick={() => fileRef.current?.click()}>
-            <Upload size={15} /> Upload
-          </Button>
-        </div>
+        )}
         <input
           ref={fileRef}
           type="file"
@@ -192,6 +192,35 @@ export function AssetsView() {
           onChange={(e) => e.target.files && ingest(e.target.files)}
         />
       </header>
+
+      {/* The four ways in — plain and simple. */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {(
+          [
+            { label: "Add video", icon: Film, accept: "video/*" },
+            { label: "Add picture", icon: ImageIcon, accept: "image/*" },
+            { label: "Add sound", icon: Music, accept: "audio/*" },
+            { label: "Add script", icon: TextQuote, accept: null },
+          ] as const
+        ).map((x) => (
+          <button
+            key={x.label}
+            onClick={() => {
+              if (!x.accept) {
+                setNewPromptOpen(true);
+                return;
+              }
+              if (fileRef.current) {
+                fileRef.current.accept = x.accept;
+                fileRef.current.click();
+              }
+            }}
+            className="flex items-center gap-2 rounded-xl border border-dashed border-line-2 px-3.5 py-2 text-[13px] font-medium text-muted transition-colors hover:border-accent/50 hover:text-fg"
+          >
+            <x.icon size={15} className="text-accent-2" /> {x.label}
+          </button>
+        ))}
+      </div>
 
       {/* Inside a collection: back + name + manage. Home: type chips. */}
       {openColMeta ? (
@@ -264,34 +293,22 @@ export function AssetsView() {
         )}
 
         {assets.length === 0 ? (
-          <StartHere onUpload={() => fileRef.current?.click()} onNewPrompt={() => setNewPromptOpen(true)} />
+          <EmptyState
+            icon={<Upload size={24} />}
+            title="Your library is empty"
+            description="Add the pictures, videos, sound and scripts your videos are made from — use the buttons above, or drag & drop files anywhere on this page. Select a few later and collect them into a set."
+          />
         ) : openCol && visible.length === 0 ? (
           <EmptyState
             icon={<Layers size={24} />}
             title="Empty collection"
-            description="Upload here to file things directly into it, or go back, hit Select, and add existing assets."
-            action={
-              <Button variant="soft" onClick={() => fileRef.current?.click()}>
-                <Upload size={16} /> Upload into this collection
-              </Button>
-            }
+            description="Add something with the buttons above (it files straight into this collection), or go back, hit Select, and collect existing assets."
           />
         ) : !openCol && visible.length === 0 && (filter !== "all" || categories.length === 0) ? (
           <EmptyState
             icon={filter === "prompt" ? <TextQuote size={24} /> : <Upload size={24} />}
             title={EMPTY_HINTS[filter].title}
             description={EMPTY_HINTS[filter].desc}
-            action={
-              filter === "prompt" ? (
-                <Button variant="soft" onClick={() => setNewPromptOpen(true)}>
-                  <TextQuote size={16} /> New prompt
-                </Button>
-              ) : (
-                <Button variant="soft" onClick={() => fileRef.current?.click()}>
-                  <Upload size={16} /> Upload files
-                </Button>
-              )
-            }
           />
         ) : (
           <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7">
@@ -509,72 +526,6 @@ function FolderTile({
   );
 }
 
-/* --------------------------- First-run guidance --------------------------- */
-
-/** First-run guide: the library is empty by design — show how to fill it. */
-function StartHere({ onUpload, onNewPrompt }: { onUpload: () => void; onNewPrompt: () => void }) {
-  const tiles = [
-    {
-      icon: ImageIcon,
-      title: "Pictures",
-      body: "Product shots, faces, scenes. Use one as the exact first or last frame, or as reference images the model copies — so the video shows your thing, not a lookalike.",
-      action: "Upload JPG · PNG · WebP",
-      onClick: onUpload,
-    },
-    {
-      icon: Film,
-      title: "Videos",
-      body: "Reference clips whose motion and energy the model imitates. Anything you generate in Make can be saved back here and reused.",
-      action: "Upload MP4 · MOV",
-      onClick: onUpload,
-    },
-    {
-      icon: Music,
-      title: "Sound",
-      body: "Music and voice snippets. They flavor the written prompt, steering the mood of the soundtrack your video is generated with.",
-      action: "Upload MP3 · WAV",
-      onClick: onUpload,
-    },
-    {
-      icon: TextQuote,
-      title: "Prompts",
-      body: "Reusable text — your brand look, a favorite camera move, a style line you want in every shot. Drop one into any generation.",
-      action: "Write a prompt",
-      onClick: onNewPrompt,
-    },
-  ];
-  return (
-    <div>
-      <div className="rounded-[var(--radius-xl2)] border border-line bg-surface p-6 text-center">
-        <h2 className="font-display text-lg font-bold tracking-tight">Your library is empty — that&apos;s the starting point</h2>
-        <p className="mx-auto mt-1.5 max-w-lg text-[13.5px] leading-relaxed text-muted">
-          Assets are the raw material your videos are made from. Three ways to add them: upload
-          files (or drag &amp; drop anywhere on this page), save something you generated in{" "}
-          <span className="font-medium text-fg">Make</span>, or write a reusable prompt. Then
-          group anything into collections — select a few items and hit Collect.
-        </p>
-      </div>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {tiles.map((t) => (
-          <div key={t.title} className="flex flex-col rounded-[var(--radius-xl2)] border border-line bg-surface p-5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent-2">
-              <t.icon size={19} />
-            </span>
-            <h3 className="mt-3 text-[15px] font-semibold">{t.title}</h3>
-            <p className="mt-1 flex-1 text-[13px] leading-relaxed text-muted">{t.body}</p>
-            <button
-              onClick={t.onClick}
-              className="mt-3 self-start text-[13px] font-semibold text-accent-2 transition-colors hover:text-accent"
-            >
-              {t.action} →
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* --------------------------------- Modals -------------------------------- */
 
 /** Pick an existing collection or create a new one for the given assets. */
@@ -657,7 +608,7 @@ function AssetActions({
       {mode === "menu" && (
         <div className="space-y-1">
           <div className="mb-2 flex items-center gap-1.5 px-1 text-[11.5px] text-faint">
-            <span className="capitalize">{asset.kind}</span>
+            <span className="capitalize">{kindLabel[asset.kind]}</span>
             <span>·</span>
             {timeAgo(asset.createdAt)}
             {isComposite(asset) && (
@@ -782,7 +733,7 @@ function NewPromptModal({
     }
   }, [open]);
   return (
-    <Modal open={open} onClose={onClose} title="New prompt" size="md">
+    <Modal open={open} onClose={onClose} title="Add script" size="md">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -801,14 +752,14 @@ function NewPromptModal({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="The prompt text — e.g. warm golden-hour light, shallow depth of field, filmed on 35mm"
+            placeholder="The text — e.g. warm golden-hour light, shallow depth of field, filmed on 35mm"
             rows={5}
             className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none"
           />
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={!text.trim()}>Save prompt</Button>
+          <Button type="submit" size="sm" disabled={!text.trim()}>Save script</Button>
         </div>
       </form>
     </Modal>
