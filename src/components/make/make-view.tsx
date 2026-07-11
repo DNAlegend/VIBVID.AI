@@ -843,17 +843,32 @@ export function MakeView({ mode }: { mode?: Modality }) {
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-4">
             <div className="flex items-center gap-1.5">
               <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
-              {["16:9", "9:16", "1:1"].map((r) => (
+              {(
+                [
+                  // A little frame you can read at a glance: wide, tall, square.
+                  { r: "16:9", label: "Wide", frame: "h-[11px] w-[19px]" },
+                  { r: "9:16", label: "Tall", frame: "h-[19px] w-[11px]" },
+                  { r: "1:1", label: "Square", frame: "h-[15px] w-[15px]" },
+                ] as const
+              ).map(({ r, label, frame }) => (
                 <button
                   key={r}
                   onClick={() => setAspectRatio(r)}
+                  title={`${label} · ${r}`}
                   className={cn(
-                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    "flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[12px] font-medium transition-colors",
                     aspectRatio === r
                       ? "border-accent bg-accent-soft text-fg"
                       : "border-line text-muted hover:border-line-2",
                   )}
                 >
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-[3px] border-[1.5px]",
+                      frame,
+                      aspectRatio === r ? "border-accent-2 bg-accent/15" : "border-faint",
+                    )}
+                  />
                   {r}
                 </button>
               ))}
