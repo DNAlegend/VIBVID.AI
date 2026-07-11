@@ -106,6 +106,11 @@ export function AssetsView() {
   const [collectFor, setCollectFor] = useState<string[] | null>(null); // asset ids picking a collection
   const [actionAsset, setActionAsset] = useState<Asset | null>(null);
   const [renameColOpen, setRenameColOpen] = useState(false);
+  // Tile-on-tile drag & drop (iOS-style combine into a collection).
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  // A collection just born from a drop — prompt for its name.
+  const [namingCol, setNamingCol] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const colIds = useMemo(() => new Set(categories.map((c) => c.id)), [categories]);
@@ -170,6 +175,30 @@ export function AssetsView() {
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files?.length) ingest(e.dataTransfer.files);
+  }
+
+  /** Drop asset A onto asset B: join B's collection, or found a new one together. */
+  function combineTiles(targetId: string) {
+    if (!dragId || dragId === targetId) return;
+    const target = assets.find((a) => a.id === targetId);
+    if (!target) return;
+    if (target.categoryId && colIds.has(target.categoryId)) {
+      moveAsset(dragId, target.categoryId); // target already lives in a collection
+    } else {
+      const cat = addCategory("New collection");
+      moveAsset(dragId, cat.id);
+      moveAsset(targetId, cat.id);
+      setNamingCol(cat.id); // two in — ask for the name
+    }
+    setDragId(null);
+    setOverId(null);
+  }
+
+  function dropIntoCollection(catId: string) {
+    if (!dragId) return;
+    moveAsset(dragId, catId);
+    setDragId(null);
+    setOverId(null);
   }
 
   if (!hydrated) return <div className="mx-auto h-8 max-w-5xl w-40 rounded bg-surface-2" />;
@@ -277,7 +306,7 @@ export function AssetsView() {
       <section
         onDragOver={(e) => {
           e.preventDefault();
-          setDragOver(true);
+          if (!dragId) setDragOver(true); // file drops only — not internal tile drags
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
@@ -320,7 +349,11 @@ export function AssetsView() {
                   c={c}
                   items={inCollection(c.id)}
                   dimmed={selecting}
+                  dropReady={!!dragId && overId === c.id}
                   onOpen={() => !selecting && setOpenCol(c.id)}
+                  onDragEnter={() => dragId && setOverId(c.id)}
+                  onDragLeave={() => setOverId((o) => (o === c.id ? null : o))}
+                  onDropAsset={() => dropIntoCollection(c.id)}
                 />
               ))}
             {visible.map((a) => (
@@ -329,7 +362,18 @@ export function AssetsView() {
                 a={a}
                 selecting={selecting}
                 selected={sel.includes(a.id)}
+                dragging={dragId === a.id}
+                dropReady={!!dragId && dragId !== a.id && overId === a.id}
+                draggable={!selecting && !openCol}
                 onClick={() => (selecting ? toggleSel(a.id) : setActionAsset(a))}
+                onDragStart={() => setDragId(a.id)}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setOverId(null);
+                }}
+                onDragEnter={() => dragId && dragId !== a.id && setOverId(a.id)}
+                onDragLeave={() => setOverId((o) => (o === a.id ? null : o))}
+                onDropAsset={() => combineTiles(a.id)}
               />
             ))}
           </div>
@@ -432,6 +476,19 @@ export function AssetsView() {
           setRenameColOpen(false);
         }}
       />
+
+      {/* Two tiles just combined — christen the new collection. */}
+      <RenameModal
+        open={namingCol !== null}
+        title="Name the collection"
+        initial=""
+        placeholder="e.g. Spring campaign"
+        onClose={() => setNamingCol(null)}
+        onSubmit={(name) => {
+          if (namingCol) renameCategory(namingCol, name);
+          setNamingCol(null);
+        }}
+      />
     </div>
   );
 }
@@ -442,20 +499,65 @@ function IconTile({
   a,
   selecting,
   selected,
+  dragging = false,
+  dropReady = false,
+  draggable = false,
   onClick,
+  onDragStart,
+  onDragEnd,
+  onDragEnter,
+  onDragLeave,
+  onDropAsset,
 }: {
   a: Asset;
   selecting: boolean;
   selected: boolean;
+  dragging?: boolean;
+  /** Another tile is hovering over this one — about to combine. */
+  dropReady?: boolean;
+  draggable?: boolean;
   onClick: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDragEnter?: () => void;
+  onDragLeave?: () => void;
+  onDropAsset?: () => void;
 }) {
   const Icon = kindIcon[a.kind];
   return (
-    <button onClick={onClick} className="group text-center">
+    <button
+      onClick={onClick}
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", a.id);
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        onDragEnter?.();
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDropAsset?.();
+      }}
+      className={cn("group text-center transition-opacity", dragging && "opacity-40")}
+    >
       <span
         className={cn(
           "relative block aspect-square w-full overflow-hidden rounded-2xl border bg-surface-2 transition-all",
-          selected ? "border-accent ring-2 ring-accent/40" : "border-line group-hover:border-faint",
+          dropReady
+            ? "scale-110 border-accent ring-2 ring-accent/50"
+            : selected
+              ? "border-accent ring-2 ring-accent/40"
+              : "border-line group-hover:border-faint",
         )}
       >
         {a.kind === "prompt" ? (
@@ -491,17 +593,48 @@ function FolderTile({
   c,
   items,
   dimmed,
+  dropReady = false,
   onOpen,
+  onDragEnter,
+  onDragLeave,
+  onDropAsset,
 }: {
   c: Category;
   items: Asset[];
   dimmed: boolean;
+  /** A tile is hovering over this folder — about to drop in. */
+  dropReady?: boolean;
   onOpen: () => void;
+  onDragEnter?: () => void;
+  onDragLeave?: () => void;
+  onDropAsset?: () => void;
 }) {
   const previews = items.slice(0, 4);
   return (
-    <button onClick={onOpen} className={cn("group text-center", dimmed && "cursor-default opacity-40")}>
-      <span className="block aspect-square w-full rounded-2xl border border-line bg-surface-3/60 p-1.5 transition-colors group-hover:border-faint">
+    <button
+      onClick={onOpen}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        onDragEnter?.();
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDropAsset?.();
+      }}
+      className={cn("group text-center", dimmed && "cursor-default opacity-40")}
+    >
+      <span
+        className={cn(
+          "block aspect-square w-full rounded-2xl border bg-surface-3/60 p-1.5 transition-all group-hover:border-faint",
+          dropReady ? "scale-110 border-accent ring-2 ring-accent/50" : "border-line",
+        )}
+      >
         <span className="grid h-full w-full grid-cols-2 grid-rows-2 gap-1">
           {Array.from({ length: 4 }).map((_, i) =>
             previews[i] ? (
@@ -685,11 +818,15 @@ function ActionItem({
 function RenameModal({
   open,
   initial,
+  title = "Rename collection",
+  placeholder,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   initial: string;
+  title?: string;
+  placeholder?: string;
   onClose: () => void;
   onSubmit: (name: string) => void;
 }) {
@@ -698,14 +835,19 @@ function RenameModal({
     if (open) setName(initial);
   }, [open, initial]);
   return (
-    <Modal open={open} onClose={onClose} title="Rename collection" size="sm">
+    <Modal open={open} onClose={onClose} title={title} size="sm">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           if (name.trim()) onSubmit(name.trim());
         }}
       >
-        <TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+        <TextInput
+          autoFocus
+          value={name}
+          placeholder={placeholder}
+          onChange={(e) => setName(e.target.value)}
+        />
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
           <Button type="submit" size="sm">Save</Button>
