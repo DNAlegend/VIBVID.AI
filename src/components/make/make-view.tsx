@@ -516,8 +516,11 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
   function startGenerate(promptText: string) {
     if (rendering) return;
-    const scene = pickedAssets.find((a) => a.class === "scene");
-    const posterUrl = (scene ?? pickedAssets[0])?.posterUrl ?? (scene ?? pickedAssets[0])?.url;
+    // Poster must be an image — a video url as poster renders a blank tile.
+    const posterSource =
+      pickedAssets.find((a) => a.class === "scene" && a.kind === "image") ??
+      pickedAssets.find((a) => a.kind === "image");
+    const posterUrl = posterSource?.posterUrl ?? posterSource?.url;
     const id = generate({
       prompt: promptText,
       tier,

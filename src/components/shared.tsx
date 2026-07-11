@@ -100,11 +100,57 @@ export function thumbOf(a: Asset): string | null {
   return null;
 }
 
+/**
+ * A real video preview: shows a frame from a beat into the clip (opening
+ * frames are often blank), and plays muted while hovered.
+ */
+export function VideoPreview({
+  src,
+  poster,
+  className,
+}: {
+  src: string;
+  poster?: string;
+  className?: string;
+}) {
+  return (
+    // eslint-disable-next-line jsx-a11y/media-has-caption
+    <video
+      src={src}
+      poster={poster}
+      preload="metadata"
+      muted
+      playsInline
+      loop
+      onLoadedMetadata={(e) => {
+        // Always seek a beat in: opening frames are often blank, and seeking
+        // also replaces a bad poster (some old jobs stored video urls there).
+        const v = e.currentTarget;
+        if (Number.isFinite(v.duration) && v.duration > 0) {
+          const t = Math.min(1.2, v.duration * 0.15);
+          v.currentTime = t;
+          v.dataset.previewT = String(t);
+        }
+      }}
+      onMouseEnter={(e) => void e.currentTarget.play().catch(() => {})}
+      onMouseLeave={(e) => {
+        const v = e.currentTarget;
+        v.pause();
+        v.currentTime = Number(v.dataset.previewT ?? 0);
+      }}
+      className={cn("object-cover", className)}
+    />
+  );
+}
+
 export function AssetThumb({ a, className }: { a: Asset; className?: string }) {
   const src = thumbOf(a);
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={a.name} className={cn("object-cover", className)} />;
+  }
+  if (a.kind === "video" && a.url) {
+    return <VideoPreview src={a.url} className={className} />;
   }
   const Icon = a.kind === "audio" ? Music : a.kind === "prompt" ? TextQuote : Film;
   return (

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Film,
-  Image as ImageIcon,
   Play,
   Sparkles,
   Loader2,
@@ -18,21 +17,16 @@ import { useStore } from "@/lib/store";
 import { getModel } from "@/lib/models";
 import { TIERS, type Asset, type VideoJob } from "@/lib/types";
 import { timeAgo, cn } from "@/lib/utils";
-import { Button, Card, Badge, EmptyState, Modal, Progress, Segmented } from "@/components/ui";
-import { AssetThumb } from "@/components/shared";
-
-type Filter = "all" | "video" | "image";
+import { Button, Card, Badge, EmptyState, Modal, Progress } from "@/components/ui";
+import { AssetThumb, VideoPreview } from "@/components/shared";
 
 export function LibraryView() {
-  const videos = useStore((s) => s.videos);
+  const allJobs = useStore((s) => s.videos);
   const hydrated = useStore((s) => s.hasHydrated);
-  const [filter, setFilter] = useState<Filter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const filtered = useMemo(
-    () => videos.filter((v) => filter === "all" || (v.modality ?? "video") === filter),
-    [videos, filter],
-  );
+  // Videos only — the product doesn't produce images for now.
+  const videos = useMemo(() => allJobs.filter((v) => (v.modality ?? "video") === "video"), [allJobs]);
   const open = videos.find((v) => v.id === openId) ?? null;
   const done = videos.filter((v) => v.status === "succeeded").length;
 
@@ -45,8 +39,8 @@ export function LibraryView() {
           <h1 className="text-2xl font-bold tracking-tight">My Videos</h1>
           <p className="mt-1 text-sm text-muted">
             {videos.length === 0
-              ? "Everything you generate is collected and managed here."
-              : `${done} ${done === 1 ? "item" : "items"} generated.`}
+              ? "Every video you generate is collected and managed here."
+              : `${done} ${done === 1 ? "video" : "videos"} generated.`}
           </p>
         </div>
         <Button onClick={() => (window.location.href = "/app")} className="hidden sm:inline-flex">
@@ -58,7 +52,7 @@ export function LibraryView() {
         <EmptyState
           icon={<Film size={24} />}
           title="Nothing here yet"
-          description="Generate from Make and your videos and images land here — ready to play, download, remix and reuse."
+          description="Generate from Make and your videos land here — ready to play, download, remix and reuse."
           action={
             <Button onClick={() => (window.location.href = "/app")}>
               <Sparkles size={16} /> Make something
@@ -66,24 +60,11 @@ export function LibraryView() {
           }
         />
       ) : (
-        <>
-          <div className="mb-4 max-w-xs">
-            <Segmented<Filter>
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All" },
-                { value: "video", label: "Video" },
-                { value: "image", label: "Image" },
-              ]}
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((v) => (
-              <ContentCard key={v.id} video={v} onOpen={() => v.status === "succeeded" && setOpenId(v.id)} />
-            ))}
-          </div>
-        </>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {videos.map((v) => (
+            <ContentCard key={v.id} video={v} onOpen={() => v.status === "succeeded" && setOpenId(v.id)} />
+          ))}
+        </div>
       )}
 
       <ContentModal video={open} onClose={() => setOpenId(null)} />
@@ -94,7 +75,6 @@ export function LibraryView() {
 function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void }) {
   const rendering = video.status === "rendering";
   const model = getModel(video.modelId);
-  const isImage = video.modality === "image";
   return (
     <Card className="group overflow-hidden">
       <button
@@ -112,43 +92,27 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
           </div>
         ) : (
           <>
-            {video.posterUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={video.posterUrl}
-                alt={video.prompt}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            {video.videoUrl ? (
+              // Proper preview: a real frame from the clip, playing on hover.
+              <VideoPreview
+                src={video.videoUrl}
+                poster={video.posterUrl}
+                className="h-full w-full"
               />
             ) : (
-              // Real generated clips have no poster — the first frame is one.
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video
-                src={video.videoUrl}
-                preload="metadata"
-                muted
-                playsInline
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={video.posterUrl} alt={video.prompt} className="h-full w-full object-cover" />
             )}
-            {!isImage && (
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Play size={18} className="ml-0.5 text-black" fill="black" />
-                </span>
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 opacity-0 transition-opacity group-hover:opacity-100">
+                <Play size={18} className="ml-0.5 text-black" fill="black" />
               </span>
-            )}
-            <span className="absolute left-2 top-2">
-              <Badge tone="neutral" className="bg-black/60 capitalize text-white border-white/20 backdrop-blur-sm">
-                {isImage ? <ImageIcon size={11} /> : <Film size={11} />} {video.modality ?? "video"}
+            </span>
+            <span className="absolute bottom-2 right-2">
+              <Badge tone="neutral" className="bg-black/60 text-white border-white/20 backdrop-blur-sm">
+                {video.durationSec}s
               </Badge>
             </span>
-            {!isImage && (
-              <span className="absolute bottom-2 right-2">
-                <Badge tone="neutral" className="bg-black/60 text-white border-white/20 backdrop-blur-sm">
-                  {video.durationSec}s
-                </Badge>
-              </span>
-            )}
           </>
         )}
       </button>
@@ -178,7 +142,6 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
   if (!video) return null;
 
   const model = getModel(video.modelId);
-  const isImage = video.modality === "image";
   const sources = (video.elements ?? []).map((id) => byId[id]).filter(Boolean) as Asset[];
 
   function remix() {
@@ -190,23 +153,18 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
   }
 
   return (
-    <Modal open={!!video} onClose={onClose} size="lg" title={isImage ? "Image" : "Video"}>
-      {isImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={video.posterUrl} alt={video.prompt} className="w-full rounded-xl bg-black" />
-      ) : (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video src={video.videoUrl} poster={video.posterUrl} controls autoPlay playsInline className="w-full rounded-xl bg-black" />
-      )}
+    <Modal open={!!video} onClose={onClose} size="lg" title="Video">
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <video src={video.videoUrl} poster={video.posterUrl} controls autoPlay playsInline className="w-full rounded-xl bg-black" />
       <p className="mt-4 text-sm text-fg">{video.prompt}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Badge tone="accent">
           {model.glyph} {model.name}
         </Badge>
-        {!isImage && <Badge>{TIERS[video.tier].label}</Badge>}
-        {!isImage && <Badge>{video.durationSec}s</Badge>}
+        <Badge>{TIERS[video.tier].label}</Badge>
+        <Badge>{video.durationSec}s</Badge>
         <Badge>{video.aspectRatio}</Badge>
-        {!isImage && video.audio && <Badge tone="teal">Audio</Badge>}
+        {video.audio && <Badge tone="teal">Audio</Badge>}
         <span className="text-xs text-faint">{timeAgo(video.createdAt)}</span>
       </div>
 
