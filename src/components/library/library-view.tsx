@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Film,
@@ -12,6 +12,7 @@ import {
   Bookmark,
   Repeat2,
   Check,
+  Lightbulb,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { getModel } from "@/lib/models";
@@ -29,6 +30,15 @@ export function LibraryView() {
   const videos = useMemo(() => allJobs.filter((v) => (v.modality ?? "video") === "video"), [allJobs]);
   const open = videos.find((v) => v.id === openId) ?? null;
   const done = videos.filter((v) => v.status === "succeeded").length;
+
+  // Deep link from Plan ("View video"): /app/library?open=<jobId>
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("open");
+    if (!id) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    setOpenId(id);
+  }, []);
 
   if (!hydrated) return <GridSkeleton />;
 
@@ -132,6 +142,7 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
 function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () => void }) {
   const router = useRouter();
   const assets = useStore((s) => s.assets);
+  const plans = useStore((s) => s.plans);
   const removeVideo = useStore((s) => s.removeVideo);
   const saveVideoToAssets = useStore((s) => s.saveVideoToAssets);
   const setDraftDirection = useStore((s) => s.setDraftDirection);
@@ -143,6 +154,9 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
 
   const model = getModel(video.modelId);
   const sources = (video.elements ?? []).map((id) => byId[id]).filter(Boolean) as Asset[];
+  // Provenance: the plan idea this video was made from.
+  const fromPlan = video.planId ? plans.find((p) => p.id === video.planId) : null;
+  const fromIdea = fromPlan?.ideas.find((i) => i.id === video.ideaId) ?? null;
 
   function remix() {
     if (!video) return;
@@ -167,6 +181,22 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
         {video.audio && <Badge tone="teal">Audio</Badge>}
         <span className="text-xs text-faint">{timeAgo(video.createdAt)}</span>
       </div>
+
+      {fromPlan && (
+        <button
+          onClick={() => {
+            onClose();
+            router.push("/app/plan");
+          }}
+          className="mt-4 flex w-full items-center gap-2 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2.5 text-left transition-colors hover:border-accent/50"
+        >
+          <Lightbulb size={14} className="shrink-0 text-accent-2" />
+          <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
+            From plan: <span className="font-semibold">{fromIdea?.title ?? "idea"}</span>
+            <span className="text-muted"> · “{fromPlan.brief}”</span>
+          </span>
+        </button>
+      )}
 
       {sources.length > 0 && (
         <div className="mt-4 rounded-xl border border-line bg-surface-2 p-3">

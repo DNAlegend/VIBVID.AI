@@ -6,6 +6,8 @@ import {
   type Asset,
   type Category,
   type GenerateParams,
+  type Plan,
+  type PlanIdea,
   type VideoJob,
 } from "./types";
 import { pickSample } from "./samples";
@@ -20,9 +22,12 @@ import {
   deleteCategoryRow,
   deleteGenerationRow,
   fetchCloudState,
+  fetchPlans,
   pushAsset,
   pushCategory,
   pushGeneration,
+  pushPlan,
+  deletePlanRow,
   setCloudUser,
   updateAssetRow,
   updateCategoryRow,
@@ -59,6 +64,10 @@ interface StoreState {
   draftElements: string[] | null;
   /** Asset id carried from a "Use in Studio" action into the Studio. */
   draftRefAssetId: string | null;
+  /** Planning sessions (the Plan surface before Make). */
+  plans: Plan[];
+  /** Plan idea carried from Plan into Make — stamps the next generation. */
+  draftPlanRef: { planId: string; ideaId: string } | null;
 
   setHasHydrated: (v: boolean) => void;
   setAuthOpen: (v: boolean) => void;
@@ -74,6 +83,12 @@ interface StoreState {
   setDraftDirection: (direction: string | null) => void;
   setDraftElements: (elements: string[] | null) => void;
   setDraftRef: (assetId: string | null) => void;
+  setDraftPlanRef: (ref: { planId: string; ideaId: string } | null) => void;
+
+  // plans
+  addPlan: (brief: string, ideas: Array<Pick<PlanIdea, "title" | "hook" | "prompt">>) => Plan;
+  removePlan: (id: string) => void;
+  markIdeaSent: (planId: string, ideaId: string) => void;
 
   // credits
   addCredits: (n: number) => void;
@@ -274,6 +289,8 @@ export const useStore = create<StoreState>()(
       draftDirection: null,
       draftElements: null,
       draftRefAssetId: null,
+      plans: [],
+      draftPlanRef: null,
 
       setHasHydrated: (v) => set({ hasHydrated: v }),
       setAuthOpen: (v) => set({ authOpen: v }),
@@ -286,6 +303,10 @@ export const useStore = create<StoreState>()(
         // The user signed out or switched accounts while we were fetching —
         // that flow owns the store now; discard this stale snapshot.
         if (getCloudUser() !== userId) return;
+        // Plans load separately (missing table degrades to local-only plans).
+        void fetchPlans().then((plans) => {
+          if (plans && getCloudUser() === userId) set({ plans });
+        });
         if (!cloud) {
           // Fetch failed — fall back to what's on screen rather than hanging.
           set({ hasHydrated: true });
@@ -346,6 +367,8 @@ export const useStore = create<StoreState>()(
           videos: [],
           assets: [],
           categories: [],
+          plans: [],
+          draftPlanRef: null,
           hasHydrated: true,
         });
       },
@@ -388,9 +411,28 @@ export const useStore = create<StoreState>()(
           direction: p.direction,
           creditsCost: cost,
           createdAt: Date.now(),
+          planId: p.planId,
+          ideaId: p.ideaId,
         };
 
         set((s) => ({ credits: s.credits - cost, videos: [job, ...s.videos] }));
+
+        // Provenance: link the plan idea to the job it just became.
+        if (p.planId && p.ideaId) {
+          set((s) => {
+            const plans = s.plans.map((pl) =>
+              pl.id === p.planId
+                ? {
+                    ...pl,
+                    ideas: pl.ideas.map((i) => (i.id === p.ideaId ? { ...i, jobId: id } : i)),
+                  }
+                : pl,
+            );
+            const updated = plans.find((pl) => pl.id === p.planId);
+            if (updated) pushPlan(updated);
+            return { plans, draftPlanRef: null };
+          });
+        }
 
         if (cloudOn()) {
           // Signed in: real generation via the server (or its sim fallback).
@@ -417,6 +459,41 @@ export const useStore = create<StoreState>()(
       setDraftElements: (elements) => set({ draftElements: elements }),
 
       setDraftRef: (assetId) => set({ draftRefAssetId: assetId }),
+
+      setDraftPlanRef: (ref) => set({ draftPlanRef: ref }),
+
+      addPlan: (brief, ideas) => {
+        const plan: Plan = {
+          id: uid("plan"),
+          brief,
+          createdAt: Date.now(),
+          ideas: ideas.map((i) => ({ ...i, id: uid("idea") })),
+        };
+        set((s) => ({ plans: [plan, ...s.plans] }));
+        pushPlan(plan);
+        return plan;
+      },
+
+      removePlan: (id) => {
+        set((s) => ({ plans: s.plans.filter((p) => p.id !== id) }));
+        deletePlanRow(id);
+      },
+
+      markIdeaSent: (planId, ideaId) => {
+        set((s) => {
+          const plans = s.plans.map((pl) =>
+            pl.id === planId
+              ? {
+                  ...pl,
+                  ideas: pl.ideas.map((i) => (i.id === ideaId ? { ...i, sentAt: Date.now() } : i)),
+                }
+              : pl,
+          );
+          const updated = plans.find((pl) => pl.id === planId);
+          if (updated) pushPlan(updated);
+          return { plans };
+        });
+      },
 
       addCredits: (n) => {
         set((s) => ({ credits: s.credits + n }));
@@ -530,6 +607,7 @@ export const useStore = create<StoreState>()(
         videos: s.videos,
         assets: s.assets,
         categories: s.categories,
+        plans: s.plans,
       }),
       onRehydrateStorage: () => (state) => {
         // A render interrupted by a tab close shouldn't hang — settle it with a sample.

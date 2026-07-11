@@ -18,6 +18,7 @@ import {
   Film,
   Music,
   RefreshCw,
+  Lightbulb,
   Image as ImageIcon,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -198,6 +199,14 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const setDraftElements = useStore((s) => s.setDraftElements);
   const setDraftDirection = useStore((s) => s.setDraftDirection);
   const setDraftRef = useStore((s) => s.setDraftRef);
+  const draftPlanRef = useStore((s) => s.draftPlanRef);
+  const setDraftPlanRef = useStore((s) => s.setDraftPlanRef);
+  const plans = useStore((s) => s.plans);
+  // The plan idea this session is producing (provenance stamped on generate).
+  const [planRef, setPlanRef] = useState<{ planId: string; ideaId: string } | null>(null);
+  const planIdea = planRef
+    ? plans.find((p) => p.id === planRef.planId)?.ideas.find((i) => i.id === planRef.ideaId)
+    : null;
 
   const byId = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, a])), [assets]);
 
@@ -248,6 +257,10 @@ export function MakeView({ mode }: { mode?: Modality }) {
     if (draftDirection != null) {
       setPrompt(draftDirection);
       setDraftDirection(null);
+    }
+    if (draftPlanRef) {
+      setPlanRef(draftPlanRef);
+      setDraftPlanRef(null);
     }
     if (ids.length) {
       if (mode === "image") {
@@ -532,6 +545,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
       elements: pickedAssets.map((a) => a.id),
       direction: promptText,
       posterUrl,
+      planId: planRef?.planId,
+      ideaId: planRef?.ideaId,
       firstFrameUrl: firstFrameUrl ?? undefined,
       lastFrameUrl: firstFrameUrl ? lastFrameUrl ?? undefined : undefined,
       resolution,
@@ -590,6 +605,22 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
       <Card className="overflow-hidden">
         <div className="p-5">
+          {/* Provenance: this session is producing a planned idea. */}
+          {planIdea && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2">
+              <Lightbulb size={14} className="shrink-0 text-accent-2" />
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">
+                From your plan: <span className="font-semibold">{planIdea.title}</span>
+              </span>
+              <button
+                onClick={() => setPlanRef(null)}
+                className="shrink-0 text-[12px] font-medium text-faint hover:text-fg"
+                title="Detach from the plan"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {/* Prompt — type # to reference added media by tag */}
           <div className="relative">
             <textarea

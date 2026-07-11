@@ -67,6 +67,31 @@ export interface Category {
   system?: boolean;
 }
 
+/* ---------------------------------- Plans --------------------------------- */
+
+/** One video concept inside a plan — becomes a job when sent to Make. */
+export interface PlanIdea {
+  id: string;
+  /** Punchy concept name, e.g. "POV: your desk at 3am". */
+  title: string;
+  /** Why it stops the scroll. */
+  hook: string;
+  /** Production-ready prompt for the video model. */
+  prompt: string;
+  /** Set when the idea was handed to Make. */
+  sentAt?: number;
+  /** Set when a generation was started from this idea — the provenance link. */
+  jobId?: string;
+}
+
+/** A planning session: the creator's brief and the ideas the Director produced. */
+export interface Plan {
+  id: string;
+  brief: string;
+  createdAt: number;
+  ideas: PlanIdea[];
+}
+
 /* ------------------------------- Generation ------------------------------ */
 
 export interface GenerateParams {
@@ -95,6 +120,9 @@ export interface GenerateParams {
   lastFrameUrl?: string;
   /** Render resolution (480p/720p/1080p); defaults to the model's tier. */
   resolution?: string;
+  /** Provenance: the plan idea this generation was made from. */
+  planId?: string;
+  ideaId?: string;
 }
 
 /** Seedance 2.0's hard caps on reference media per video generation. */
@@ -136,6 +164,9 @@ export interface VideoJob {
   firstFrameUrl?: string;
   lastFrameUrl?: string;
   resolution?: string;
+  /** Provenance: the plan idea this generation was made from. */
+  planId?: string;
+  ideaId?: string;
 }
 
 export const TIERS: Record<

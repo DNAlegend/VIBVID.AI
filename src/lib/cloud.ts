@@ -6,7 +6,7 @@
 // them unconditionally.
 
 import { supabase } from "./supabase";
-import type { Asset, Category, VideoJob } from "./types";
+import type { Asset, Category, Plan, VideoJob } from "./types";
 
 let activeUserId: string | null = null;
 
@@ -110,6 +110,9 @@ function jobToRow(v: VideoJob): Row {
     direction: v.direction ?? null,
     simulated: v.simulated ?? false,
     created_at: v.createdAt,
+    // Provenance columns are newer — only send them when set, so older
+    // deployments/rows keep working even before the migration lands.
+    ...(v.planId ? { plan_id: v.planId, idea_id: v.ideaId ?? null } : {}),
   };
 }
 
@@ -134,6 +137,27 @@ function rowToJob(r: Row): VideoJob {
     elements: (r.elements as string[]) ?? undefined,
     direction: (r.direction as string) ?? undefined,
     simulated: r.simulated ? true : undefined,
+    createdAt: Number(r.created_at),
+    planId: (r.plan_id as string) ?? undefined,
+    ideaId: (r.idea_id as string) ?? undefined,
+  };
+}
+
+function planToRow(p: Plan): Row {
+  return {
+    id: p.id,
+    user_id: activeUserId,
+    brief: p.brief,
+    ideas: p.ideas,
+    created_at: p.createdAt,
+  };
+}
+
+function rowToPlan(r: Row): Plan {
+  return {
+    id: r.id as string,
+    brief: r.brief as string,
+    ideas: (r.ideas as Plan["ideas"]) ?? [],
     createdAt: Number(r.created_at),
   };
 }
@@ -173,6 +197,24 @@ export async function fetchCloudState(): Promise<CloudState | null> {
   }
 }
 
+/**
+ * Plans are fetched separately from the main state so a missing table (the
+ * migration not applied yet) degrades to local-only plans instead of breaking
+ * the whole hydration.
+ */
+export async function fetchPlans(): Promise<Plan[] | null> {
+  if (!supabase || !activeUserId) return null;
+  const { data, error } = await supabase
+    .from("plans")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    warn("fetchPlans", error);
+    return null;
+  }
+  return (data ?? []).map(rowToPlan);
+}
+
 /** Seed a fresh account's library with the starter catalog. */
 export async function seedCloud(categories: Category[], assets: Asset[]): Promise<void> {
   if (!supabase || !activeUserId) return;
@@ -189,6 +231,19 @@ export async function seedCloud(categories: Category[], assets: Asset[]): Promis
 }
 
 /* --------------------------------- writes -------------------------------- */
+
+export function pushPlan(p: Plan): void {
+  if (!cloudOn()) return;
+  supabase!.from("plans").upsert(planToRow(p)).then(({ error }) => {
+    if (error) warn("pushPlan", error);
+  });
+}
+
+export function deletePlanRow(id: string): void {
+  if (!cloudOn()) return;
+  supabase!.from("plans").delete().eq("id", id).eq("user_id", activeUserId!)
+    .then(({ error }) => { if (error) warn("deletePlanRow", error); });
+}
 
 export function pushAsset(a: Asset): void {
   if (!cloudOn()) return;
