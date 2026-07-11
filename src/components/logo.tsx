@@ -54,12 +54,32 @@ export function LogoMark({
   );
 }
 
-/** The logo is letters only: MightyMak.ai — two-tone with a quiet suffix. */
+/**
+ * The logo is letters only: MightyMak.ai.
+ * "Mighty" in ink, "Mak" in the brand gradient, and the period drawn as a
+ * tiny gradient pixel — the one graphic gesture left from the pixel-M mark.
+ */
 export function LogoWordmark({ className }: { className?: string }) {
   return (
-    <span className={cn("font-display text-[19px] font-bold tracking-tight text-fg", className)}>
-      Mighty<span className="gradient-text">Mak</span>
-      <span className="font-semibold text-faint">.ai</span>
+    <span
+      className={cn(
+        "font-display inline-flex items-baseline text-[19px] font-bold tracking-[-0.03em] text-fg",
+        className,
+      )}
+    >
+      Mighty
+      <span
+        className="bg-clip-text text-transparent"
+        style={{ backgroundImage: "linear-gradient(94deg, #6d5ef8, #a95dff)" }}
+      >
+        Mak
+      </span>
+      <span
+        aria-hidden
+        className="mx-[0.14em] inline-block h-[0.17em] w-[0.17em] rounded-[0.05em]"
+        style={{ background: "linear-gradient(135deg, #0d9488, #2dd4bf)" }}
+      />
+      <span className="font-semibold text-muted">ai</span>
     </span>
   );
 }
