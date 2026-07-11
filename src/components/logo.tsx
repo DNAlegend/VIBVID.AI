@@ -54,11 +54,12 @@ export function LogoMark({
   );
 }
 
-/** The two-tone wordmark — used beside the mark in every header. */
+/** The logo is letters only: MightyMak.ai — two-tone with a quiet suffix. */
 export function LogoWordmark({ className }: { className?: string }) {
   return (
-    <span className={cn("font-display text-[17px] font-bold tracking-tight text-fg", className)}>
+    <span className={cn("font-display text-[19px] font-bold tracking-tight text-fg", className)}>
       Mighty<span className="gradient-text">Mak</span>
+      <span className="font-semibold text-faint">.ai</span>
     </span>
   );
 }

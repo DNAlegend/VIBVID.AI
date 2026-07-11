@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
-import { LogoMark, LogoWordmark } from "@/components/logo";
+import { LogoWordmark } from "@/components/logo";
 import { HERO, HERO_CHIPS, HERO_PROMPT, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
 import { DEMO_CONTENT, generatedSrc, type DemoItem } from "@/lib/demo-content";
 
@@ -77,8 +77,7 @@ function MediaTile({ m, className }: { m: ShowcaseMedia; className?: string }) {
 
 function Brand() {
   return (
-    <Link href="/" className="flex items-center gap-2.5">
-      <LogoMark size={36} className="drop-shadow-[0_6px_14px_rgba(124,108,255,0.45)]" />
+    <Link href="/" className="flex items-center">
       <LogoWordmark />
     </Link>
   );

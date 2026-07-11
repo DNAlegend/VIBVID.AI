@@ -10,7 +10,7 @@ import { TOPUPS, PLAN_ITEMS, billingItem, type BillingItem } from "@/lib/billing
 import { cn } from "@/lib/utils";
 import { Button, Modal, Badge, TextInput } from "@/components/ui";
 import { AuthModal } from "@/components/auth/auth-modal";
-import { LogoMark, LogoWordmark } from "@/components/logo";
+import { LogoWordmark } from "@/components/logo";
 
 const NAV = [
   { href: "/app", label: "Make", icon: Clapperboard },
@@ -20,8 +20,7 @@ const NAV = [
 
 function Brand() {
   return (
-    <Link href="/app" className="flex items-center gap-2.5">
-      <LogoMark size={36} className="drop-shadow-[0_6px_14px_rgba(124,108,255,0.45)]" />
+    <Link href="/app" className="flex items-center">
       <LogoWordmark />
     </Link>
   );
@@ -463,7 +462,7 @@ function PaywallGate({
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="text-center">
-          <LogoMark size={44} className="mx-auto drop-shadow-[0_6px_14px_rgba(124,108,255,0.45)]" />
+          <LogoWordmark className="text-2xl" />
           <h1 className="font-display mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
           <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
             Paid plans go straight to payment — your account is created on the way and
@@ -695,7 +694,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (cloudConfigured && !authReady) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <LogoMark size={40} className="animate-pulse" />
+        <LogoWordmark className="animate-pulse text-2xl" />
       </div>
     );
   }
