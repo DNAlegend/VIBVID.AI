@@ -20,7 +20,13 @@ import { getModel } from "@/lib/models";
 import { TIERS, type Asset, type VideoJob } from "@/lib/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { Button, Card, Badge, EmptyState, Modal, Progress } from "@/components/ui";
-import { AssetThumb, VideoPreview, classifyGenError } from "@/components/shared";
+import {
+  AssetThumb,
+  VideoPreview,
+  classifyGenError,
+  genErrorReason,
+  safeRewritePrompt,
+} from "@/components/shared";
 
 export function LibraryView() {
   const allJobs = useStore((s) => s.videos);
@@ -90,6 +96,8 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
   const router = useRouter();
   const removeVideo = useStore((s) => s.removeVideo);
   const setDraftDirection = useStore((s) => s.setDraftDirection);
+  const updateIdeaPrompt = useStore((s) => s.updateIdeaPrompt);
+  const [fixing, setFixing] = useState(false);
   const rendering = video.status === "rendering";
   const failed = video.status === "failed";
   const model = getModel(video.modelId);
@@ -110,11 +118,19 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
             <span className="mt-1.5 text-xs tabular-nums text-faint">{video.progress}%</span>
           </div>
         ) : failed ? (
-          // Say it plainly: this one didn't make it.
+          // Say it plainly: this one didn't make it — and exactly why.
           <div className="flex h-full flex-col items-center justify-center gap-1.5 border-b-2 border-danger/40 bg-danger/5 px-5 text-center">
             <AlertTriangle size={20} className="text-danger" />
             <span className="text-[13.5px] font-semibold text-fg">{failInfo!.title}</span>
             <span className="line-clamp-2 text-[12px] leading-snug text-muted">{failInfo!.detail}</span>
+            {genErrorReason(video.error) && (
+              <span
+                className="max-w-full truncate font-mono text-[10.5px] text-faint"
+                title={genErrorReason(video.error)}
+              >
+                {genErrorReason(video.error)}
+              </span>
+            )}
           </div>
         ) : (
           <>
@@ -147,16 +163,42 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
         )}
       </button>
       {failed && (
-        <div className="flex gap-2 border-b border-line px-3.5 py-2.5">
+        <div className="flex flex-wrap gap-2 border-b border-line px-3.5 py-2.5">
           <Button
             size="sm"
             variant="soft"
+            disabled={fixing}
+            onClick={async () => {
+              setFixing(true);
+              try {
+                const rewritten = await safeRewritePrompt(video.prompt, video.error);
+                if (video.planId && video.ideaId) {
+                  updateIdeaPrompt(video.planId, video.ideaId, rewritten);
+                }
+                setDraftDirection(rewritten);
+                router.push("/app");
+              } catch {
+                // Rewrite unavailable — fall back to editing the original.
+                setDraftDirection(video.prompt);
+                router.push("/app");
+              } finally {
+                setFixing(false);
+              }
+            }}
+          >
+            {fixing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {fixing ? "Rewriting…" : "Fix & retry"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={fixing}
             onClick={() => {
               setDraftDirection(video.prompt);
               router.push("/app");
             }}
           >
-            <Repeat2 size={14} /> Retry in Make
+            <Repeat2 size={14} /> Edit in Make
           </Button>
           <Button
             size="sm"

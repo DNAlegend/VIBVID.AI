@@ -26,6 +26,7 @@ import {
   type VideoJob,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { Badge, Progress } from "@/components/ui";
 
 /* --------------------------- Failure messaging -------------------------- */
@@ -44,15 +45,51 @@ function extractMessage(raw?: string): string {
 
 export type GenErrorKind = "policy" | "timeout" | "credits" | "generic";
 
-/** Turn a raw failure into a friendly, on-brand title + detail. */
-export function classifyGenError(raw?: string): { kind: GenErrorKind; title: string; detail: string } {
+/** The exact machine reason (error code + message) for showing alongside the friendly text. */
+export function genErrorReason(raw?: string): string {
+  if (!raw) return "";
+  try {
+    const j = JSON.parse(raw.replace(/^Model error:\s*/i, "").trim());
+    const code = j?.code ?? j?.error?.code;
+    const msg = j?.message ?? j?.error?.message;
+    return [code, msg].filter(Boolean).join(" — ");
+  } catch {
+    return extractMessage(raw);
+  }
+}
+
+/** Turn a raw failure into a friendly, on-brand title + detail + fix tips. */
+export function classifyGenError(raw?: string): {
+  kind: GenErrorKind;
+  title: string;
+  detail: string;
+  tips: string[];
+} {
   const low = (raw ?? "").toLowerCase();
+  if (/audio.*sensitive|sensitive.*audio|outputaudio/.test(low)) {
+    return {
+      kind: "policy",
+      title: "The soundtrack got blocked",
+      detail:
+        "The generated AUDIO tripped the content filter — this usually comes from crowd chants, song-like music, or celebrity-sounding voices.",
+      tips: [
+        "Soften the sound direction: ambient or instrumental music instead of crowd roar, chants or lyrics.",
+        "Avoid naming songs, artists, or anything that could sound like a real recording.",
+        "Fix & retry rewrites the plan automatically to pass the checks.",
+      ],
+    };
+  }
   if (/sensitive|policyviolation|copyright|prohibited|nsfw|violat|risky|not\s*allowed/.test(low)) {
     return {
       kind: "policy",
       title: "Blocked by content checks",
       detail:
-        "Your prompt may reference protected material — a brand, logo, real person or known character. Rewrite it to be more original and try again.",
+        "The generated footage may resemble protected material — a brand, logo, real person or known character.",
+      tips: [
+        "Remove brand names, franchises, celebrities and iconic costumes — describe original ones instead.",
+        "Keep the action and mood; swap recognizable designs for generic, invented ones.",
+        "Fix & retry rewrites the plan automatically to pass the checks.",
+      ],
     };
   }
   if (/timed out|timeout/.test(low)) {
@@ -60,6 +97,7 @@ export function classifyGenError(raw?: string): { kind: GenErrorKind; title: str
       kind: "timeout",
       title: "This took too long",
       detail: "The render timed out. Your credits weren’t spent — give it another try.",
+      tips: ["Try again — timeouts are usually transient.", "Shorter clips and 720p render faster."],
     };
   }
   if (/not enough credits|insufficient|402/.test(low)) {
@@ -67,6 +105,7 @@ export function classifyGenError(raw?: string): { kind: GenErrorKind; title: str
       kind: "credits",
       title: "Not enough credits",
       detail: "Top up with the Buy button in the top bar, then try again.",
+      tips: ["Buy a top-up pack — credits land instantly after payment."],
     };
   }
   const msg = extractMessage(raw);
@@ -74,7 +113,25 @@ export function classifyGenError(raw?: string): { kind: GenErrorKind; title: str
     kind: "generic",
     title: "That render didn’t finish",
     detail: msg || "Something went wrong — your credits weren’t spent. Try again.",
+    tips: ["Try again — most one-off failures don’t repeat.", "If it keeps failing, simplify the prompt."],
   };
+}
+
+/**
+ * Ask the Director to rewrite a prompt so it passes the content checks that
+ * just blocked it (mode "safe" + the exact failure as context).
+ */
+export async function safeRewritePrompt(prompt: string, avoid?: string): Promise<string> {
+  const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+  if (!token) throw new Error("Sign in to rewrite the plan");
+  const res = await fetch("/api/enhance", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ brief: prompt, mode: "safe", avoid: avoid ?? "content policy" }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.prompt) throw new Error(data.error ?? "Couldn’t rewrite the plan");
+  return data.prompt;
 }
 
 /* ----------------------------- Class icon ------------------------------- */

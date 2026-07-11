@@ -16,6 +16,7 @@ import { useStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { timeAgo, cn } from "@/lib/utils";
 import { Button, Card, Badge, EmptyState } from "@/components/ui";
+import { classifyGenError, genErrorReason, safeRewritePrompt } from "@/components/shared";
 
 const LENGTHS = [5, 10, 15] as const;
 
@@ -64,7 +65,9 @@ export function PlanView() {
   const [brief, setBrief] = useState("");
   const [durationSec, setDurationSec] = useState<number>(5);
   const [busy, setBusy] = useState(false);
+  const [fixing, setFixing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const updateIdeaPrompt = useStore((s) => s.updateIdeaPrompt);
 
   // One plan, one idea — the plan IS the idea.
   const plan = plans[0] ?? null;
@@ -110,6 +113,25 @@ export function PlanView() {
     setDraftPlanRef({ planId: plan.id, ideaId: idea.id });
     markIdeaSent(plan.id, idea.id);
     router.push("/app");
+  }
+
+  /** The failed plan, rewritten by the Director to pass the checks, back into Make. */
+  async function fixAndRetry() {
+    if (!plan || !idea || fixing) return;
+    setFixing(true);
+    setError(null);
+    try {
+      const rewritten = await safeRewritePrompt(idea.prompt, job?.error);
+      updateIdeaPrompt(plan.id, idea.id, rewritten);
+      setDraftDirection(rewritten);
+      setDraftPlanRef({ planId: plan.id, ideaId: idea.id });
+      markIdeaSent(plan.id, idea.id);
+      router.push("/app");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn’t rewrite the plan");
+    } finally {
+      setFixing(false);
+    }
   }
 
   if (!hydrated) return <div className="mx-auto h-8 max-w-3xl w-40 rounded bg-surface-2" />;
@@ -247,8 +269,49 @@ export function PlanView() {
             );
           })()}
 
+          {/* Why it failed + how to get it through next time */}
+          {state === "failed" &&
+            (() => {
+              const info = classifyGenError(job?.error);
+              const reason = genErrorReason(job?.error);
+              return (
+                <div className="mt-4 rounded-xl border border-danger/30 bg-danger/5 p-4">
+                  <div className="flex items-center gap-2 text-[13.5px] font-semibold text-danger">
+                    <AlertTriangle size={14} /> {info.title}
+                  </div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted">{info.detail}</p>
+                  {reason && (
+                    <p
+                      className="mt-2 truncate rounded-lg border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px] text-faint"
+                      title={reason}
+                    >
+                      {reason}
+                    </p>
+                  )}
+                  <ul className="mt-2.5 space-y-1">
+                    {info.tips.map((tip) => (
+                      <li key={tip} className="flex gap-2 text-[12.5px] leading-relaxed text-fg">
+                        <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-danger/60" />
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            {state === "produced" || state === "producing" ? (
+            {state === "failed" ? (
+              <>
+                <Button size="lg" onClick={fixAndRetry} disabled={fixing}>
+                  {fixing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  {fixing ? "Rewriting…" : "Fix & retry"}
+                </Button>
+                <Button variant="outline" onClick={openAndMake} disabled={fixing}>
+                  Open &amp; Make
+                </Button>
+              </>
+            ) : state === "produced" || state === "producing" ? (
               <>
                 <Button onClick={() => router.push(`/app/library?open=${idea.jobId}`)}>
                   <Film size={16} /> View video

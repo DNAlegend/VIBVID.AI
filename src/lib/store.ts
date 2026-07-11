@@ -92,6 +92,8 @@ interface StoreState {
   ) => Plan;
   removePlan: (id: string) => void;
   markIdeaSent: (planId: string, ideaId: string) => void;
+  /** Replace an idea's blueprint (e.g. after a safe rewrite to pass checks). */
+  updateIdeaPrompt: (planId: string, ideaId: string, prompt: string) => void;
 
   // credits
   addCredits: (n: number) => void;
@@ -491,6 +493,25 @@ export const useStore = create<StoreState>()(
               ? {
                   ...pl,
                   ideas: pl.ideas.map((i) => (i.id === ideaId ? { ...i, sentAt: Date.now() } : i)),
+                }
+              : pl,
+          );
+          const updated = plans.find((pl) => pl.id === planId);
+          if (updated) pushPlan(updated);
+          return { plans };
+        });
+      },
+
+      updateIdeaPrompt: (planId, ideaId, prompt) => {
+        set((s) => {
+          const plans = s.plans.map((pl) =>
+            pl.id === planId
+              ? {
+                  ...pl,
+                  // A rewritten blueprint is a fresh attempt — detach the failed job.
+                  ideas: pl.ideas.map((i) =>
+                    i.id === ideaId ? { ...i, prompt, jobId: undefined } : i,
+                  ),
                 }
               : pl,
           );
