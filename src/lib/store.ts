@@ -86,7 +86,10 @@ interface StoreState {
   setDraftPlanRef: (ref: { planId: string; ideaId: string } | null) => void;
 
   // plans
-  addPlan: (brief: string, ideas: Array<Pick<PlanIdea, "title" | "hook" | "prompt">>) => Plan;
+  addPlan: (
+    brief: string,
+    ideas: Array<Pick<PlanIdea, "title" | "hook" | "prompt" | "durationSec">>,
+  ) => Plan;
   removePlan: (id: string) => void;
   markIdeaSent: (planId: string, ideaId: string) => void;
 
@@ -469,7 +472,9 @@ export const useStore = create<StoreState>()(
           createdAt: Date.now(),
           ideas: ideas.map((i) => ({ ...i, id: uid("idea") })),
         };
-        set((s) => ({ plans: [plan, ...s.plans] }));
+        // One plan at a time — a new brief replaces the current plan.
+        get().plans.forEach((old) => deletePlanRow(old.id));
+        set({ plans: [plan] });
         pushPlan(plan);
         return plan;
       },

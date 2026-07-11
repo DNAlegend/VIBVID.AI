@@ -260,6 +260,13 @@ export function MakeView({ mode }: { mode?: Modality }) {
     }
     if (draftPlanRef) {
       setPlanRef(draftPlanRef);
+      // The plan was written for a specific length — preset it.
+      const idea = plans
+        .find((p) => p.id === draftPlanRef.planId)
+        ?.ideas.find((i) => i.id === draftPlanRef.ideaId);
+      if (idea?.durationSec && (DURATIONS as readonly number[]).includes(idea.durationSec)) {
+        setDurationSec(idea.durationSec);
+      }
       setDraftPlanRef(null);
     }
     if (ids.length) {

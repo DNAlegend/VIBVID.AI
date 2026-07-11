@@ -12,11 +12,11 @@ const STRATEGIST_MODEL = process.env.ARK_DIRECTOR_MODEL ?? "deepseek-v4-flash-26
 export const maxDuration = 60;
 
 const SYSTEM = `You are a viral short-form video strategist and commercial director working inside an AI video studio.
-Given a creator's goal, invent the requested number of DISTINCT, concrete video concepts that could perform on TikTok / Reels / Shorts.
+Given a creator's goal and a clip length, invent the requested number of DISTINCT, concrete video concepts that could perform on TikTok / Reels / Shorts.
 For each concept provide:
 - "title": a punchy concept name, at most 8 words, in the same language as the goal.
 - "hook": one sentence on why it stops the scroll, same language as the goal.
-- "prompt": a production-ready prompt for a cinematic AI video generation model — ALWAYS in English, one flowing paragraph of 40–80 words covering subject and action, setting, camera movement, lighting, mood and style. Concrete and visual; verbs of motion.
+- "prompt": an EXTREMELY DETAILED production plan for a cinematic AI video generation model — ALWAYS in English, written for a clip of EXACTLY the given length. Structure it as a second-by-second timeline ("0-2s: ... 2-5s: ... 5-8s: ...") whose beats add up to the full duration. Every beat must be concrete and visual: subject and exact action, setting and props, camera movement and framing (macro, POV, dolly, whip-pan...), lighting and color, pacing and transitions. End with one sentence of overall mood, style and sound design direction. 90–160 words. This is the complete blueprint the video model shoots from — the more precise, the better the result.
 Never reference real brand names, logos, trademarked or copyrighted characters, franchises, or real public figures.
 Make the concepts genuinely different from each other: different formats (POV, unboxing, transformation, walkthrough, testimonial...), settings and emotional angles.
 Output STRICT JSON only, no markdown fences, exactly: {"ideas":[{"title":"...","hook":"...","prompt":"..."}]}`;
@@ -40,6 +40,8 @@ export async function POST(req: Request) {
   const brief = typeof body?.brief === "string" ? body.brief.trim().slice(0, 2000) : "";
   if (!brief) return NextResponse.json({ error: "Empty brief" }, { status: 400 });
   const count = Math.min(10, Math.max(1, Number(body?.count) || 5));
+  // Seedance accepts 4–15s; the UI offers 5/10/15.
+  const durationSec = Math.min(15, Math.max(4, Number(body?.durationSec) || 5));
 
   const res = await fetch(`${ARK_BASE}/chat/completions`, {
     method: "POST",
@@ -51,9 +53,12 @@ export async function POST(req: Request) {
       model: STRATEGIST_MODEL,
       messages: [
         { role: "system", content: SYSTEM },
-        { role: "user", content: `Number of concepts: ${count}.\nCreator's goal: ${brief}` },
+        {
+          role: "user",
+          content: `Number of concepts: ${count}.\nClip length: exactly ${durationSec} seconds.\nCreator's goal: ${brief}`,
+        },
       ],
-      max_tokens: 350 * count + 200,
+      max_tokens: 550 * count + 200,
       temperature: 0.9,
     }),
   });

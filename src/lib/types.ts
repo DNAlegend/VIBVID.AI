@@ -76,8 +76,10 @@ export interface PlanIdea {
   title: string;
   /** Why it stops the scroll. */
   hook: string;
-  /** Production-ready prompt for the video model. */
+  /** Detailed second-by-second production plan for the video model. */
   prompt: string;
+  /** The clip length this plan was written for. */
+  durationSec?: number;
   /** Set when the idea was handed to Make. */
   sentAt?: number;
   /** Set when a generation was started from this idea — the provenance link. */
