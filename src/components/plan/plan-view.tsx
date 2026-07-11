@@ -19,6 +19,36 @@ import { Button, Card, Badge, EmptyState } from "@/components/ui";
 
 const LENGTHS = [5, 10, 15] as const;
 
+/**
+ * Split a blueprint into timeline sections ("0-2s: ..."), plus a trailing
+ * mood/sound section when present. Returns null when there's no timeline —
+ * the plan then renders as a plain paragraph.
+ */
+function planSegments(prompt: string): { label: string; text: string }[] | null {
+  const re = /(\d+\s*[-–]\s*\d+\s*s)\s*[:.]\s*/gi;
+  const out: { label: string; text: string }[] = [];
+  let label: string | null = null;
+  let last = 0;
+  for (let m = re.exec(prompt); m; m = re.exec(prompt)) {
+    const before = prompt.slice(last, m.index).trim();
+    if (label !== null) out.push({ label, text: before });
+    else if (before) out.push({ label: "", text: before });
+    label = m[1].replace(/\s+/g, "");
+    last = re.lastIndex;
+  }
+  if (label === null) return null;
+  let tail = prompt.slice(last).trim();
+  // Peel the closing style/sound direction into its own section.
+  const styleAt = tail.search(/Overall\s+mood|Sound\s+design|Overall\s+style/i);
+  if (styleAt > 0) {
+    out.push({ label, text: tail.slice(0, styleAt).trim() });
+    out.push({ label: "Style", text: tail.slice(styleAt).trim() });
+  } else {
+    out.push({ label, text: tail });
+  }
+  return out.filter((s) => s.text);
+}
+
 export function PlanView() {
   const router = useRouter();
   const plans = useStore((s) => s.plans);
@@ -187,9 +217,35 @@ export function PlanView() {
             </button>
           </div>
 
-          <p className="mt-4 whitespace-pre-line rounded-xl border border-line bg-surface-2 p-4 text-[13.5px] leading-relaxed text-fg">
-            {idea.prompt}
-          </p>
+          {(() => {
+            const segments = planSegments(idea.prompt);
+            if (!segments) {
+              return (
+                <p className="mt-4 whitespace-pre-line rounded-xl border border-line bg-surface-2 p-4 text-[13.5px] leading-relaxed text-fg">
+                  {idea.prompt}
+                </p>
+              );
+            }
+            return (
+              <div className="mt-4 space-y-1.5">
+                {segments.map((s, i) => (
+                  <div key={i} className="flex items-start gap-3 rounded-xl border border-line bg-surface-2 p-3">
+                    <span
+                      className={cn(
+                        "mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums",
+                        s.label === "Style"
+                          ? "bg-teal-soft text-teal"
+                          : "bg-accent-soft text-accent-2",
+                      )}
+                    >
+                      {s.label || "Setup"}
+                    </span>
+                    <p className="text-[13.5px] leading-relaxed text-fg">{s.text}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {state === "produced" || state === "producing" ? (

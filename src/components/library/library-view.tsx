@@ -13,13 +13,14 @@ import {
   Repeat2,
   Check,
   Lightbulb,
+  AlertTriangle,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { getModel } from "@/lib/models";
 import { TIERS, type Asset, type VideoJob } from "@/lib/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { Button, Card, Badge, EmptyState, Modal, Progress } from "@/components/ui";
-import { AssetThumb, VideoPreview } from "@/components/shared";
+import { AssetThumb, VideoPreview, classifyGenError } from "@/components/shared";
 
 export function LibraryView() {
   const allJobs = useStore((s) => s.videos);
@@ -30,6 +31,7 @@ export function LibraryView() {
   const videos = useMemo(() => allJobs.filter((v) => (v.modality ?? "video") === "video"), [allJobs]);
   const open = videos.find((v) => v.id === openId) ?? null;
   const done = videos.filter((v) => v.status === "succeeded").length;
+  const failed = videos.filter((v) => v.status === "failed").length;
 
   // Deep link from Plan ("View video"): /app/library?open=<jobId>
   useEffect(() => {
@@ -50,7 +52,9 @@ export function LibraryView() {
           <p className="mt-1 text-sm text-muted">
             {videos.length === 0
               ? "Every video you generate is collected and managed here."
-              : `${done} ${done === 1 ? "video" : "videos"} generated.`}
+              : `${done} ${done === 1 ? "video" : "videos"} generated${
+                  failed > 0 ? ` · ${failed} failed` : ""
+                }.`}
           </p>
         </div>
         <Button onClick={() => (window.location.href = "/app")} className="hidden sm:inline-flex">
@@ -83,13 +87,18 @@ export function LibraryView() {
 }
 
 function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void }) {
+  const router = useRouter();
+  const removeVideo = useStore((s) => s.removeVideo);
+  const setDraftDirection = useStore((s) => s.setDraftDirection);
   const rendering = video.status === "rendering";
+  const failed = video.status === "failed";
   const model = getModel(video.modelId);
+  const failInfo = failed ? classifyGenError(video.error) : null;
   return (
     <Card className="group overflow-hidden">
       <button
         onClick={onOpen}
-        disabled={rendering}
+        disabled={rendering || failed}
         className="relative block aspect-video w-full overflow-hidden bg-surface-2"
       >
         {rendering ? (
@@ -100,6 +109,13 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
             </div>
             <span className="mt-1.5 text-xs tabular-nums text-faint">{video.progress}%</span>
           </div>
+        ) : failed ? (
+          // Say it plainly: this one didn't make it.
+          <div className="flex h-full flex-col items-center justify-center gap-1.5 border-b-2 border-danger/40 bg-danger/5 px-5 text-center">
+            <AlertTriangle size={20} className="text-danger" />
+            <span className="text-[13.5px] font-semibold text-fg">{failInfo!.title}</span>
+            <span className="line-clamp-2 text-[12px] leading-snug text-muted">{failInfo!.detail}</span>
+          </div>
         ) : (
           <>
             {video.videoUrl ? (
@@ -109,9 +125,13 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
                 poster={video.posterUrl}
                 className="h-full w-full"
               />
-            ) : (
+            ) : video.posterUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={video.posterUrl} alt={video.prompt} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full items-center justify-center text-faint">
+                <Film size={26} />
+              </div>
             )}
             <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 opacity-0 transition-opacity group-hover:opacity-100">
@@ -126,6 +146,28 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
           </>
         )}
       </button>
+      {failed && (
+        <div className="flex gap-2 border-b border-line px-3.5 py-2.5">
+          <Button
+            size="sm"
+            variant="soft"
+            onClick={() => {
+              setDraftDirection(video.prompt);
+              router.push("/app");
+            }}
+          >
+            <Repeat2 size={14} /> Retry in Make
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-danger"
+            onClick={() => removeVideo(video.id)}
+          >
+            <Trash2 size={14} /> Remove
+          </Button>
+        </div>
+      )}
       <div className="p-3.5">
         <p className="line-clamp-2 text-sm text-fg">{video.prompt}</p>
         <div className="mt-2 flex items-center gap-2">
