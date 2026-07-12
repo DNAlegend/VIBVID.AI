@@ -278,7 +278,7 @@ function BuyCreditsModal({
       <div className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-faint">
         Or subscribe — monthly
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {PLAN_ITEMS.map((p) => (
           <button
             key={p.id}
@@ -332,7 +332,9 @@ function PaywallGate({
 }) {
   const setAuthOpen = useStore((s) => s.setAuthOpen);
   const [email, setEmail] = useState("");
-  const [selectedId, setSelectedId] = useState(preselect?.id ?? "free");
+  const [selectedId, setSelectedId] = useState(
+    preselect?.id ?? PLAN_ITEMS.find((p) => p.popular)?.id ?? PLAN_ITEMS[0].id,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
@@ -344,7 +346,8 @@ function PaywallGate({
     if (preselect) setSelectedId(preselect.id);
   }, [preselect]);
 
-  const paid = PLAN_ITEMS.find((p) => p.id === selectedId) ?? null; // null → Free
+  // Paid only — there is no free tier.
+  const paid = PLAN_ITEMS.find((p) => p.id === selectedId) ?? PLAN_ITEMS[0];
   const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
   // Confirm step: reached via full-page return (?purchase=success) or on-page.
   const confirmingEmail = confirmEmail ?? paidEmail;
@@ -352,10 +355,6 @@ function PaywallGate({
   async function go() {
     if (busy) return;
     setError(null);
-    if (!paid) {
-      setAuthOpen(true); // Free — just create an account
-      return;
-    }
     if (!emailValid) {
       setError("Enter your email — you’ll go straight to payment.");
       return;
@@ -364,7 +363,7 @@ function PaywallGate({
     try {
       const url = await requestCheckout(paid, { email: email.trim() });
       if (!url) {
-        setError("Payments aren’t configured on this server yet — start free instead.");
+        setError("Payments aren’t configured on this server yet — try again later.");
         return;
       }
       // Remember who's paying in case 3-D Secure forces a full-page round trip.
@@ -466,18 +465,14 @@ function PaywallGate({
           <LogoWordmark className="text-2xl" />
           <h1 className="font-display mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
           <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-            Paid plans go straight to payment — your account is created on the way and
-            confirmed right after. Or start free with an account.
+            You go straight to payment — your account is created on the way and confirmed
+            right after. Cancel anytime.
           </p>
         </div>
 
         <div className="mt-7 space-y-3">
-          {[
-            { id: "free", label: "Free", priceLabel: "$0", credits: 120, sublabel: "1 video / month" },
-            ...PLAN_ITEMS,
-          ].map((p) => {
-            const active = selectedId === p.id || (p.id === "free" && !paid);
-            const isPlan = p.id !== "free";
+          {PLAN_ITEMS.map((p) => {
+            const active = selectedId === p.id;
             return (
               <button
                 key={p.id}
@@ -508,33 +503,29 @@ function PaywallGate({
                 </span>
                 <span className="text-lg font-bold text-fg">
                   {p.priceLabel}
-                  {isPlan && <span className="text-xs font-normal text-faint">/mo</span>}
+                  <span className="text-xs font-normal text-faint">/mo</span>
                 </span>
               </button>
             );
           })}
         </div>
 
-        {paid && (
-          <div className="mt-4">
-            <TextInput
-              type="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && go()}
-            />
-          </div>
-        )}
+        <div className="mt-4">
+          <TextInput
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && go()}
+          />
+        </div>
 
         <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
           {busy ? (
             <Loader2 size={17} className="animate-spin" />
-          ) : paid ? (
-            <>Continue to payment — {paid.priceLabel}/mo</>
           ) : (
-            <>Create your free account</>
+            <>Continue to payment — {paid.priceLabel}/mo</>
           )}
         </Button>
         {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}

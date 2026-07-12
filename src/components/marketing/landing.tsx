@@ -98,7 +98,7 @@ function Header() {
         </nav>
         <div className="flex items-center gap-2">
           <CTA href={APP} variant="soft" size="md" className="hidden sm:inline-flex">Sign in</CTA>
-          <CTA href={APP} size="md">Start free</CTA>
+          <CTA href={APP} size="md">Get started</CTA>
         </div>
       </div>
     </header>
@@ -130,13 +130,13 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <CTA href={APP}>
-            <Sparkles size={18} /> Start creating free
+            <Sparkles size={18} /> Start creating
           </CTA>
           <CTA href="#pricing" variant="outline">
             See plans &amp; pricing <ArrowRight size={16} />
           </CTA>
         </div>
-        <p className="mt-3 text-[13px] text-faint">No credit card needed · your first video is free</p>
+        <p className="mt-3 text-[13px] text-faint">Plans from $15/month · cancel anytime</p>
 
         {/* Hero visual — the studio in action */}
         <div className="relative mx-auto mt-12 max-w-4xl">
@@ -372,46 +372,56 @@ function Showcase() {
 
 const PLANS = [
   {
-    name: "Free",
-    price: "$0",
-    period: "",
-    headline: "1 free video / month",
-    credits: "120",
-    blurb: "Try the studio — no card needed.",
-    popular: false,
-    perks: ["1 video every month", "All Mak models", "Personal asset library"],
-    cta: "Start free",
-    /** Billing catalog id — when set, the CTA jumps straight into checkout. */
-    itemId: null as string | null,
-  },
-  {
     name: "Basic",
-    price: "$12",
+    price: "$15",
     period: "/ month",
-    headline: "≈ 10 videos / month",
-    credits: "600",
-    blurb: "Get started — a few videos a week.",
+    headline: "≈ 5 pro videos / month",
+    credits: "700",
+    blurb: "Get started — a video a week, plus drafts.",
     popular: false,
     perks: [
-      "≈ 10 videos every month",
-      "All Mak models — Pro, Fast & Mini",
+      "≈ 5 production videos or 45 drafts",
+      "Draft & Production models",
       "Up to 15s · 1080p · native audio",
       "Top up credits any time",
     ],
     cta: "Get Basic",
-    itemId: "plan-basic" as string | null,
+    /** Billing catalog id — the CTA jumps straight into checkout. */
+    itemId: "plan-basic",
+  },
+  {
+    name: "Creator",
+    price: "$29",
+    period: "/ month",
+    headline: "≈ 12 pro videos / month",
+    credits: "1,500",
+    blurb: "For weekly publishing — the sweet spot.",
+    popular: true,
+    perks: [
+      "≈ 12 production videos or 100 drafts",
+      "Everything in Basic",
+      "Plan → Make → My Videos workflow",
+      "Priority rendering",
+    ],
+    cta: "Get Creator",
+    itemId: "plan-creator",
   },
   {
     name: "Max",
-    price: "$50",
+    price: "$59",
     period: "/ month",
-    headline: "≈ 50 videos / month",
-    credits: "3,000",
-    blurb: "For regular creators — best value.",
-    popular: true,
-    perks: ["≈ 50 videos every month", "Everything in Basic", "Priority rendering", "Lowest cost per video"],
+    headline: "≈ 26 pro videos / month",
+    credits: "3,200",
+    blurb: "For daily creators — lowest cost per video.",
+    popular: false,
+    perks: [
+      "≈ 26 production videos every month",
+      "Everything in Creator",
+      "Best credit rate per dollar",
+      "Priority rendering",
+    ],
     cta: "Get Max",
-    itemId: "plan-max" as string | null,
+    itemId: "plan-max",
   },
 ];
 
@@ -423,7 +433,8 @@ function Pricing() {
           <Badge tone="accent" className="mb-3">Pricing</Badge>
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Simple pricing, in US dollars</h2>
           <p className="mt-3 text-[17px] text-muted">
-            Start free with a video every month. Upgrade for more — and top up credits whenever you need them.
+            Three plans, one workflow — draft cheaply, produce in full quality, top up credits
+            whenever you need more.
           </p>
         </div>
         <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -460,7 +471,7 @@ function Pricing() {
                 ))}
               </ul>
               <CTA
-                href={p.itemId ? `${APP}?buy=${p.itemId}` : APP}
+                href={`${APP}?buy=${p.itemId}`}
                 variant={p.popular ? "primary" : "outline"}
                 size="md"
                 className="mt-6 w-full"
@@ -489,7 +500,7 @@ const FAQS = [
   },
   {
     q: "How do credits work?",
-    a: "Every video costs credits — a 5-second clip runs about 60, and each plan refills monthly (Free ≈ 1 video, Basic ≈ 10, Max ≈ 50). Run out before your refill? Buy a top-up pack any time from inside the studio — starting at $6.",
+    a: "Every video costs credits, and quality is part of the price — a 5-second Draft take runs 15 credits, a full 1080p Production render 120. Plans refill monthly (Basic 700, Creator 1,500, Max 3,200). Run out before your refill? Buy a top-up pack any time from inside the studio — starting at $6.",
   },
   {
     q: "Do I own what I make?",
@@ -542,7 +553,7 @@ function FinalCTA() {
           Start producing today
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-[16px] text-white/85">
-          Spin up your studio in seconds. Your first video is on us.
+          Spin up your studio in seconds — plans from $15/month, cancel anytime.
         </p>
         <div className="mt-7 flex justify-center">
           <Link

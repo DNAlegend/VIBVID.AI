@@ -24,10 +24,15 @@ export const TOPUPS: BillingItem[] = [
   { id: "topup-3000", label: "Big", kind: "topup", credits: 3000, amount: 45, currency: "USD", priceLabel: "$45", sublabel: "≈ 50 videos" },
 ];
 
-/** Monthly subscription plans. */
+/**
+ * Monthly subscription plans — paid only, no free tier. Sublabels are honest
+ * against the quality-priced credit rates: a 5s Production 1080p render is
+ * 120 credits, a 5s Draft 480p take is 15.
+ */
 export const PLAN_ITEMS: BillingItem[] = [
-  { id: "plan-basic", label: "Basic", kind: "subscription", credits: 600, amount: 12, currency: "USD", priceLabel: "$12", sublabel: "≈ 10 videos / mo" },
-  { id: "plan-max", label: "Max", kind: "subscription", credits: 3000, amount: 50, currency: "USD", priceLabel: "$50", sublabel: "≈ 50 videos / mo", popular: true },
+  { id: "plan-basic", label: "Basic", kind: "subscription", credits: 700, amount: 15, currency: "USD", priceLabel: "$15", sublabel: "≈ 5 pro videos or 45 drafts / mo" },
+  { id: "plan-creator", label: "Creator", kind: "subscription", credits: 1500, amount: 29, currency: "USD", priceLabel: "$29", sublabel: "≈ 12 pro videos or 100 drafts / mo", popular: true },
+  { id: "plan-max", label: "Max", kind: "subscription", credits: 3200, amount: 59, currency: "USD", priceLabel: "$59", sublabel: "≈ 26 pro videos / mo — best value" },
 ];
 
 export const BILLING_ITEMS: BillingItem[] = [...TOPUPS, ...PLAN_ITEMS];
