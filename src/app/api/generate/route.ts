@@ -131,6 +131,11 @@ export async function POST(req: Request) {
   };
 
   if (model.modality === "image") {
+    // Reference photos steer identity (Seedream image-to-image) — e.g. a
+    // character sheet generated from the creator's uploaded pictures.
+    const imageRefs = (Array.isArray(body.refImageUrls) ? body.refImageUrls : [])
+      .filter((u: unknown): u is string => typeof u === "string" && /^https:\/\/.+/i.test(u))
+      .slice(0, 6);
     const res = await fetch(`${ARK_BASE}/images/generations`, {
       method: "POST",
       headers: arkHeaders(),
@@ -142,6 +147,7 @@ export async function POST(req: Request) {
           (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)["16:9"],
         response_format: "b64_json",
         watermark: false,
+        ...(imageRefs.length ? { image: imageRefs.length === 1 ? imageRefs[0] : imageRefs } : {}),
       }),
     });
     if (!res.ok) {
