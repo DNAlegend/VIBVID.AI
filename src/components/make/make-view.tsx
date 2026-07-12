@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
-import { getModel, priceFor, DEFAULT_MODEL_ID } from "@/lib/models";
+import { getModel, listModels, priceFor, videoRate, DEFAULT_MODEL_ID } from "@/lib/models";
 import { ASSET_CLASSES, CLASS_BY_KEY, composeFromAssets } from "@/lib/catalog";
 import { PURPOSE_BY_ID, DEFAULT_PURPOSE_ID } from "@/lib/purposes";
 import {
@@ -473,7 +473,12 @@ export function MakeView({ mode }: { mode?: Modality }) {
     return `${composed} — ${purpose.styleSuffix}`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickedAssets, expandedPrompt, purpose.styleSuffix]);
-  const cost = priceFor(model, { durationSec, count: 1, hasRefs: pickedAssets.length > 0 });
+  const cost = priceFor(model, {
+    durationSec,
+    count: 1,
+    hasRefs: pickedAssets.length > 0,
+    resolution,
+  });
   const canAfford = credits >= cost;
   const aspectValid = /^\d{1,2}:\d{1,2}$/.test(aspectRatio);
   // `hydrated` also gates the brief window while a signed-in account's cloud
@@ -848,6 +853,47 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
           {/* Format — kept minimal */}
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-4">
+            {/* Draft vs Production — the model IS the price class */}
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Model</span>
+              {listModels({ modality: "video", enabledOnly: true }).map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setModelId(m.id)}
+                  title={m.blurb}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    modelId === m.id
+                      ? "border-accent bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-line-2",
+                  )}
+                >
+                  {m.glyph} {m.name.replace(/^Mak /, "")}
+                </button>
+              ))}
+            </div>
+            {/* Quality is part of the price — the rate is on each chip */}
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Quality</span>
+              {(model.resolutions ?? [model.arkResolution ?? "720p"]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setResolution(r)}
+                  title={`${videoRate(model, r)} credits / second`}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    resolution === r
+                      ? "border-accent bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-line-2",
+                  )}
+                >
+                  {r}
+                  <span className={cn("ml-1 text-[10px]", resolution === r ? "text-accent-2" : "text-faint")}>
+                    {videoRate(model, r)}c/s
+                  </span>
+                </button>
+              ))}
+            </div>
             <div className="flex items-center gap-1.5">
               <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
               {(

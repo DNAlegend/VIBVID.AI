@@ -77,7 +77,9 @@ interface StoreState {
   signOutToLocal: () => void;
 
   // generation
-  estimate: (p: Pick<GenerateParams, "tier" | "durationSec" | "modelId" | "refAssetId">) => number;
+  estimate: (
+    p: Pick<GenerateParams, "tier" | "durationSec" | "modelId" | "refAssetId" | "resolution">,
+  ) => number;
   generate: (p: GenerateParams) => string;
   removeVideo: (id: string) => void;
   setDraftDirection: (direction: string | null) => void;
@@ -383,6 +385,7 @@ export const useStore = create<StoreState>()(
           durationSec: p.durationSec,
           count: 1,
           hasRefs: !!p.refAssetId,
+          resolution: p.resolution,
         }),
 
       generate: (p) => {

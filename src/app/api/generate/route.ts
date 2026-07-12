@@ -14,7 +14,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { getModel, priceFor } from "@/lib/models";
+import { clampResolution, getModel, priceFor } from "@/lib/models";
 
 // The finalize step downloads the rendered MP4 from Ark and re-uploads it to
 // Storage — give the function headroom beyond the serverless default.
@@ -97,7 +97,14 @@ export async function POST(req: Request) {
   // Seedance 2.0 accepts 4–15 second clips.
   const durationSec = Math.min(15, Math.max(4, Math.round(Number(body.durationSec) || 5)));
   const elements = Array.isArray(body.elements) ? body.elements.slice(0, 12) : null;
-  const cost = priceFor(model, { durationSec, count: 1, hasRefs: (elements?.length ?? 0) > 0 });
+  // Quality is part of the price — clamp to what the model supports, then charge for it.
+  const resolution = clampResolution(model, typeof body.resolution === "string" ? body.resolution : null);
+  const cost = priceFor(model, {
+    durationSec,
+    count: 1,
+    hasRefs: (elements?.length ?? 0) > 0,
+    resolution,
+  });
 
   // Spend credits first, atomically; null balance means insufficient.
   const { data: balance, error: credErr } = await sb.rpc("adjust_credits", { delta: -cost });
@@ -161,10 +168,7 @@ export async function POST(req: Request) {
   // Video: async Ark task + polling via GET. Two exclusive steering modes
   // (probed contract): FRAMES (first_frame ± last_frame) or REFERENCE MEDIA
   // (≤9 reference_image + ≤3 reference_video). Frames win when both arrive.
-  const RESOLUTIONS = ["480p", "720p", "1080p"];
-  const resolution = RESOLUTIONS.includes(body.resolution)
-    ? (body.resolution as string)
-    : model.arkResolution ?? "720p";
+  // `resolution` was clamped above — the charge and the render always match.
   const flags = ` --resolution ${resolution} --duration ${durationSec} --ratio ${aspectRatio} --watermark false`;
   const asHttps = (v: unknown): v is string => typeof v === "string" && /^https:\/\/.+/i.test(v);
   const httpsList = (v: unknown, cap: number) =>
