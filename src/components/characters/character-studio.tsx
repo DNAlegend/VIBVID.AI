@@ -38,44 +38,12 @@ const STYLES: Record<StyleKey, { label: string; suffix: string }> = {
   "3d": { label: "3D Toon", suffix: "stylized 3D animation character render, soft global illumination, expressive" },
 };
 
-interface PanelDef {
-  key: "sheet" | "portrait" | "expressions";
-  label: string;
-  hint: string;
-  aspect: "16:9" | "1:1";
-  wide: boolean;
-  prompt: (base: string, style: string) => string;
-}
-
-const PANELS: PanelDef[] = [
-  {
-    key: "sheet",
-    label: "Turnaround sheet",
-    hint: "Front · side · back, full body",
-    aspect: "16:9",
-    wide: true,
-    prompt: (base, style) =>
-      `Character reference sheet of ${base} — full body turnaround with three views side by side on a clean white background: front view with arms slightly outstretched, side profile view, back view. Identical outfit, hair and proportions in every view, even studio lighting, fashion-catalog clarity. ${style}`,
-  },
-  {
-    key: "portrait",
-    label: "Portrait",
-    hint: "The face card",
-    aspect: "1:1",
-    wide: false,
-    prompt: (base, style) =>
-      `Character portrait of ${base} — waist-up, facing camera, confident relaxed expression, clean white studio background. ${style}`,
-  },
-  {
-    key: "expressions",
-    label: "Expressions",
-    hint: "Nine emotions & head angles",
-    aspect: "1:1",
-    wide: false,
-    prompt: (base, style) =>
-      `Expression sheet of ${base} — a clean 3x3 grid of close-up head shots: neutral front, happy, angry, surprised, sad, determined, looking left profile, looking right profile, looking up. Identical face, hair and outfit collar in every cell, white background. ${style}`,
-  },
-];
+/**
+ * ONE character = ONE sheet image: a single composition holding every view,
+ * modeled on a classic model/character reference sheet.
+ */
+const sheetPrompt = (base: string, style: string) =>
+  `Complete character reference sheet of ${base}, laid out as one clean composition on a pure white background. Top row: full-body turnaround in three views standing side by side — front view with arms slightly outstretched, side profile view, back view — identical outfit, hair and proportions in each. Bottom left: a neat grid of nine close-up head shots with varied expressions and head angles (neutral, happy, angry, surprised, sad, determined, left profile, right profile, looking up). Bottom right: one large waist-up portrait facing camera. The exact same face, hair and outfit in every view, fashion-catalog clarity, even studio lighting. ${style}`;
 
 /** A locally staged upload (already in Storage) waiting to be saved as an asset. */
 interface StagedFile {
@@ -106,12 +74,7 @@ export function CharacterStudio() {
   const [voice, setVoice] = useState<StagedFile | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Record<PanelDef["key"], boolean>>({
-    sheet: true,
-    portrait: true,
-    expressions: true,
-  });
-  const [jobIds, setJobIds] = useState<Partial<Record<PanelDef["key"], string>>>({});
+  const [jobId, setJobId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const voiceRef = useRef<HTMLInputElement>(null);
@@ -122,23 +85,16 @@ export function CharacterStudio() {
   );
   const needsSignIn = cloudConfigured && !cloudUser;
 
-  // Sheets render on the 2K image model — identity work deserves the detail.
+  // The sheet renders on the 2K image model — identity work deserves the detail.
   const model = getModel("seedream-45");
-  const perPanel = priceFor(model, { count: 1 });
-  const chosen = PANELS.filter((p) => selected[p.key]);
-  const cost = chosen.length * perPanel;
+  const cost = priceFor(model, { count: 1 });
   const canAfford = credits >= cost;
   const described = description.trim().length > 3 || photos.length > 0;
-  const canGenerate = hydrated && described && chosen.length > 0 && canAfford;
+  const canGenerate = hydrated && described && canAfford;
 
-  const jobs = PANELS.map((p) => ({
-    panel: p,
-    job: jobIds[p.key] ? videos.find((v) => v.id === jobIds[p.key]) ?? null : null,
-  }));
-  const activeJobs = jobs.filter((j) => j.job);
-  const rendering = activeJobs.some((j) => j.job!.status === "rendering");
-  const doneJobs = activeJobs.filter((j) => j.job!.status === "succeeded" && j.job!.posterUrl);
-  const allDone = activeJobs.length > 0 && !rendering && doneJobs.length > 0;
+  const job = jobId ? videos.find((v) => v.id === jobId) ?? null : null;
+  const rendering = job?.status === "rendering";
+  const sheetUrl = job?.status === "succeeded" ? job.posterUrl : undefined;
 
   const base = [
     photos.length
@@ -188,21 +144,19 @@ export function CharacterStudio() {
   function onGenerate() {
     if (!canGenerate || rendering) return;
     setSaved(false);
-    const ids: Partial<Record<PanelDef["key"], string>> = {};
-    for (const p of chosen) {
-      ids[p.key] = generate({
-        prompt: p.prompt(base, STYLES[style].suffix),
+    setJobId(
+      generate({
+        prompt: sheetPrompt(base, STYLES[style].suffix),
         tier: "standard",
         durationSec: 5,
-        aspectRatio: p.aspect,
+        aspectRatio: "1:1",
         audio: false,
         modelId: model.id,
         modality: "image",
         direction: description.trim() || name.trim(),
-        refImageUrls: photos.length ? photos.map((p2) => p2.url) : undefined,
-      });
-    }
-    setJobIds(ids);
+        refImageUrls: photos.length ? photos.map((p) => p.url) : undefined,
+      }),
+    );
   }
 
   /** Character = a collection of real assets + one composite card that bundles them. */
@@ -210,44 +164,37 @@ export function CharacterStudio() {
     const charName = name.trim() || "New Character";
     const col = addCategory(`${charName} — character`);
 
-    const partAssets: Asset[] = [];
     photos.forEach((p, i) => {
-      partAssets.push(
-        addAsset({
-          name: `${charName} — photo ${i + 1}`,
-          kind: "image",
-          url: p.url,
-          posterUrl: p.url,
-          categoryId: col.id,
-          source: "upload",
-          promptFragment: `${charName}'s reference photo`,
-        }),
-      );
+      addAsset({
+        name: `${charName} — photo ${i + 1}`,
+        kind: "image",
+        url: p.url,
+        posterUrl: p.url,
+        categoryId: col.id,
+        source: "upload",
+        promptFragment: `${charName}'s reference photo`,
+      });
     });
-    doneJobs.forEach(({ panel, job }) => {
-      partAssets.push(
-        addAsset({
-          name: `${charName} — ${panel.label}`,
-          kind: "image",
-          url: job!.posterUrl!,
-          posterUrl: job!.posterUrl,
-          categoryId: col.id,
-          source: "generation",
-          promptFragment: `${charName}'s ${panel.label.toLowerCase()}`,
-        }),
-      );
-    });
+    if (sheetUrl) {
+      addAsset({
+        name: `${charName} — character sheet`,
+        kind: "image",
+        url: sheetUrl,
+        posterUrl: sheetUrl,
+        categoryId: col.id,
+        source: "generation",
+        promptFragment: `${charName}'s character sheet — every angle of them`,
+      });
+    }
     if (voice) {
-      partAssets.push(
-        addAsset({
-          name: `${charName} — voice`,
-          kind: "audio",
-          url: voice.url,
-          categoryId: col.id,
-          source: "upload",
-          promptFragment: `${charName}'s voice`,
-        }),
-      );
+      addAsset({
+        name: `${charName} — voice`,
+        kind: "audio",
+        url: voice.url,
+        categoryId: col.id,
+        source: "upload",
+        promptFragment: `${charName}'s voice`,
+      });
     }
 
     const parts: AssetPart[] = [
@@ -258,19 +205,20 @@ export function CharacterStudio() {
         posterUrl: p.url,
         label: `Photo ${i + 1}`,
       })),
-      ...doneJobs.map(({ panel, job }) => ({
-        role: (panel.key === "portrait" ? "primary" : "reference") as AssetPart["role"],
-        kind: "image" as const,
-        url: job!.posterUrl!,
-        posterUrl: job!.posterUrl,
-        label: panel.label,
-      })),
+      ...(sheetUrl
+        ? [
+            {
+              role: "primary" as const,
+              kind: "image" as const,
+              url: sheetUrl,
+              posterUrl: sheetUrl,
+              label: "Character sheet",
+            },
+          ]
+        : []),
       ...(voice ? [{ role: "voice" as const, kind: "audio" as const, url: voice.url, label: "Voice" }] : []),
     ];
-    const hero =
-      doneJobs.find((j) => j.panel.key === "portrait")?.job?.posterUrl ??
-      doneJobs[0]?.job?.posterUrl ??
-      photos[0]?.url;
+    const hero = sheetUrl ?? photos[0]?.url;
     addAsset({
       name: charName,
       kind: "image",
@@ -475,29 +423,6 @@ export function CharacterStudio() {
             options={(Object.keys(STYLES) as StyleKey[]).map((k) => ({ value: k, label: STYLES[k].label }))}
           />
 
-          <label className="mb-1.5 mt-4 block text-xs font-medium uppercase tracking-wide text-faint">Sheet panels</label>
-          <div className="space-y-2">
-            {PANELS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => setSelected((s) => ({ ...s, [p.key]: !s[p.key] }))}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  selected[p.key] ? "border-accent/60 bg-accent-soft" : "border-line hover:border-line-2",
-                )}
-              >
-                <span>
-                  <span className="block text-[13px] font-semibold text-fg">{p.label}</span>
-                  <span className="block text-[11px] text-faint">{p.hint}</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="text-[11px] text-faint">{perPanel} cr</span>
-                  {selected[p.key] && <Check size={15} className="text-accent-2" />}
-                </span>
-              </button>
-            ))}
-          </div>
-
           <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-sm">
             <span className="text-muted">Estimated cost</span>
             <span className="flex items-center gap-1.5 font-semibold">
@@ -528,52 +453,46 @@ export function CharacterStudio() {
           )}
         </Card>
 
-        {/* ----------------------------- Results ---------------------------- */}
+        {/* ----------------------------- The sheet ---------------------------- */}
         <div className="space-y-4">
-          {activeJobs.length === 0 ? (
+          {!job ? (
             <Card className="flex min-h-[320px] flex-col items-center justify-center p-8 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
                 <UserRound size={22} />
               </span>
               <p className="mt-3 max-w-sm text-sm text-muted">
-                Your character sheet appears here — full-body turnaround, portrait and
-                expressions, generated from your photos or your description.
+                Your character sheet appears here — one image with every angle of them:
+                full-body turnaround, head angles and expressions, and a portrait.
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {jobs
-                .filter((j) => j.job)
-                .map(({ panel, job }) => (
-                  <Card key={panel.key} className={cn("overflow-hidden", panel.wide && "sm:col-span-2")}>
-                    <div className={cn("relative w-full bg-surface-2", panel.aspect === "16:9" ? "aspect-video" : "aspect-square", !panel.wide && "sm:aspect-square")}>
-                      {job!.status === "rendering" ? (
-                        <div className="shimmer flex h-full flex-col items-center justify-center">
-                          <Loader2 size={20} className="animate-spin text-accent-2" />
-                          <div className="mt-3 w-32">
-                            <Progress value={job!.progress} />
-                          </div>
-                        </div>
-                      ) : job!.status === "succeeded" && job!.posterUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={job!.posterUrl} alt={panel.label} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center p-4 text-center text-xs text-danger">
-                          {job!.error ?? "Failed"}
-                        </div>
-                      )}
-                      <span className="absolute left-2 top-2">
-                        <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
-                          {panel.label}
-                        </Badge>
-                      </span>
+            <Card className="overflow-hidden">
+              <div className="relative aspect-square w-full bg-surface-2">
+                {job.status === "rendering" ? (
+                  <div className="shimmer flex h-full flex-col items-center justify-center">
+                    <Loader2 size={20} className="animate-spin text-accent-2" />
+                    <div className="mt-3 w-32">
+                      <Progress value={job.progress} />
                     </div>
-                  </Card>
-                ))}
-            </div>
+                  </div>
+                ) : sheetUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={sheetUrl} alt="Character sheet" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center p-4 text-center text-xs text-danger">
+                    {job.error ?? "Failed"}
+                  </div>
+                )}
+                <span className="absolute left-2 top-2">
+                  <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
+                    Character sheet
+                  </Badge>
+                </span>
+              </div>
+            </Card>
           )}
 
-          {allDone && (
+          {!!sheetUrl && !rendering && (
             <Card className="flex flex-wrap items-center gap-2 p-4">
               <Button onClick={onSave} disabled={saved}>
                 {saved ? (
