@@ -1,6 +1,6 @@
 // Register (or list) the MamoPay webhook so payments credit accounts.
 //
-//   MAMOPAY_API_KEY=... MAMOPAY_WEBHOOK_SECRET=... SITE_URL=https://mightymak.vercel.app \
+//   MAMOPAY_API_KEY=... MAMOPAY_WEBHOOK_SECRET=... SITE_URL=https://vibvid.ai \
 //     node scripts/mamopay-setup.mjs
 //
 // Reads the same vars from .env.local if present. Set MAMOPAY_ENV=production to
@@ -18,7 +18,7 @@ try {
 
 const KEY = process.env.MAMOPAY_API_KEY;
 const SECRET = process.env.MAMOPAY_WEBHOOK_SECRET;
-const SITE = process.env.SITE_URL ?? "https://mightymak.vercel.app";
+const SITE = process.env.SITE_URL ?? "https://vibvid.ai";
 const BASE =
   process.env.MAMOPAY_ENV === "production"
     ? "https://business.mamopay.com/manage_api/v1"

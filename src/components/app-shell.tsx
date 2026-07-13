@@ -7,6 +7,7 @@ import { Clapperboard, Film, FolderOpen, Lightbulb, LogOut, Loader2, Mail, Plus,
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { TOPUPS, PLAN_ITEMS, billingItem, type BillingItem } from "@/lib/billing";
+import { openPaddleCheckout, type PaddleStart } from "@/lib/paddle-checkout";
 import { cn } from "@/lib/utils";
 import { Button, Modal, Badge, TextInput } from "@/components/ui";
 import { AuthModal } from "@/components/auth/auth-modal";
@@ -99,18 +100,22 @@ function CreditWidget({ onBuy }: { onBuy: () => void }) {
   );
 }
 
-/** localStorage key remembering a guest buyer's email across the MamoPay redirect. */
+/** localStorage key remembering a guest buyer's email across a redirect checkout. */
 const CHECKOUT_EMAIL_KEY = "mm-checkout-email";
 
+/** What the server hands back to start a payment (Paddle overlay or Mamo URL). */
+type CheckoutStart = PaddleStart | { provider: "mamopay"; url: string };
+
 /**
- * Ask the server for a MamoPay payment URL. Pass a `token` for a signed-in
- * buyer, or an `email` for a guest (their account is created server-side).
- * Returns null when payments aren't configured on the server (501).
+ * Ask the server to start a checkout. Pass a `token` for a signed-in buyer, or
+ * an `email` for a guest (their account is created server-side). Returns null
+ * when payments aren't configured on the server (501), in which case callers
+ * fall back to demo credits.
  */
 async function requestCheckout(
   item: BillingItem,
   auth: { token?: string; email?: string },
-): Promise<string | null> {
+): Promise<CheckoutStart | null> {
   const res = await fetch("/api/checkout", {
     method: "POST",
     headers: {
@@ -128,7 +133,10 @@ async function requestCheckout(
     const d = await res.json().catch(() => ({}));
     throw new Error(d.error ?? "Checkout failed");
   }
-  return (await res.json()).url ?? null;
+  const data = await res.json();
+  if (data.provider === "paddle") return { provider: "paddle", ...data } as PaddleStart;
+  if (data.url) return { provider: "mamopay", url: data.url };
+  return null;
 }
 
 /**
@@ -217,9 +225,18 @@ function BuyCreditsModal({
         return;
       }
       if (token) {
-        const url = await requestCheckout(item, { token });
-        if (url) {
-          setPayUrl(url); // pay on this page, in the modal
+        const start = await requestCheckout(item, { token });
+        if (start?.provider === "paddle") {
+          // Paddle overlay pays; the webhook grants credits. Reconcile on close.
+          const paid = await openPaddleCheckout(start);
+          if (paid) {
+            onClose();
+            onPaid();
+          }
+          return;
+        }
+        if (start?.provider === "mamopay") {
+          setPayUrl(start.url); // pay on this page, in the modal
           return;
         }
         // null → payments not configured yet; fall through to demo.
@@ -262,7 +279,7 @@ function BuyCreditsModal({
           >
             ← Back to packs &amp; plans
           </button>
-          <span className="text-[12px] text-faint">Secure checkout by MamoPay · USD</span>
+          <span className="text-[12px] text-faint">Secure checkout by Paddle · USD</span>
         </div>
       </Modal>
     );
@@ -332,7 +349,9 @@ function BuyCreditsModal({
 
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       <p className="mt-4 text-xs text-faint">
-        Secure checkout by MamoPay. Credits are added the moment your payment clears.
+        Secure checkout by Paddle, our merchant of record. Plans renew monthly until cancelled;
+        credits are added the moment your payment clears. See our{" "}
+        <a href="/refunds" className="underline hover:text-fg">Refund &amp; Cancellation Policy</a>.
       </p>
     </Modal>
   );
@@ -365,15 +384,20 @@ function PaywallGate({
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
   const [payUrl, setPayUrl] = useState<string | null>(null);
-  // Set when an embedded payment completes on-page (no redirect happened).
+  // Set when an embedded payment completes on-page (no redirect happened), or
+  // when a free signup link is sent. `confirmMode` tailors the confirm copy.
   const [paidEmail, setPaidEmail] = useState<string | null>(null);
+  const [confirmMode, setConfirmMode] = useState<"paid" | "free">("paid");
 
   useEffect(() => {
     if (preselect) setSelectedId(preselect.id);
   }, [preselect]);
 
-  // Paid only — there is no free tier.
-  const paid = PLAN_ITEMS.find((p) => p.id === selectedId) ?? PLAN_ITEMS[0];
+  const isFree = selectedId === "free";
+  // The paid plan the CTA acts on (Free falls back to the popular plan for copy).
+  const paid = PLAN_ITEMS.find((p) => p.id === selectedId)
+    ?? PLAN_ITEMS.find((p) => p.popular)
+    ?? PLAN_ITEMS[0];
   const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
   // Confirm step: reached via full-page return (?purchase=success) or on-page.
   const confirmingEmail = confirmEmail ?? paidEmail;
@@ -387,16 +411,51 @@ function PaywallGate({
     }
     setBusy(true);
     try {
-      const url = await requestCheckout(paid, { email: email.trim() });
-      if (!url) {
+      const start = await requestCheckout(paid, { email: email.trim() });
+      if (!start) {
         setError("Payments aren’t configured on this server yet — try again later.");
         return;
       }
-      // Remember who's paying in case 3-D Secure forces a full-page round trip.
+      // Remember who's paying in case a redirect checkout forces a round trip.
       localStorage.setItem(CHECKOUT_EMAIL_KEY, email.trim().toLowerCase());
-      setPayUrl(url); // pay right here on the page
+      if (start.provider === "paddle") {
+        const ok = await openPaddleCheckout(start);
+        if (ok) handlePaid(); // account already created server-side; confirm email
+        return;
+      }
+      setPayUrl(start.url); // MamoPay — pay right here on the page
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Free plan: no payment. Send a passwordless sign-in link — clicking it
+  // creates the account, which starts with the free credit balance (DB default).
+  async function goFree() {
+    if (busy) return;
+    setError(null);
+    if (!emailValid) {
+      setError("Enter your email to start on the free plan.");
+      return;
+    }
+    if (!supabase) {
+      setError("Accounts aren’t configured on this server yet — try again later.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const e = email.trim().toLowerCase();
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: e,
+        options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/app` },
+      });
+      if (otpError) throw otpError;
+      setConfirmMode("free");
+      setPaidEmail(e);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn’t start your free account");
     } finally {
       setBusy(false);
     }
@@ -433,9 +492,11 @@ function PaywallGate({
           </span>
           <h1 className="font-display mt-5 text-2xl font-bold tracking-tight">Confirm your email</h1>
           <p className="mt-3 text-[15px] leading-relaxed text-muted">
-            Payment received — your credits are already in your account. We sent a sign-in
-            link to <span className="font-semibold text-fg">{confirmingEmail}</span>. Click it to
-            activate your account and open the studio.
+            {confirmMode === "free"
+              ? "Your free account is ready — 20 credits to try the studio."
+              : "Payment received — your credits are already in your account."}{" "}
+            We sent a sign-in link to <span className="font-semibold text-fg">{confirmingEmail}</span>.
+            Click it to activate your account and open the studio.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <Button variant="outline" onClick={resend} disabled={resent}>
@@ -477,7 +538,7 @@ function PaywallGate({
             >
               ← Back to plans
             </button>
-            <span className="text-[12px] text-faint">Secure checkout by MamoPay · USD</span>
+            <span className="text-[12px] text-faint">Secure checkout by Paddle · USD</span>
           </div>
         </div>
       </div>
@@ -491,12 +552,42 @@ function PaywallGate({
           <LogoWordmark className="text-2xl" />
           <h1 className="font-display mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
           <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-            You go straight to payment — your account is created on the way and confirmed
-            right after. Cancel anytime.
+            Start free with 20 credits, or pick a paid plan and go straight to payment —
+            your account is created on the way. Cancel anytime.
           </p>
         </div>
 
         <div className="mt-7 space-y-3">
+          {/* Free — no payment, 20 credits to try */}
+          <button
+            onClick={() => setSelectedId("free")}
+            className={cn(
+              "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
+              isFree ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
+            )}
+          >
+            <span className="flex items-center gap-3">
+              <span
+                className={cn(
+                  "flex h-4 w-4 items-center justify-center rounded-full border",
+                  isFree ? "border-accent" : "border-line-2",
+                )}
+              >
+                {isFree && <span className="h-2 w-2 rounded-full bg-accent" />}
+              </span>
+              <span>
+                <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
+                  Free
+                  <Badge tone="neutral">No card</Badge>
+                </span>
+                <span className="block text-[12.5px] text-faint">
+                  20 credits · try the studio, watermarked output
+                </span>
+              </span>
+            </span>
+            <span className="text-lg font-bold text-fg">$0</span>
+          </button>
+
           {PLAN_ITEMS.map((p) => {
             const active = selectedId === p.id;
             return (
@@ -547,9 +638,11 @@ function PaywallGate({
           />
         </div>
 
-        <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
+        <Button className="mt-4 w-full" size="lg" onClick={isFree ? goFree : go} disabled={busy}>
           {busy ? (
             <Loader2 size={17} className="animate-spin" />
+          ) : isFree ? (
+            <>Start free — no card needed</>
           ) : (
             <>Continue to payment — {paid.priceLabel}/mo</>
           )}
@@ -566,7 +659,9 @@ function PaywallGate({
           </button>
         </p>
         <p className="mt-5 text-center text-[12px] text-faint">
-          Secure checkout by MamoPay · charged in US dollars · cancel anytime.
+          {isFree
+            ? "No card required — upgrade any time from inside the studio."
+            : "Secure checkout by Paddle · charged in US dollars · renews monthly · cancel anytime."}
         </p>
       </div>
     </div>

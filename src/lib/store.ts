@@ -35,7 +35,8 @@ import {
   uploadDataUrl,
 } from "./cloud";
 
-const STARTING_CREDITS = 120;
+// Free-plan starting balance — kept in sync with FREE_CREDITS in billing.ts.
+const STARTING_CREDITS = 20;
 
 // Module-level (non-persisted) handles for the in-flight simulation timers.
 const timers = new Map<string, ReturnType<typeof setInterval>>();
@@ -631,7 +632,7 @@ export const useStore = create<StoreState>()(
       },
     }),
     {
-      name: "mightymak-v3",
+      name: "vibvid-v1",
       version: 5,
       storage: createJSONStorage(() => localStorage),
       // v5: the demo starter library is gone — drop seeded content but keep

@@ -10,13 +10,17 @@ import {
   Clapperboard,
   Lightbulb,
   UserRound,
+  Scissors,
+  Film,
+  Download,
   Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
 import { LogoWordmark } from "@/components/logo";
-import { HERO, HERO_CHIPS, HERO_PROMPT, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
+import { HERO, HERO_CHIPS, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
 import { DEMO_CONTENT, generatedSrc, type DemoItem } from "@/lib/demo-content";
+import { LEGAL_LINKS, COMPANY } from "@/components/legal/legal-page";
 
 const APP = "/app";
 
@@ -36,7 +40,7 @@ function CTA({
   className?: string;
 }) {
   const variants = {
-    primary: "bg-accent text-white hover:bg-accent-2 shadow-[0_8px_24px_-8px_rgba(124,108,255,0.8)]",
+    primary: "bg-accent text-white hover:bg-accent-2 shadow-[0_8px_24px_-8px_rgba(236,19,32,0.7)]",
     outline: "border border-line-2 text-fg hover:bg-surface-2 hover:border-faint",
     soft: "bg-surface-3 text-fg hover:bg-line-2",
   };
@@ -105,68 +109,137 @@ function Header() {
   );
 }
 
+/** Concrete capability pills shown under the hero CTAs. */
+const HERO_PILLS = [
+  "Shot-by-shot planning",
+  "Consistent characters",
+  "Native audio",
+  "1080p export",
+];
+
+/** Scene thumbnails for the hero timeline — real generated media when available. */
+const HERO_TIMELINE = SHOWCASE.slice(0, 4);
+
 function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* gradient backdrop */}
+      {/* brand-red glow backdrop */}
       <div
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(900px 480px at 50% -10%, rgba(124,108,255,0.14), transparent 60%), radial-gradient(700px 400px at 85% 20%, rgba(13,148,136,0.10), transparent 55%)",
+            "radial-gradient(900px 480px at 50% -12%, rgba(236,19,32,0.15), transparent 62%), radial-gradient(680px 380px at 88% 18%, rgba(255,90,44,0.10), transparent 55%)",
+        }}
+      />
+      {/* faint studio grid */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.5]"
+        style={{
+          maskImage: "radial-gradient(680px 360px at 50% 8%, #000, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(680px 360px at 50% 8%, #000, transparent 75%)",
+          backgroundImage:
+            "linear-gradient(to right, rgba(16,16,20,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(16,16,20,0.05) 1px, transparent 1px)",
+          backgroundSize: "44px 44px",
         }}
       />
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-16 text-center sm:px-6 sm:pt-24">
-        <div className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[12px] font-medium text-muted">
-          <Sparkles size={13} className="text-accent-2" /> Powered by our own VIBVID engine
+        <div className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent-soft px-3 py-1 text-[12px] font-semibold text-accent-2">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-70" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+          </span>
+          Powered by our own VIBVID engine
         </div>
-        <h1 className="font-display mx-auto mt-5 max-w-4xl text-4xl font-bold leading-[1.07] tracking-tight sm:text-[56px]">
-          Your AI video studio,
-          <br className="hidden sm:block" /> <span className="gradient-text">one prompt away.</span>
+        <h1 className="font-display mx-auto mt-5 max-w-4xl text-4xl font-bold leading-[1.05] tracking-tight sm:text-[58px]">
+          Not just clips.
+          <br className="hidden sm:block" /> <span className="gradient-text">Finished video productions.</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-relaxed text-muted">
-          Plan the concept, cast your characters, and produce scroll-stopping video — cheap
-          drafts to iterate, full 1080p with native audio when it counts. One studio, every
-          video managed.
+          Brief the Strategist and it writes your shot list. Cast consistent characters,
+          generate every scene, then cut them into one finished video — draft cheaply, produce
+          in full 1080p with native audio. One studio, from idea to export.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <CTA href={APP}>
-            <Sparkles size={18} /> Start creating
+            <Sparkles size={18} /> Start creating free
           </CTA>
-          <CTA href="#pricing" variant="outline">
-            See plans &amp; pricing <ArrowRight size={16} />
+          <CTA href="#how" variant="outline">
+            See how it works <ArrowRight size={16} />
           </CTA>
         </div>
-        <p className="mt-3 text-[13px] text-faint">Plans from $15/month · cancel anytime</p>
+        <p className="mt-3 text-[13px] text-faint">Free to start · paid plans from $19/month · cancel anytime</p>
 
-        {/* Hero visual — the studio in action */}
+        {/* concrete value pills */}
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
+          {HERO_PILLS.map((t) => (
+            <span
+              key={t}
+              className="inline-flex items-center gap-1.5 rounded-full border border-line-2 bg-surface/70 px-3 py-1 text-[12px] font-medium text-muted backdrop-blur"
+            >
+              <Check size={12} className="text-teal" /> {t}
+            </span>
+          ))}
+        </div>
+
+        {/* Hero visual — a real cut coming together in the studio */}
         <div className="relative mx-auto mt-12 max-w-4xl">
-          <div className="overflow-hidden rounded-[20px] border border-line-2 bg-surface shadow-[0_30px_80px_-30px_rgba(16,18,27,0.45)]">
+          <div className="overflow-hidden rounded-[22px] border border-line-2 bg-surface shadow-[0_40px_100px_-35px_rgba(16,18,27,0.5)]">
+            {/* studio window chrome */}
+            <div className="flex items-center gap-2 border-b border-line bg-surface-2/70 px-4 py-2.5">
+              <span className="flex gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+              </span>
+              <span className="ml-2 flex items-center gap-1.5 text-[12px] font-medium text-muted">
+                <Clapperboard size={13} className="text-accent-2" /> VIBVID Studio — Post
+              </span>
+              <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-semibold text-white">
+                <Download size={12} /> Export cut
+              </span>
+            </div>
+            {/* the finished scene, playing */}
             <div className="relative aspect-video w-full bg-black">
               <MediaTile m={HERO} />
+              <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Scene 2 · the reveal
+              </span>
               <div className="absolute right-3 top-3 rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
-                Vib Production · 1080p · 5s
+                1080p · native audio
               </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 sm:p-5">
-                <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-black/45 px-3.5 py-2.5 backdrop-blur-md">
-                  <Wand2 size={15} className="shrink-0 text-white/60" />
-                  <span className="truncate text-left text-[13px] text-white/85">{HERO_PROMPT}</span>
-                  <span className="ml-auto hidden shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-white sm:flex">
-                    <Sparkles size={13} /> Generate
-                  </span>
-                </div>
+            </div>
+            {/* the timeline — four scenes stitched into one cut */}
+            <div className="border-t border-line bg-surface-2/50 px-3 py-3 sm:px-4">
+              <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-faint">
+                <span className="inline-flex items-center gap-1.5">
+                  <Film size={12} className="text-accent-2" /> 4 scenes stitched into one cut
+                </span>
+                <span>0:18</span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {HERO_TIMELINE.map((m, i) => (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      "relative aspect-video overflow-hidden rounded-lg border",
+                      i === 1 ? "border-accent ring-1 ring-accent/40" : "border-line-2",
+                    )}
+                  >
+                    <MediaTile m={m} />
+                    <span className="absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-semibold text-white/90">
+                      {i + 1}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-          {/* floating chips */}
-          <div className="absolute -left-3 top-8 hidden rotate-[-6deg] sm:block">
+          {/* floating cast chips */}
+          <div className="absolute -left-3 top-16 hidden rotate-[-6deg] sm:block">
             <FloatChip m={HERO_CHIPS[0]} />
           </div>
-          <div className="absolute -right-4 top-24 hidden rotate-[5deg] sm:block">
+          <div className="absolute -right-4 top-28 hidden rotate-[5deg] sm:block">
             <FloatChip m={HERO_CHIPS[1]} />
-          </div>
-          <div className="absolute -bottom-5 left-1/3 hidden rotate-[3deg] md:block">
-            <FloatChip m={HERO_CHIPS[2]} />
           </div>
         </div>
       </div>
@@ -206,17 +279,22 @@ const FEATURES = [
   {
     icon: Lightbulb,
     title: "Plan it",
-    body: "Tell the Strategist your goal — “a video that goes viral for my brand” — and get a detailed second-by-second blueprint, ready to shoot.",
+    body: "Tell the Strategist your goal — “a launch video that goes viral for my brand” — and get a shot-by-shot blueprint, timed to the second and ready to shoot.",
   },
   {
     icon: UserRound,
     title: "Cast it",
-    body: "Turn a selfie or a description into a full character sheet — every angle in one image, an optional voice — and reuse the same character in every video.",
+    body: "Turn a selfie or a description into a reusable character — every angle in one sheet, an optional voice — so the same face carries across every scene.",
   },
   {
     icon: Clapperboard,
-    title: "Make it",
-    body: "Draft takes for pennies, then produce in full 1080p with native audio. Every video lands in My Videos with its plan, prompt and references attached.",
+    title: "Shoot it",
+    body: "Generate each scene with your characters, products and references. Draft for pennies to iterate, then produce in full 1080p with native audio.",
+  },
+  {
+    icon: Scissors,
+    title: "Cut it",
+    body: "Line your shots up on the timeline, play them as one piece, regenerate any scene, then export the whole thing as a single finished video.",
   },
 ];
 
@@ -224,10 +302,10 @@ function Features() {
   return (
     <section id="features" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">One studio, the whole pipeline</h2>
-        <p className="mt-3 text-[17px] text-muted">From brief to published video — plan, cast, make and manage in one place.</p>
+        <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">One studio, the whole production</h2>
+        <p className="mt-3 text-[17px] text-muted">From brief to a finished, exportable video — plan, cast, shoot and cut in one place.</p>
       </div>
-      <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
+      <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map((f) => (
           <div key={f.title} className="rounded-[var(--radius-xl2)] border border-line bg-surface p-6 shadow-[0_1px_2px_rgba(16,18,27,0.04),0_10px_26px_-18px_rgba(16,18,27,0.14)]">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-soft text-accent-2">
@@ -243,9 +321,10 @@ function Features() {
 }
 
 const STEPS = [
-  { n: "1", icon: Lightbulb, title: "Plan", body: "Brief the Strategist and pick a length — it writes the whole video, beat by beat. Open the plan in Make when it reads right." },
+  { n: "1", icon: Lightbulb, title: "Plan", body: "Brief the Strategist and pick a length — it writes the whole video, beat by beat. Send it to Make when it reads right." },
   { n: "2", icon: Layers, title: "Cast & collect", body: "Create characters, and drop your product shots, clips, sound and scripts into Assets — the raw material of every shot." },
-  { n: "3", icon: Wand2, title: "Make & publish", body: "Add references, pick Draft or Production quality, generate. Review in My Videos, remix what works, download and post." },
+  { n: "3", icon: Wand2, title: "Make", body: "Add references, pick Draft or Production quality, and generate each scene. Everything lands in My Videos, ready to review." },
+  { n: "4", icon: Scissors, title: "Cut & export", body: "Stitch your shots on the timeline in Post, regenerate any scene, then download one finished video ready to publish." },
 ];
 
 function Steps() {
@@ -253,10 +332,10 @@ function Steps() {
     <section id="how" className="border-y border-line bg-surface-2/40">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">From idea to output in three steps</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">From idea to a finished cut in four steps</h2>
           <p className="mt-3 text-[17px] text-muted">Simple enough for a first-timer, deep enough for a real production.</p>
         </div>
-        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((s) => (
             <div key={s.n} className="relative rounded-[var(--radius-xl2)] border border-line bg-surface p-6">
               <div className="flex items-center gap-3">
@@ -371,80 +450,116 @@ function Showcase() {
   );
 }
 
-const PLANS = [
+type Plan = {
+  name: string;
+  price: string;
+  aed?: string;
+  period: string;
+  headline: string;
+  credits: string;
+  blurb: string;
+  popular: boolean;
+  perks: string[];
+  cta: string;
+  /** Billing catalog id — the CTA jumps straight into checkout. */
+  itemId?: string;
+  /** For the free plan: go straight into the app instead of checkout. */
+  href?: string;
+};
+
+const PLANS: Plan[] = [
   {
-    name: "Basic",
-    price: "$15",
-    period: "/ month",
-    headline: "≈ 5 pro videos / month",
-    credits: "700",
-    blurb: "Get started — a video a week, plus drafts.",
+    name: "Free",
+    price: "$0",
+    period: "",
+    headline: "20 credits to try",
+    credits: "20",
+    blurb: "Kick the tires — no card needed.",
     popular: false,
     perks: [
-      "≈ 5 production videos or 45 drafts",
+      "20 credits included",
       "Draft & Production models",
-      "Up to 15s · 1080p · native audio",
-      "Top up credits any time",
+      "Output carries a small watermark",
+      "Standard queue priority",
     ],
-    cta: "Get Basic",
-    /** Billing catalog id — the CTA jumps straight into checkout. */
-    itemId: "plan-basic",
+    cta: "Start free",
+    href: APP,
   },
   {
     name: "Creator",
-    price: "$29",
-    period: "/ month",
-    headline: "≈ 12 pro videos / month",
-    credits: "1,500",
-    blurb: "For weekly publishing — the sweet spot.",
-    popular: true,
+    price: "$19",
+    aed: "AED 69",
+    period: "/ mo",
+    headline: "≈ 6 HD videos / mo",
+    credits: "300",
+    blurb: "For individual creators.",
+    popular: false,
     perks: [
-      "≈ 12 production videos or 100 drafts",
-      "Everything in Basic",
-      "Plan → Make → My Videos workflow",
-      "Priority rendering",
+      "300 credits / month",
+      "No watermark",
+      "Full HD 1080p export",
+      "Top up credits any time",
     ],
     cta: "Get Creator",
     itemId: "plan-creator",
   },
   {
-    name: "Max",
-    price: "$59",
-    period: "/ month",
-    headline: "≈ 26 pro videos / month",
-    credits: "3,200",
-    blurb: "For daily creators — lowest cost per video.",
+    name: "Pro",
+    price: "$49",
+    aed: "AED 179",
+    period: "/ mo",
+    headline: "≈ 20 HD videos / mo",
+    credits: "1,000",
+    blurb: "For businesses & marketers.",
+    popular: true,
+    perks: [
+      "1,000 credits / month",
+      "Everything in Creator",
+      "Faster generation",
+      "Commercial usage rights",
+    ],
+    cta: "Get Pro",
+    itemId: "plan-pro",
+  },
+  {
+    name: "Agency",
+    price: "$129",
+    aed: "AED 475",
+    period: "/ mo",
+    headline: "≈ 60 HD videos / mo",
+    credits: "3,000",
+    blurb: "For agencies & content teams.",
     popular: false,
     perks: [
-      "≈ 26 production videos every month",
-      "Everything in Creator",
-      "Best credit rate per dollar",
-      "Priority rendering",
+      "3,000 credits / month",
+      "Everything in Pro",
+      "Multiple brand workspaces",
+      "Team access",
     ],
-    cta: "Get Max",
-    itemId: "plan-max",
+    cta: "Get Agency",
+    itemId: "plan-agency",
   },
 ];
 
 function Pricing() {
   return (
     <section id="pricing" className="border-b border-line bg-surface-2/40">
-      <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <Badge tone="accent" className="mb-3">Pricing</Badge>
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Simple pricing, in US dollars</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Start free. Scale on credits.</h2>
           <p className="mt-3 text-[17px] text-muted">
-            Three plans, one workflow — draft cheaply, produce in full quality, top up credits
-            whenever you need more.
+            Every plan is a monthly credit budget — draft cheaply, produce in full quality, and
+            top up any time. No surprise bills, no lock-in.
           </p>
         </div>
-        <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {PLANS.map((p) => (
             <div
               key={p.name}
               className={cn(
                 "relative flex flex-col rounded-[var(--radius-xl2)] border bg-surface p-6",
-                p.popular ? "border-accent/50 shadow-[0_20px_50px_-24px_rgba(124,108,255,0.6)]" : "border-line",
+                p.popular ? "border-accent/60 shadow-[0_20px_50px_-24px_rgba(236,19,32,0.55)]" : "border-line",
               )}
             >
               {p.popular && (
@@ -457,11 +572,12 @@ function Pricing() {
                 <span className="text-4xl font-bold tracking-tight">{p.price}</span>
                 <span className="text-sm text-faint">{p.period}</span>
               </div>
+              <p className="mt-0.5 h-4 text-[12px] text-faint">{p.aed ?? " "}</p>
               <p className="mt-1 text-[13px] text-faint">{p.blurb}</p>
 
               <div className="mt-5 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5">
                 <div className="text-[15px] font-semibold text-fg">{p.headline}</div>
-                <div className="mt-0.5 text-[12px] text-faint">{p.credits} credits / month</div>
+                <div className="mt-0.5 text-[12px] text-faint">{p.credits} credits{p.period ? " / month" : ""}</div>
               </div>
 
               <ul className="mt-4 flex-1 space-y-2.5 border-t border-line pt-4">
@@ -472,7 +588,7 @@ function Pricing() {
                 ))}
               </ul>
               <CTA
-                href={`${APP}?buy=${p.itemId}`}
+                href={p.href ?? `${APP}?buy=${p.itemId}`}
                 variant={p.popular ? "primary" : "outline"}
                 size="md"
                 className="mt-6 w-full"
@@ -482,8 +598,34 @@ function Pricing() {
             </div>
           ))}
         </div>
+
+        {/* Business — contact sales */}
+        <div className="mt-5 flex flex-col items-center justify-between gap-4 rounded-[var(--radius-xl2)] border border-line bg-surface px-6 py-5 sm:flex-row">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[15px] font-semibold">Business</span>
+              <Badge tone="neutral">From $299 / mo</Badge>
+            </div>
+            <p className="mt-1 text-[13px] text-muted">
+              Custom credit volumes, API access, priority support and onboarding for high-volume teams.
+            </p>
+          </div>
+          <CTA href="mailto:sales@vibvid.ai?subject=VIBVID%20Business%20plan" variant="outline" size="md" className="shrink-0">
+            Contact sales <ArrowRight size={16} />
+          </CTA>
+        </div>
+
         <p className="mt-6 text-center text-[13px] text-faint">
-          Run out of credits? Buy more any time from inside the studio — packs from $6, no plan change needed.
+          Run out of credits? Buy top-up packs any time from inside the studio — from $15 for 200
+          credits. Pack credits stay valid for 12 months.
+        </p>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-[12px] leading-relaxed text-faint">
+          Plans are billed monthly in US dollars and renew automatically until you cancel — cancel
+          anytime from your account. Payments are securely processed by our merchant of record,{" "}
+          {COMPANY.merchantOfRecord} (Paddle), who handles checkout, invoicing and tax. See our{" "}
+          <Link href="/refunds" className="underline hover:text-fg">Refund &amp; Cancellation Policy</Link>{" "}
+          and{" "}
+          <Link href="/terms" className="underline hover:text-fg">Terms</Link>.
         </p>
       </div>
     </section>
@@ -492,8 +634,8 @@ function Pricing() {
 
 const FAQS = [
   {
-    q: "What can I actually generate?",
-    a: "Real 4–15 second videos with native audio, rendered by our own VIBVID engine — vertical UGC ads, product films, fashion clips, brand spots. Draft quality for fast iteration, up to full 1080p Production quality for the final cut.",
+    q: "What can I actually make?",
+    a: "Full productions, not just single clips. The Strategist plans a multi-scene video, you generate each shot (4–15s, native audio) with our own VIBVID engine, then stitch them into one finished cut in Post — vertical UGC ads, product films, fashion, brand spots. Draft quality for fast iteration, up to full 1080p Production for the final export.",
   },
   {
     q: "How do my assets change the output?",
@@ -501,7 +643,7 @@ const FAQS = [
   },
   {
     q: "How do credits work?",
-    a: "Every video costs credits, and quality is part of the price — a 5-second Draft take runs 15 credits, a full 1080p Production render 120. Plans refill monthly (Basic 700, Creator 1,500, Max 3,200). Run out before your refill? Buy a top-up pack any time from inside the studio — starting at $6.",
+    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~2 credits, a 5-second Draft video ~15, and a full 1080p Production render ~50. Plans refill monthly (Free 20, Creator 300, Pro 1,000, Agency 3,000) and reset each cycle. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
   },
   {
     q: "Do I own what I make?",
@@ -549,7 +691,15 @@ function FAQ() {
 function FinalCTA() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-      <div className="relative overflow-hidden rounded-[24px] border border-accent/30 bg-gradient-to-br from-accent via-[#8b5cf6] to-teal px-6 py-14 text-center text-white shadow-[0_30px_80px_-30px_rgba(124,108,255,0.7)]">
+      <div className="relative overflow-hidden rounded-[24px] border border-accent/30 bg-gradient-to-br from-[#ec1320] via-[#d40e1a] to-[#ff5a2c] px-6 py-14 text-center text-white shadow-[0_30px_80px_-30px_rgba(236,19,32,0.7)]">
+        {/* soft play-triangle watermark */}
+        <svg
+          viewBox="0 0 100 100"
+          aria-hidden
+          className="pointer-events-none absolute -right-6 -top-8 h-48 w-48 text-white/10"
+        >
+          <path d="M32 22 L78 50 L32 78 Z" fill="currentColor" />
+        </svg>
         <h2 className="mx-auto max-w-2xl font-display text-3xl font-bold tracking-tight sm:text-4xl">
           Start producing today
         </h2>
@@ -559,7 +709,7 @@ function FinalCTA() {
         <div className="mt-7 flex justify-center">
           <Link
             href={APP}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-[#4c3ce0] transition-transform hover:scale-[1.02]"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-accent transition-transform hover:scale-[1.02]"
           >
             <Sparkles size={18} /> Create your first video
           </Link>
@@ -572,15 +722,41 @@ function FinalCTA() {
 function Footer() {
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 sm:flex-row">
-        <Brand />
-        <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted">
-          <a href="#features" className="hover:text-fg">Features</a>
-          <a href="#how" className="hover:text-fg">How it works</a>
-          <a href="#pricing" className="hover:text-fg">Pricing</a>
-          <Link href={APP} className="hover:text-fg">Launch studio</Link>
-        </nav>
-        <p className="text-[13px] text-faint">© 2026 VIBVID</p>
+      <div className="mx-auto max-w-6xl px-6 py-12">
+        <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-xs">
+            <Brand />
+            <p className="mt-3 text-[13px] leading-relaxed text-faint">
+              An AI video studio by {COMPANY.legalName}. Plan, cast, shoot and cut — from idea to a
+              finished 1080p video.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-x-10 gap-y-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">Product</span>
+              <a href="#features" className="text-sm text-muted hover:text-fg">Features</a>
+              <a href="#how" className="text-sm text-muted hover:text-fg">How it works</a>
+              <a href="#pricing" className="text-sm text-muted hover:text-fg">Pricing</a>
+              <Link href={APP} className="text-sm text-muted hover:text-fg">Launch studio</Link>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">Legal</span>
+              {LEGAL_LINKS.map((l) => (
+                <Link key={l.href} href={l.href} className="text-sm text-muted hover:text-fg">
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-10 border-t border-line pt-6">
+          <p className="text-[13px] leading-relaxed text-faint">
+            © 2026 {COMPANY.legalName}. All rights reserved. {COMPANY.brand} is operated by{" "}
+            {COMPANY.legalName}, registered in {COMPANY.jurisdiction}. Payments and subscriptions are
+            processed by our authorised reseller and merchant of record, {COMPANY.merchantOfRecord}{" "}
+            (Paddle).
+          </p>
+        </div>
       </div>
     </footer>
   );
@@ -593,11 +769,11 @@ export function Landing() {
       <main>
         <Hero />
         <ModelBand />
-        <Pricing />
         <Features />
         <Steps />
         <UseCases />
         <Showcase />
+        <Pricing />
         <FAQ />
         <FinalCTA />
       </main>

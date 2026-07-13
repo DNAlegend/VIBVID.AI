@@ -55,11 +55,13 @@ export const MODELS: ModelProvider[] = [
     capabilities: ["text-to-video", "image-to-video"],
     blurb: "The detailed production model — cinematic motion, native audio, up to 1080p.",
     glyph: "🎬",
-    accent: "#6d5ef8",
+    accent: "#ec1320",
     badge: "recommended",
     enabled: true,
-    creditsPerSec: 12,
-    creditsPerSecByRes: { "480p": 6, "720p": 12, "1080p": 24 },
+    // Premium video: a 5s 1080p render is ~50 credits (≈ $2.45 at the Pro rate),
+    // a 10s ~100 — well above upstream cost. See billing.ts for the economics.
+    creditsPerSec: 10,
+    creditsPerSecByRes: { "480p": 6, "720p": 8, "1080p": 10 },
     resolutions: ["480p", "720p", "1080p"],
     maxDurationSec: 15,
     arkModel: "dreamina-seedance-2-0-260128",
@@ -76,8 +78,10 @@ export const MODELS: ModelProvider[] = [
     accent: "#0d9488",
     badge: "fast",
     enabled: true,
+    // Basic video: a 5s 480p draft is ~15 credits, 720p ~20 — cheap enough to
+    // iterate freely, still comfortably above cost.
     creditsPerSec: 3,
-    creditsPerSecByRes: { "480p": 3, "720p": 6 },
+    creditsPerSecByRes: { "480p": 3, "720p": 4 },
     resolutions: ["480p", "720p"],
     maxDurationSec: 15,
     arkModel: "dreamina-seedance-2-0-mini-260615",
@@ -111,7 +115,7 @@ export const MODELS: ModelProvider[] = [
     accent: "#d6457a",
     badge: "recommended",
     enabled: true,
-    creditsPerImage: 8,
+    creditsPerImage: 2,
     arkModel: "seedream-4-0-250828",
   },
   {
@@ -124,7 +128,7 @@ export const MODELS: ModelProvider[] = [
     glyph: "🎨",
     accent: "#b05ad0",
     enabled: true,
-    creditsPerImage: 9,
+    creditsPerImage: 3,
     arkModel: "seedream-4-5-251128",
     arkSize: "2k",
   },
@@ -136,10 +140,10 @@ export const MODELS: ModelProvider[] = [
     capabilities: ["text-to-image", "image-to-image"],
     blurb: "The flagship — best realism, lighting and fine detail.",
     glyph: "✨",
-    accent: "#6d5ef8",
+    accent: "#ec1320",
     badge: "new",
     enabled: true,
-    creditsPerImage: 12,
+    creditsPerImage: 4,
     arkModel: "seedream-5-0-260128",
     arkSize: "2k",
   },
@@ -181,11 +185,12 @@ export function priceFor(
   model: ModelProvider,
   opts: { durationSec?: number; count?: number; hasRefs?: boolean; resolution?: string | null },
 ): number {
-  const refPenalty = opts.hasRefs ? 5 : 0;
   if (model.modality === "video") {
+    const refPenalty = opts.hasRefs ? 4 : 0;
     const secs = opts.durationSec ?? 6;
     return Math.ceil(secs * videoRate(model, opts.resolution)) + refPenalty;
   }
+  const refPenalty = opts.hasRefs ? 1 : 0;
   const count = opts.count ?? 1;
-  return count * (model.creditsPerImage ?? 8) + refPenalty;
+  return count * (model.creditsPerImage ?? 2) + refPenalty;
 }
