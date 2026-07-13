@@ -64,6 +64,12 @@ export default function RefundsPage() {
             <strong>Unused top-up packs.</strong> One-time credit packs are refundable within 14 days of
             purchase if none of the credits have been used.
           </li>
+          <li>
+            <strong>Policy violations.</strong> If your account is suspended or terminated for a serious
+            or repeated breach of our Terms of Service or Acceptable Use Policy, remaining credits are
+            forfeited and the goodwill refunds above do not apply. Your statutory rights (section 4)
+            are unaffected.
+          </li>
         </ul>
         <p>
           Refunds are returned to your original payment method through Paddle, typically within 5–10

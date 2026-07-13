@@ -44,7 +44,8 @@ export default function TermsPage() {
           the app. You obtain credits by subscribing to a monthly plan (credits refresh each billing
           cycle and do not roll over) or by buying one-time top-up packs (which remain valid for 12
           months from purchase). Free-tier credits are provided for evaluation and may carry a
-          watermark.
+          watermark. Credits are non-transferable service-usage units: they have no cash value and
+          cannot be exchanged, transferred, resold, or redeemed for money.
         </p>
         <p>
           <strong>Merchant of record.</strong> Our order process and payments are handled by our

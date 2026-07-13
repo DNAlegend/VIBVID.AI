@@ -42,6 +42,10 @@ export default function AcceptableUsePage() {
             Impersonates a real person, brand or organisation, or is designed to mislead people about who
             created it (fraud, scams, fake news, election or political disinformation).
           </li>
+          <li>
+            Presents misleading testimonials or fabricated endorsements as genuine — including fake
+            reviews, invented customer statements, or endorsements a person or brand never gave.
+          </li>
           <li>Harasses, bullies, threatens, defames, or incites violence or hatred against others.</li>
           <li>
             Promotes self-harm, terrorism, or violent extremism, or provides instructions for weapons or

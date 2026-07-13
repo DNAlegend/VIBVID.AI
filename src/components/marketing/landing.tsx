@@ -102,17 +102,17 @@ function Brand() {
 
 /* -------------------------------- Sections ------------------------------ */
 
-function Header() {
+export function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Brand />
         <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
-          <a href="#features" className="transition-colors hover:text-fg">Features</a>
-          <a href="#characters" className="transition-colors hover:text-fg">Characters</a>
-          <a href="#longform" className="transition-colors hover:text-fg">Seasons</a>
-          <a href="#usecases" className="transition-colors hover:text-fg">Use cases</a>
-          <a href="#pricing" className="transition-colors hover:text-fg">Pricing</a>
+          <a href="/#features" className="transition-colors hover:text-fg">Features</a>
+          <a href="/#characters" className="transition-colors hover:text-fg">Characters</a>
+          <a href="/#longform" className="transition-colors hover:text-fg">Seasons</a>
+          <a href="/#usecases" className="transition-colors hover:text-fg">Use cases</a>
+          <a href="/pricing" className="transition-colors hover:text-fg">Pricing</a>
         </nav>
         <div className="flex items-center gap-2">
           <CTA href={APP} variant="soft" size="md" className="hidden sm:inline-flex">Sign in</CTA>
@@ -736,6 +736,7 @@ const PLANS: Plan[] = [
     perks: [
       "300 credits / month",
       "No watermark",
+      "Commercial usage rights",
       "Full HD 1080p export",
       "Top up credits any time",
     ],
@@ -756,7 +757,6 @@ const PLANS: Plan[] = [
       "Everything in Creator",
       "Native 4K export",
       "Faster generation",
-      "Commercial usage rights",
     ],
     cta: "Get Pro",
     itemId: "plan-pro",
@@ -781,7 +781,7 @@ const PLANS: Plan[] = [
   },
 ];
 
-function Pricing() {
+export function Pricing() {
   return (
     <section id="pricing" className="border-b border-line bg-surface-2/40">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
@@ -891,11 +891,11 @@ const FAQS = [
   },
   {
     q: "How do credits work?",
-    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~3 credits, a 5-second Draft clip ~15, a 5-second 720p HD render ~45, and a 5-second 1080p Full-HD render (native audio) ~90; native 4K is the top tier at ~200. Plans refill monthly (Free 20, Creator 300, Pro 1,000, Agency 3,000) and reset each cycle. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
+    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~3 credits, a 5-second Draft clip ~15, a 5-second 720p HD render ~45, and a 5-second 1080p Full-HD render (native audio) ~90; native 4K is the top tier at ~200. Paid plans refill monthly (Creator 300, Pro 1,000, Agency 3,000) and reset each cycle; the Free tier includes 20 one-time credits to try the studio. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
   },
   {
     q: "Do I own what I make, and can I use it commercially?",
-    a: "Everything you generate lands in your private library, stored on your account, ready to download. Commercial use is available on eligible paid plans, subject to the VIBVID Terms of Service and any rights attached to materials you upload.",
+    a: "Everything you generate lands in your private library, stored on your account, ready to download. Commercial use is available on all paid plans, subject to the VIBVID Terms of Service and any rights attached to materials you upload.",
   },
   {
     q: "How long does a video take?",
@@ -915,7 +915,7 @@ const FAQS = [
   },
 ];
 
-function FAQ() {
+export function FAQ() {
   return (
     <section id="faq" className="border-t border-line bg-surface-2/40">
       <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
@@ -960,7 +960,7 @@ function FinalCTA() {
           Start producing today
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-[16px] text-white/85">
-          Spin up your studio in seconds — plans from $15/month, cancel anytime.
+          Spin up your studio in seconds — free to start, paid plans from $19/month, cancel anytime.
         </p>
         <div className="mt-7 flex justify-center">
           <Link
@@ -975,7 +975,7 @@ function FinalCTA() {
   );
 }
 
-function Footer() {
+export function Footer() {
   return (
     <footer className="border-t border-line">
       <div className="mx-auto max-w-6xl px-6 py-12">
@@ -990,9 +990,9 @@ function Footer() {
           <div className="grid grid-cols-2 gap-x-10 gap-y-2 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">Product</span>
-              <a href="#features" className="text-sm text-muted hover:text-fg">Features</a>
-              <a href="#how" className="text-sm text-muted hover:text-fg">How it works</a>
-              <a href="#pricing" className="text-sm text-muted hover:text-fg">Pricing</a>
+              <a href="/#features" className="text-sm text-muted hover:text-fg">Features</a>
+              <a href="/#how" className="text-sm text-muted hover:text-fg">How it works</a>
+              <a href="/pricing" className="text-sm text-muted hover:text-fg">Pricing</a>
               <Link href={APP} className="text-sm text-muted hover:text-fg">Launch studio</Link>
             </div>
             <div className="flex flex-col gap-2">
