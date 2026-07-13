@@ -17,10 +17,10 @@ const NAV_GROUPS = [
   {
     label: "Production",
     items: [
-      { href: "/app/plan", label: "Plan", icon: Lightbulb },
-      { href: "/app", label: "Make", icon: Clapperboard },
+      { href: "/app", label: "Plan", icon: Lightbulb },
+      { href: "/app/make", label: "Make", icon: Clapperboard },
       { href: "/app/post", label: "Post", icon: Scissors },
-      { href: "/app/library", label: "My Videos", icon: Film },
+      { href: "/app/videos", label: "My Videos", icon: Film },
     ],
   },
   {

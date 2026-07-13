@@ -308,7 +308,7 @@ function DemoCard({ d }: { d: DemoItem }) {
           “{d.prompt}”
         </p>
         <Link
-          href={`/app?purpose=${d.purpose}&prompt=${encodeURIComponent(d.prompt)}`}
+          href={`/app/make?purpose=${d.purpose}&prompt=${encodeURIComponent(d.prompt)}`}
           className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent-2 transition-colors hover:text-accent"
         >
           <Wand2 size={14} /> Try this prompt <ArrowRight size={14} />

@@ -687,7 +687,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
               </div>
               <div className="mt-1.5 flex items-center gap-3 pl-6">
                 <Link
-                  href="/app/plan"
+                  href="/app"
                   className="text-[12px] font-semibold text-accent-2 hover:underline"
                 >
                   ← Back to the plan to fix it
@@ -1208,7 +1208,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                   </Button>
                 </a>
               ) : null}
-              <Link href="/app/library" className="ml-auto">
+              <Link href="/app/videos" className="ml-auto">
                 <Button variant="ghost" size="sm">
                   My Videos <ArrowRight size={15} />
                 </Button>

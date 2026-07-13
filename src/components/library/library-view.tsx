@@ -39,7 +39,7 @@ export function LibraryView() {
   const done = videos.filter((v) => v.status === "succeeded").length;
   const failed = videos.filter((v) => v.status === "failed").length;
 
-  // Deep link from Plan ("View video"): /app/library?open=<jobId>
+  // Deep link from Plan ("View video"): /app/videos?open=<jobId>
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = new URLSearchParams(window.location.search).get("open");
@@ -63,7 +63,7 @@ export function LibraryView() {
                 }.`}
           </p>
         </div>
-        <Button onClick={() => (window.location.href = "/app")} className="hidden sm:inline-flex">
+        <Button onClick={() => (window.location.href = "/app/make")} className="hidden sm:inline-flex">
           <Sparkles size={16} /> Make
         </Button>
       </header>
@@ -74,7 +74,7 @@ export function LibraryView() {
           title="Nothing here yet"
           description="Generate from Make and your videos land here — ready to play, download, remix and reuse."
           action={
-            <Button onClick={() => (window.location.href = "/app")}>
+            <Button onClick={() => (window.location.href = "/app/make")}>
               <Sparkles size={16} /> Make something
             </Button>
           }
@@ -176,11 +176,11 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
                   updateIdeaPrompt(video.planId, video.ideaId, rewritten);
                 }
                 setDraftDirection(rewritten);
-                router.push("/app");
+                router.push("/app/make");
               } catch {
                 // Rewrite unavailable — fall back to editing the original.
                 setDraftDirection(video.prompt);
-                router.push("/app");
+                router.push("/app/make");
               } finally {
                 setFixing(false);
               }
@@ -195,7 +195,7 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
             disabled={fixing}
             onClick={() => {
               setDraftDirection(video.prompt);
-              router.push("/app");
+              router.push("/app/make");
             }}
           >
             <Repeat2 size={14} /> Edit in Make
@@ -247,7 +247,7 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
     setDraftElements(video.elements ?? []);
     setDraftDirection(video.direction ?? "");
     onClose();
-    router.push("/app");
+    router.push("/app/make");
   }
 
   return (
@@ -270,7 +270,7 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
         <button
           onClick={() => {
             onClose();
-            router.push("/app/plan");
+            router.push("/app");
           }}
           className="mt-4 flex w-full items-center gap-2 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2.5 text-left transition-colors hover:border-accent/50"
         >

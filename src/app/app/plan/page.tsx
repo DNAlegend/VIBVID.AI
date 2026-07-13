@@ -1,5 +1,6 @@
-import { PlanView } from "@/components/plan/plan-view";
+import { redirect } from "next/navigation";
 
+// Plan is the app home now (/app). Preserve old /app/plan links.
 export default function PlanPage() {
-  return <PlanView />;
+  redirect("/app");
 }

@@ -202,7 +202,7 @@ export function PlanView() {
     });
     if (elementIds.length) setDraftElements(elementIds);
     markIdeaSent(p.id, idea.id);
-    router.push("/app");
+    router.push("/app/make");
   }
 
   const shotCost = (idea: PlanIdea, q: QualityKey = quality) =>
@@ -430,8 +430,8 @@ export function PlanView() {
           <div className="mt-6">
             <EmptyState
               icon={<Lightbulb size={24} />}
-              title="No productions yet"
-              description="Describe your goal or story above — the Strategist directs it into shots with a recommended length and a full script for each."
+              title="Make your first video"
+              description="Describe a goal or paste a story above and press Direct it — the Strategist turns it into shots you produce one click at a time, then you stitch the cut in Post."
             />
           </div>
         ) : (
@@ -778,7 +778,7 @@ export function PlanView() {
                     </>
                   ) : state === "produced" || state === "producing" ? (
                     <>
-                      <Button onClick={() => router.push(`/app/library?open=${idea.jobId}`)}>
+                      <Button onClick={() => router.push(`/app/videos?open=${idea.jobId}`)}>
                         <Film size={16} /> View video
                       </Button>
                       <Button variant="outline" onClick={() => quickProduce(plan, idea)}>

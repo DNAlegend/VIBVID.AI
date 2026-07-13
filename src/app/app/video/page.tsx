@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// The video generator lives at /app now. Preserve old links.
+// The video generator is Make now (/app/make). Preserve old links.
 export default function VideoPage() {
-  redirect("/app");
+  redirect("/app/make");
 }

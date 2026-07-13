@@ -458,7 +458,7 @@ export function AssetsView() {
           onClose={() => setActionAsset(null)}
           onUse={() => {
             setDraftRef(actionAsset.id);
-            router.push("/app");
+            router.push("/app/make");
           }}
           onCollect={() => {
             setCollectFor([actionAsset.id]);

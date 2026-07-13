@@ -239,7 +239,7 @@ export function CharacterStudio() {
       .filter((a) => a.categoryId === character.categoryId && a.id !== character.id)
       .map((a) => a.id);
     setDraftElements(ids.length ? ids : [character.id]);
-    router.push("/app");
+    router.push("/app/make");
   }
 
   return (

@@ -264,7 +264,7 @@ export function PostView() {
     });
     if (elementIds.length) setDraftElements(elementIds);
     markIdeaSent(p.id, idea.id);
-    router.push("/app");
+    router.push("/app/make");
   }
 
   if (!hydrated) return <div className="mx-auto h-8 max-w-3xl w-40 rounded bg-surface-2" />;
@@ -283,7 +283,7 @@ export function PostView() {
           title="Nothing to cut yet"
           description="Direct a production in Plan and produce its shots in Make — they line up here, ready to stitch into one video."
           action={
-            <Button onClick={() => router.push("/app/plan")}>
+            <Button onClick={() => router.push("/app")}>
               <Clapperboard size={16} /> Go to Plan
             </Button>
           }
@@ -536,7 +536,7 @@ export function PostView() {
                       size="sm"
                       variant="ghost"
                       className="gap-1"
-                      onClick={() => router.push(`/app/library?open=${idea.jobId}`)}
+                      onClick={() => router.push(`/app/videos?open=${idea.jobId}`)}
                     >
                       <Film size={12} /> View
                     </Button>

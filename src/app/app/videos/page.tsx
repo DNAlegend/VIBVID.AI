@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { LibraryView } from "@/components/library/library-view";
 
-// "My Videos" became the medium-agnostic Library. Preserve old links.
+// "My Videos" — the finished-renders surface. Canonical route matches the label.
 export default function VideosPage() {
-  redirect("/app/library");
+  return <LibraryView />;
 }
