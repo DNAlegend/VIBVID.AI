@@ -18,7 +18,8 @@ import {
   UserRound,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { supabase } from "@/lib/supabase";
+import { supabase, cloudConfigured } from "@/lib/supabase";
+import { getModel, priceFor } from "@/lib/models";
 import type { Asset, Plan, PlanIdea, VideoJob } from "@/lib/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { Button, Card, Badge, EmptyState } from "@/components/ui";
@@ -47,6 +48,13 @@ function fmtSec(total: number): string {
   return s ? `${m}:${String(s).padStart(2, "0")}` : `${m} min`;
 }
 
+/** One-click production presets: draft everything cheap, finalize the keepers. */
+const QUALITY = {
+  draft: { modelId: "seedance-2-mini", resolution: "480p", label: "Draft" },
+  final: { modelId: "seedance-2-pro", resolution: "1080p", label: "Final" },
+} as const;
+type QualityKey = keyof typeof QUALITY;
+
 type ShotState = "idea" | "sent" | "producing" | "produced" | "failed";
 
 function shotState(idea: PlanIdea, job: VideoJob | undefined): ShotState {
@@ -72,6 +80,9 @@ export function PlanView() {
   const setDraftPlanRef = useStore((s) => s.setDraftPlanRef);
   const setAuthOpen = useStore((s) => s.setAuthOpen);
   const updateIdeaPrompt = useStore((s) => s.updateIdeaPrompt);
+  const generate = useStore((s) => s.generate);
+  const credits = useStore((s) => s.credits);
+  const cloudUser = useStore((s) => s.cloudUser);
 
   const [brief, setBrief] = useState("");
   const [targetSec, setTargetSec] = useState<number | null>(null);
@@ -81,6 +92,8 @@ export function PlanView() {
   const [error, setError] = useState<string | null>(null);
   /** The one shot whose full script is open — keeps the production scannable. */
   const [openId, setOpenId] = useState<string | null>(null);
+  /** Which preset one-click production uses (draft = cheap iteration). */
+  const [quality, setQuality] = useState<QualityKey>("draft");
 
   const activePlanId = useStore((s) => s.activePlanId);
   const setActivePlan = useStore((s) => s.setActivePlan);
@@ -192,7 +205,77 @@ export function PlanView() {
     router.push("/app");
   }
 
-  /** A failed shot, rewritten by the Director to pass the checks, back into Make. */
+  const shotCost = (idea: PlanIdea, q: QualityKey = quality) =>
+    priceFor(getModel(QUALITY[q].modelId), {
+      durationSec: idea.durationSec ?? 5,
+      count: 1,
+      hasRefs: false,
+      resolution: QUALITY[q].resolution,
+    });
+
+  /** One click: produce the shot right here with the production's cast attached. */
+  function quickProduce(p: Plan, idea: PlanIdea, promptOverride?: string): boolean {
+    if (cloudConfigured && !cloudUser) {
+      setAuthOpen(true);
+      return false;
+    }
+    const q = QUALITY[quality];
+    const cost = shotCost(idea);
+    if (credits < cost) {
+      setError(`Not enough credits — this shot needs ~${cost}. Top up and try again.`);
+      return false;
+    }
+    const cast = (p.castIds ?? [])
+      .map((id) => assets.find((a) => a.id === id))
+      .filter(Boolean) as Asset[];
+    const refImageUrls = cast.map((c) => c.url).filter((u) => u?.startsWith("http"));
+    const voiceIds = cast.flatMap((c) => {
+      const v = assets.find((a) => a.categoryId === c.categoryId && a.kind === "audio");
+      return v ? [v.id] : [];
+    });
+    const script = promptOverride ?? idea.prompt;
+    markIdeaSent(p.id, idea.id);
+    generate({
+      prompt: script,
+      tier: "standard",
+      durationSec: idea.durationSec ?? 5,
+      aspectRatio: "16:9",
+      audio: true,
+      modelId: q.modelId,
+      modality: "video",
+      elements: [...cast.map((c) => c.id), ...voiceIds],
+      direction: script,
+      planId: p.id,
+      ideaId: idea.id,
+      resolution: q.resolution,
+      refImageUrls: refImageUrls.length ? refImageUrls : undefined,
+      posterUrl: cast[0]?.posterUrl ?? cast[0]?.url ?? undefined,
+    });
+    setError(null);
+    return true;
+  }
+
+  /** Produce every remaining shot in one go. */
+  function produceAll(p: Plan) {
+    const remaining = p.ideas.filter((i) => {
+      const st = stateOf(i);
+      return st === "idea" || st === "failed" || st === "sent";
+    });
+    if (remaining.length === 0) return;
+    const total = remaining.reduce((sum, i) => sum + shotCost(i), 0);
+    if (
+      !confirm(
+        `Produce ${remaining.length} shots in ${QUALITY[quality].label} for ~${total} credits?`,
+      )
+    ) {
+      return;
+    }
+    for (const idea of remaining) {
+      if (!quickProduce(p, idea)) break;
+    }
+  }
+
+  /** A failed shot: the Director rewrites it to pass the checks, then it reproduces itself. */
   async function fixAndRetry(p: Plan, idea: PlanIdea, job: VideoJob | undefined) {
     if (fixingId) return;
     setFixingId(idea.id);
@@ -200,10 +283,7 @@ export function PlanView() {
     try {
       const rewritten = await safeRewritePrompt(idea.prompt, job?.error);
       updateIdeaPrompt(p.id, idea.id, rewritten);
-      setDraftDirection(rewritten);
-      setDraftPlanRef({ planId: p.id, ideaId: idea.id });
-      markIdeaSent(p.id, idea.id);
-      router.push("/app");
+      quickProduce(p, idea, rewritten);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t rewrite the shot");
     } finally {
@@ -235,14 +315,30 @@ export function PlanView() {
         </div>
       ) : (
         <>
-          <header className="mb-5">
+          <header className="mb-4">
             <h1 className="text-2xl font-bold tracking-tight">Plan</h1>
             <p className="mt-1 text-sm text-muted">
-              The directing room. Give the Strategist a goal or a whole story, pick a runtime and
-              your cast — it directs a production shot by shot: each shot 5, 10 or 15s, with the
-              reason and the full script. Produce them one by one in Make.
+              Tell the Strategist what you want to make — a goal or a whole story. It plans your
+              movie shot by shot, with the full script for every shot.
             </p>
           </header>
+
+          {/* The three moves — no stress, one path */}
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-[12.5px] text-muted">
+            {[
+              ["1", "Plan the movie"],
+              ["2", "Produce the shots — one click each"],
+              ["3", "Stitch the cut in Post"],
+            ].map(([n, label], i) => (
+              <span key={n} className="flex items-center gap-1.5">
+                {i > 0 && <ArrowRight size={12} className="mr-2.5 text-faint" />}
+                <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-accent-soft text-[10.5px] font-bold text-accent-2">
+                  {n}
+                </span>
+                {label}
+              </span>
+            ))}
+          </div>
 
           {/* The brief */}
           <div className="rounded-[var(--radius-xl2)] border border-line bg-surface p-4">
@@ -494,6 +590,23 @@ export function PlanView() {
                     style={{ width: `${(producedCount / plan.ideas.length) * 100}%` }}
                   />
                 </div>
+                <div
+                  className="flex overflow-hidden rounded-lg border border-line text-[11.5px] font-semibold"
+                  title="Draft is cheap for iterating — re-produce the keepers in Final quality."
+                >
+                  {(Object.keys(QUALITY) as QualityKey[]).map((k) => (
+                    <button
+                      key={k}
+                      onClick={() => setQuality(k)}
+                      className={cn(
+                        "px-2.5 py-1 transition-colors",
+                        quality === k ? "bg-fg text-surface" : "text-muted hover:text-fg",
+                      )}
+                    >
+                      {QUALITY[k].label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {plan.ideas.map((idea, i) => {
@@ -529,14 +642,21 @@ export function PlanView() {
                     <Scissors size={13} /> Stitch it in Post <ArrowRight size={13} />
                   </Button>
                 ) : nextShot ? (
-                  <Button
-                    size="sm"
-                    className="ml-auto gap-1.5"
-                    onClick={() => openAndMake(plan, nextShot)}
-                  >
-                    <Sparkles size={13} /> Produce Shot {plan.ideas.indexOf(nextShot) + 1}{" "}
-                    <ArrowRight size={13} />
-                  </Button>
+                  <span className="ml-auto flex items-center gap-1.5">
+                    {plan.ideas.filter((i) => ["idea", "failed", "sent"].includes(stateOf(i))).length > 1 && (
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => produceAll(plan)}>
+                        Produce all
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => quickProduce(plan, nextShot)}
+                    >
+                      <Sparkles size={13} /> Produce Shot {plan.ideas.indexOf(nextShot) + 1} ·{" "}
+                      ~{shotCost(nextShot)}cr
+                    </Button>
+                  </span>
                 ) : null}
               </div>
             </div>
@@ -653,7 +773,7 @@ export function PlanView() {
                         {fixing ? "Rewriting…" : "Fix & retry"}
                       </Button>
                       <Button variant="outline" onClick={() => openAndMake(plan, idea)} disabled={fixing}>
-                        Open &amp; Make
+                        Tweak in Make
                       </Button>
                     </>
                   ) : state === "produced" || state === "producing" ? (
@@ -661,14 +781,22 @@ export function PlanView() {
                       <Button onClick={() => router.push(`/app/library?open=${idea.jobId}`)}>
                         <Film size={16} /> View video
                       </Button>
-                      <Button variant="outline" onClick={() => openAndMake(plan, idea)}>
-                        <Sparkles size={15} /> Make again
+                      <Button variant="outline" onClick={() => quickProduce(plan, idea)}>
+                        <Sparkles size={15} /> Produce again · ~{shotCost(idea)}cr
+                      </Button>
+                      <Button variant="ghost" onClick={() => openAndMake(plan, idea)}>
+                        Tweak in Make
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={() => openAndMake(plan, idea)}>
-                      <Sparkles size={16} /> Open &amp; Make <ArrowRight size={15} />
-                    </Button>
+                    <>
+                      <Button onClick={() => quickProduce(plan, idea)}>
+                        <Sparkles size={16} /> Produce this shot · ~{shotCost(idea)}cr
+                      </Button>
+                      <Button variant="outline" onClick={() => openAndMake(plan, idea)}>
+                        Tweak in Make <ArrowRight size={15} />
+                      </Button>
+                    </>
                   )}
                 </div>
                     </div>
