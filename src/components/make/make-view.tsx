@@ -751,7 +751,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     onBlur={() => setTimeout(() => setTagQuery(null), 200)}
                     rows={Math.min(16, Math.max(4, Math.ceil(prompt.length / 80)))}
                     placeholder={purpose.placeholder}
-                    className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3.5 text-[15px] leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3.5 text-base leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-[15px]"
                   />
             {tagQuery !== null && (
               <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-[0_16px_40px_-16px_rgba(16,18,27,0.3)]">

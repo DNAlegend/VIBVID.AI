@@ -360,7 +360,7 @@ export function CharacterStudio() {
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             placeholder="A confident creative director in her late 20s, calm and warm…"
-            className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3 text-sm leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3 text-base leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
 
           <label className="mb-1.5 mt-3 block text-xs font-medium uppercase tracking-wide text-faint">
@@ -371,7 +371,7 @@ export function CharacterStudio() {
             onChange={(e) => setBiology(e.target.value)}
             rows={2}
             placeholder="Long blonde hair, blue eyes, fair skin, 175cm, athletic build…"
-            className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3 text-sm leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3 text-base leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
 
           <label className="mb-1.5 mt-3 block text-xs font-medium uppercase tracking-wide text-faint">

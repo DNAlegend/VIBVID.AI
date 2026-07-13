@@ -896,7 +896,7 @@ function NewPromptModal({
             onChange={(e) => setText(e.target.value)}
             placeholder="The text — e.g. warm golden-hour light, shallow depth of field, filmed on 35mm"
             rows={5}
-            className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none"
+            className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-base text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none sm:text-sm"
           />
         </div>
         <div className="mt-4 flex justify-end gap-2">

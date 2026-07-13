@@ -241,7 +241,7 @@ export function Modal({
   const widths = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-3xl" };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
@@ -251,25 +251,29 @@ export function Modal({
         role="dialog"
         aria-modal
         className={cn(
-          "relative w-full overflow-hidden rounded-2xl border border-line-2 bg-surface shadow-2xl animate-rise",
+          // Cap height to the viewport (dvh handles mobile browser chrome) and
+          // lay out as a column so the body scrolls while header/footer stay put.
+          // On mobile it docks to the bottom as a rounded sheet; centered on desktop.
+          "animate-rise relative flex max-h-[92dvh] w-full flex-col overflow-hidden border border-line-2 bg-surface shadow-2xl",
+          "rounded-t-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
           widths[size],
         )}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+          <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3.5">
             <h2 className="text-sm font-semibold text-fg">{title}</h2>
             <button
               onClick={onClose}
-              className="text-faint transition-colors hover:text-fg"
+              className="-mr-1.5 flex h-8 w-8 items-center justify-center text-faint transition-colors hover:text-fg"
               aria-label="Close"
             >
               <X size={18} />
             </button>
           </div>
         )}
-        <div className="px-5 py-4">{children}</div>
+        <div className="overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-line bg-surface-2/50 px-5 py-3.5">
+          <div className="flex shrink-0 justify-end gap-2 border-t border-line bg-surface-2/50 px-5 py-3.5">
             {footer}
           </div>
         )}
@@ -286,7 +290,8 @@ export function TextInput({
   return (
     <input
       className={cn(
-        "h-10 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm text-fg",
+        // 16px on mobile stops iOS from auto-zooming on focus; back to 14px at sm+.
+        "h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-base text-fg sm:h-10 sm:text-sm",
         "placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20",
         className,
       )}

@@ -352,7 +352,7 @@ export function PlanView() {
           }}
           placeholder='A goal or a whole story — e.g. "A video that goes viral for my skincare brand", or paste the story you want told'
           rows={4}
-          className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-[15px] text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none"
+          className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-base text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none sm:text-[15px]"
         />
 
         {/* Target runtime */}
