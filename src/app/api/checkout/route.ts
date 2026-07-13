@@ -1,7 +1,9 @@
-// Start a MamoPay checkout for a top-up pack or a subscription plan.
+// Start a checkout for a top-up pack or a subscription plan.
 // Records a pending purchase (server-priced from the billing catalog — never
-// trusts the client's amount), creates the MamoPay hosted link, and returns
-// its URL for the browser to redirect to.
+// trusts the client's amount), then hands the browser what it needs to pay:
+//   • Paddle (our merchant of record, preferred): the purchase id + Paddle
+//     price id + public client token, so Paddle.js can open the overlay.
+//   • MamoPay (legacy fallback): a hosted payment-link URL.
 //
 // Two ways in: a signed-in caller (Authorization header), or a guest with just
 // an email — we create their account server-side so they can pay first and
@@ -11,11 +13,18 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin, userIdFromRequest, userIdForEmail } from "@/lib/supabase-admin";
 import { billingItem } from "@/lib/billing";
 import { createPaymentLink, mamoConfigured } from "@/lib/mamopay";
+import {
+  paddleConfigured,
+  priceIdForItem,
+  paddleClientToken,
+  paddleEnvironment,
+} from "@/lib/paddle";
 
 export const maxDuration = 20;
 
 export async function POST(req: Request) {
-  if (!mamoConfigured() || !supabaseAdmin) {
+  const usePaddle = paddleConfigured();
+  if ((!usePaddle && !mamoConfigured()) || !supabaseAdmin) {
     // No payment provider wired up — the client falls back to demo credits.
     return NextResponse.json({ error: "Payments not configured" }, { status: 501 });
   }
@@ -66,6 +75,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not start checkout" }, { status: 500 });
   }
 
+  // Preferred path: Paddle. Hand the browser the price id + public client token
+  // and let Paddle.js open the hosted overlay. custom_data.purchase_id ties the
+  // resulting transaction back to this pending row so the webhook can settle it.
+  if (usePaddle) {
+    const priceId = priceIdForItem(item.id);
+    if (!priceId) {
+      await supabaseAdmin.from("credit_purchases").update({ status: "failed" }).eq("id", purchase.id);
+      return NextResponse.json({ error: "This item isn’t available for purchase yet" }, { status: 500 });
+    }
+    return NextResponse.json({
+      provider: "paddle",
+      purchaseId: purchase.id,
+      priceId,
+      clientToken: paddleClientToken(),
+      environment: paddleEnvironment(),
+      email: customerEmail,
+    });
+  }
+
   const link = await createPaymentLink({
     title: item.kind === "subscription" ? `VIBVID ${item.label} plan` : `${item.credits} credits`,
     amount: item.amount,
@@ -89,5 +117,5 @@ export async function POST(req: Request) {
     .update({ mamo_link_id: link.id })
     .eq("id", purchase.id);
 
-  return NextResponse.json({ url: link.paymentUrl });
+  return NextResponse.json({ provider: "mamopay", url: link.paymentUrl });
 }

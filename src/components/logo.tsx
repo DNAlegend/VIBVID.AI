@@ -1,6 +1,5 @@
-// The VIBVID mark: a bold "V" drawn in one gradient stroke on a dark tile,
-// with a play triangle nested inside it — the video studio cue.
-// One shape, one gradient: reads crisply from favicon size up.
+// The VIBVID mark: the logo's red "VID" pill distilled to a square —
+// a rounded red tile with a white play triangle. Reads at favicon size up.
 
 import { cn } from "@/lib/utils";
 
@@ -22,32 +21,12 @@ export function LogoMark({
       className={className}
       aria-hidden
     >
-      <defs>
-        <linearGradient id="vv-g" x1="6" y1="8" x2="34" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#7c6cff" />
-          <stop offset="0.52" stopColor="#a55dff" />
-          <stop offset="1" stopColor="#2dd4bf" />
-        </linearGradient>
-      </defs>
-
-      {/* tile */}
-      <rect width="40" height="40" rx="10" fill="#0d0d15" />
-      <rect x="0.5" y="0.5" width="39" height="39" rx="9.5" fill="none" stroke="rgba(255,255,255,0.12)" />
-
-      {/* the V — one continuous stroke */}
-      <path
-        d="M10 10.5 L20 29.5 L30 10.5"
-        fill="none"
-        stroke="url(#vv-g)"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* play cue nested in the V */}
-      <path d="M16.7 14.5 L23.3 17.9 L16.7 21.3 Z" fill="#2dd4bf">
+      {/* the red pill, squared for the app icon */}
+      <rect width="40" height="40" rx="11" fill="#ec1320" />
+      {/* play cue — the video studio gesture */}
+      <path d="M16 13 L28 20 L16 27 Z" fill="#ffffff">
         {animated && (
-          <animate attributeName="opacity" values="1;0.55;1" dur="3.2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="1;0.6;1" dur="3.2s" repeatCount="indefinite" />
         )}
       </path>
     </svg>
@@ -55,31 +34,25 @@ export function LogoMark({
 }
 
 /**
- * The logo is letters only: VIBVID.AI.
- * "VIB" in ink, "VID" in the brand gradient, and the period drawn as a
- * tiny gradient pixel — the one graphic gesture left from the mark.
+ * The wordmark, exactly as the logo draws it: "VIB" in ink, then "VID" in white
+ * on a red pill with a play triangle, then a muted ".AI".
  */
 export function LogoWordmark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "font-display inline-flex items-baseline text-[19px] font-bold tracking-[-0.02em] text-fg",
+        "font-display inline-flex items-center text-[19px] font-extrabold leading-none tracking-[-0.03em] text-fg",
         className,
       )}
     >
-      VIB
-      <span
-        className="bg-clip-text text-transparent"
-        style={{ backgroundImage: "linear-gradient(94deg, #6d5ef8, #a95dff)" }}
-      >
+      <span>VIB</span>
+      <span className="ml-[0.12em] inline-flex items-center gap-[0.14em] rounded-[0.4em] bg-accent px-[0.3em] py-[0.14em] text-white">
         VID
+        <svg viewBox="0 0 10 12" className="h-[0.62em] w-[0.52em]" aria-hidden>
+          <path d="M1 1 L9 6 L1 11 Z" fill="#ffffff" />
+        </svg>
       </span>
-      <span
-        aria-hidden
-        className="mx-[0.12em] inline-block h-[0.17em] w-[0.17em] rounded-[0.05em]"
-        style={{ background: "linear-gradient(135deg, #0d9488, #2dd4bf)" }}
-      />
-      <span className="font-semibold text-muted">AI</span>
+      <span className="ml-[0.14em] font-bold text-muted">.AI</span>
     </span>
   );
 }
