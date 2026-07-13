@@ -12,14 +12,31 @@ import { Button, Modal, Badge, TextInput } from "@/components/ui";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { LogoWordmark } from "@/components/logo";
 
-const NAV = [
-  { href: "/app/plan", label: "Plan", icon: Lightbulb },
-  { href: "/app", label: "Make", icon: Clapperboard },
-  { href: "/app/post", label: "Post", icon: Scissors },
-  { href: "/app/characters", label: "Characters", icon: UserRound },
-  { href: "/app/assets", label: "Assets", icon: FolderOpen },
-  { href: "/app/library", label: "My Videos", icon: Film },
+// The nav splits into the production pipeline and the library of what you own.
+const NAV_GROUPS = [
+  {
+    label: "Production",
+    items: [
+      { href: "/app/plan", label: "Plan", icon: Lightbulb },
+      { href: "/app", label: "Make", icon: Clapperboard },
+      { href: "/app/post", label: "Post", icon: Scissors },
+      { href: "/app/library", label: "My Videos", icon: Film },
+    ],
+  },
+  {
+    label: "Library",
+    items: [
+      { href: "/app/characters", label: "Characters", icon: UserRound },
+      { href: "/app/assets", label: "Assets", icon: FolderOpen },
+    ],
+  },
 ];
+// Flat list for the mobile bar (can't show group headers) — one source of truth.
+const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+
+/** Make is the index route, so it matches exactly; the rest match by prefix. */
+const isActive = (href: string, pathname: string) =>
+  href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 
 function Brand() {
   return (
@@ -33,25 +50,32 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <>
-      {NAV.map(({ href, label, icon: Icon }) => {
-        const active = href === "/app" ? pathname === "/app" : pathname.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-accent-soft text-fg"
-                : "text-muted hover:bg-surface-2 hover:text-fg",
-            )}
-          >
-            <Icon size={18} className={active ? "text-accent-2" : ""} />
-            {label}
-          </Link>
-        );
-      })}
+      {NAV_GROUPS.map((group, gi) => (
+        <div key={group.label} className={cn("flex flex-col gap-1", gi > 0 && "mt-5")}>
+          <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-faint">
+            {group.label}
+          </div>
+          {group.items.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href, pathname);
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-accent-soft text-fg"
+                    : "text-muted hover:bg-surface-2 hover:text-fg",
+                )}
+              >
+                <Icon size={18} className={active ? "text-accent-2" : ""} />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </>
   );
 }
@@ -723,7 +747,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="px-1">
           <Brand />
         </div>
-        <nav className="mt-8 flex flex-col gap-1">
+        <nav className="mt-8 flex flex-col">
           <NavLinks />
         </nav>
         <div className="mt-auto">
@@ -806,8 +830,8 @@ function MobileNav() {
   const pathname = usePathname();
   return (
     <>
-      {NAV.map(({ href, label, icon: Icon }) => {
-        const active = href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        const active = isActive(href, pathname);
         return (
           <Link
             key={href}
