@@ -17,6 +17,8 @@ import {
   Repeat,
   Tv,
   Clock,
+  ShieldCheck,
+  Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
@@ -598,6 +600,63 @@ function LongForm() {
   );
 }
 
+const RESPONSIBLE_DONTS = [
+  "Deceptive impersonation or unauthorized likenesses of real people",
+  "Face swaps, deepfakes or voice impersonation",
+  "Misleading testimonials or fabricated endorsements",
+  "Content that infringes another person’s intellectual-property or privacy rights",
+];
+
+function ResponsibleAI() {
+  return (
+    <section id="responsible" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <div className="rounded-[24px] border border-line bg-surface p-7 sm:p-10">
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+          <div>
+            <Badge tone="accent" className="mb-3">Responsible AI</Badge>
+            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Built for original, authorized creation
+            </h2>
+            <p className="mt-3 text-[16px] leading-relaxed text-muted">
+              VIBVID is designed for original and authorized content — your own ideas, fictional
+              characters you build, and materials you own or have permission to use. It is not a tool
+              for impersonating real people or copying someone else’s work.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {["Original content", "Authorized likenesses", "Rights you own"].map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line-2 bg-surface-2 px-3 py-1 text-[12px] font-medium text-muted"
+                >
+                  <ShieldCheck size={12} className="text-teal" /> {t}
+                </span>
+              ))}
+            </div>
+            <Link
+              href="/acceptable-use"
+              className="mt-6 inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent-2 transition-colors hover:text-accent"
+            >
+              Read the Acceptable Use Policy <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="rounded-2xl border border-line bg-surface-2/60 p-5 sm:p-6">
+            <div className="mb-3.5 text-[12px] font-semibold uppercase tracking-wider text-faint">
+              Not permitted on VIBVID
+            </div>
+            <ul className="space-y-3">
+              {RESPONSIBLE_DONTS.map((d) => (
+                <li key={d} className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-fg">
+                  <Ban size={15} className="mt-0.5 shrink-0 text-accent-2" /> {d}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Showcase() {
   return (
     <section id="showcase" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
@@ -670,7 +729,7 @@ const PLANS: Plan[] = [
     price: "$19",
     aed: "AED 69",
     period: "/ mo",
-    headline: "≈ 6 HD videos / mo",
+    headline: "≈ 3 Full-HD videos / mo",
     credits: "300",
     blurb: "For individual creators.",
     popular: false,
@@ -688,13 +747,14 @@ const PLANS: Plan[] = [
     price: "$49",
     aed: "AED 179",
     period: "/ mo",
-    headline: "≈ 20 HD videos / mo",
+    headline: "≈ 11 Full-HD videos / mo",
     credits: "1,000",
     blurb: "For businesses & marketers.",
     popular: true,
     perks: [
       "1,000 credits / month",
       "Everything in Creator",
+      "Native 4K export",
       "Faster generation",
       "Commercial usage rights",
     ],
@@ -706,7 +766,7 @@ const PLANS: Plan[] = [
     price: "$129",
     aed: "AED 475",
     period: "/ mo",
-    headline: "≈ 60 HD videos / mo",
+    headline: "≈ 33 Full-HD videos / mo",
     credits: "3,000",
     blurb: "For agencies & content teams.",
     popular: false,
@@ -800,6 +860,10 @@ function Pricing() {
           credits. Pack credits stay valid for 12 months.
         </p>
         <p className="mx-auto mt-3 max-w-2xl text-center text-[12px] leading-relaxed text-faint">
+          Generation credits are non-transferable service-usage units. They have no cash value and
+          cannot be exchanged, transferred or resold.
+        </p>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-[12px] leading-relaxed text-faint">
           Plans are billed monthly in US dollars and renew automatically until you cancel — cancel
           anytime from your account. Payments are securely processed by our merchant of record,{" "}
           {COMPANY.merchantOfRecord} (Paddle), who handles checkout, invoicing and tax. See our{" "}
@@ -822,12 +886,16 @@ const FAQS = [
     a: "Add pictures, clips, sound and scripts to a shot and they steer it directly: images set the exact frames or act as identity references, clips lend their motion, and your character's sheet keeps the same face in every video — so the sneaker in your clip is your sneaker, not a lookalike.",
   },
   {
-    q: "How do credits work?",
-    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~2 credits, a 5-second Draft video ~15, and a full 1080p Production render ~50. Plans refill monthly (Free 20, Creator 300, Pro 1,000, Agency 3,000) and reset each cycle. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
+    q: "Can I upload my own reference materials?",
+    a: "Yes — pictures, clips, sound and scripts. You must own those materials or have the rights and permissions to use them. Don't upload other people's copyrighted work, or anyone's likeness or voice, without authorization.",
   },
   {
-    q: "Do I own what I make?",
-    a: "Yes. Everything you generate lands in your private library, stored on your account, ready to download and use in your campaigns.",
+    q: "How do credits work?",
+    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~3 credits, a 5-second Draft clip ~15, a 5-second 720p HD render ~45, and a 5-second 1080p Full-HD render (native audio) ~90; native 4K is the top tier at ~200. Plans refill monthly (Free 20, Creator 300, Pro 1,000, Agency 3,000) and reset each cycle. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
+  },
+  {
+    q: "Do I own what I make, and can I use it commercially?",
+    a: "Everything you generate lands in your private library, stored on your account, ready to download. Commercial use is available on eligible paid plans, subject to the VIBVID Terms of Service and any rights attached to materials you upload.",
   },
   {
     q: "How long does a video take?",
@@ -836,6 +904,10 @@ const FAQS = [
   {
     q: "Can I keep the same character across videos?",
     a: "Yes — that's what Characters is for. Create one from a selfie or a description and you get a single reference sheet with every angle of them, plus an optional voice. Cast them in Make and the engine keeps their identity consistent from video to video.",
+  },
+  {
+    q: "Can I create videos of real people?",
+    a: "VIBVID is for original and authorized creation only. It does not permit deceptive impersonation, unauthorized use of a real person's likeness, face swaps, deepfakes, voice impersonation or misleading testimonials. A character built from your own selfie is fine; someone else's face or voice without their permission is not. See the Acceptable Use Policy for the full list.",
   },
   {
     q: "Can I make a full episode, season or movie?",
@@ -959,6 +1031,7 @@ export function Landing() {
         <UseCases />
         <LongForm />
         <Showcase />
+        <ResponsibleAI />
         <Pricing />
         <FAQ />
         <FinalCTA />
