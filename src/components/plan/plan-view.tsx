@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Lightbulb,
@@ -11,7 +11,9 @@ import {
   Film,
   Check,
   AlertTriangle,
+  ChevronDown,
   Clapperboard,
+  Scissors,
   UserRound,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -76,6 +78,8 @@ export function PlanView() {
   const [busy, setBusy] = useState(false);
   const [fixingId, setFixingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The one shot whose full script is open — keeps the production scannable. */
+  const [openId, setOpenId] = useState<string | null>(null);
 
   // One production at a time — the current cut.
   const plan = plans[0] ?? null;
@@ -96,6 +100,30 @@ export function PlanView() {
   );
 
   const totalSec = plan?.ideas.reduce((sum, i) => sum + (i.durationSec ?? 0), 0) ?? 0;
+
+  const stateOf = (idea: PlanIdea) =>
+    shotState(idea, idea.jobId ? jobsById.get(idea.jobId) : undefined);
+  const producedCount = plan ? plan.ideas.filter((i) => stateOf(i) === "produced").length : 0;
+  /** The next shot to work on — first one that isn't produced or rendering. */
+  const nextShot = plan?.ideas.find((i) => {
+    const st = stateOf(i);
+    return st === "idea" || st === "failed" || st === "sent";
+  });
+
+  // A fresh production opens on its first unproduced shot.
+  useEffect(() => {
+    if (!plan) return;
+    const next = plan.ideas.find((i) => stateOf(i) !== "produced") ?? plan.ideas[0];
+    setOpenId(next?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan?.id]);
+
+  function jumpToShot(id: string) {
+    setOpenId(id);
+    requestAnimationFrame(() => {
+      document.getElementById(`shot-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
 
   async function writePlan() {
     const goal = brief.trim();
@@ -302,6 +330,10 @@ export function PlanView() {
                     {totalSec > 0 && <> · {fmtSec(totalSec)}</>}
                   </Badge>
                   {plan.targetSec ? <Badge tone="neutral">target {fmtSec(plan.targetSec)}</Badge> : null}
+                  <Badge tone={producedCount === plan.ideas.length ? "teal" : "neutral"}>
+                    {producedCount === plan.ideas.length && <Check size={11} />}
+                    {producedCount}/{plan.ideas.length} produced
+                  </Badge>
                 </div>
                 {plan.logline && <p className="mt-1 text-[14px] text-muted">{plan.logline}</p>}
                 {castOfPlan.length > 0 && (
@@ -348,47 +380,129 @@ export function PlanView() {
                 <Trash2 size={15} />
               </button>
             </div>
+            {/* Shot list — the whole movie at a glance; click a shot to open it. */}
+            <div className="mt-4 border-t border-line pt-3">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">
+                  Shot list
+                </span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                  <div
+                    className="h-full rounded-full bg-teal transition-all"
+                    style={{ width: `${(producedCount / plan.ideas.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {plan.ideas.map((idea, i) => {
+                  const st = stateOf(idea);
+                  return (
+                    <button
+                      key={idea.id}
+                      onClick={() => jumpToShot(idea.id)}
+                      title={`Shot ${i + 1} — ${idea.title}${idea.durationSec ? ` (${idea.durationSec}s)` : ""}`}
+                      className={cn(
+                        "flex items-center gap-1 rounded-lg border px-2 py-1 text-[12px] font-bold tabular-nums transition-colors",
+                        st === "produced"
+                          ? "border-teal/30 bg-teal-soft text-teal"
+                          : st === "producing"
+                            ? "border-accent/40 bg-accent-soft text-accent-2"
+                            : st === "failed"
+                              ? "border-danger/40 bg-danger/5 text-danger"
+                              : st === "sent"
+                                ? "border-accent/30 text-fg"
+                                : "border-line text-muted hover:border-faint hover:text-fg",
+                        openId === idea.id && "ring-2 ring-accent/30",
+                      )}
+                    >
+                      {i + 1}
+                      {st === "produced" && <Check size={11} />}
+                      {st === "producing" && <Loader2 size={11} className="animate-spin" />}
+                      {st === "failed" && <AlertTriangle size={11} />}
+                    </button>
+                  );
+                })}
+                {producedCount === plan.ideas.length ? (
+                  <Button size="sm" className="ml-auto gap-1.5" onClick={() => router.push("/app/post")}>
+                    <Scissors size={13} /> Stitch it in Post <ArrowRight size={13} />
+                  </Button>
+                ) : nextShot ? (
+                  <Button
+                    size="sm"
+                    className="ml-auto gap-1.5"
+                    onClick={() => openAndMake(plan, nextShot)}
+                  >
+                    <Sparkles size={13} /> Produce Shot {plan.ideas.indexOf(nextShot) + 1}{" "}
+                    <ArrowRight size={13} />
+                  </Button>
+                ) : null}
+              </div>
+            </div>
             <p className="mt-3 text-[12px] text-faint">
               from “{plan.brief.length > 90 ? `${plan.brief.slice(0, 90)}…` : plan.brief}” ·{" "}
               {timeAgo(plan.createdAt)}
             </p>
           </Card>
 
-          {/* The shots */}
+          {/* The shots — compact rows; the shot you're working on opens up. */}
           {plan.ideas.map((idea, index) => {
             const job = idea.jobId ? jobsById.get(idea.jobId) : undefined;
             const state = shotState(idea, job);
             const fixing = fixingId === idea.id;
             const segments = planSegments(idea.prompt);
+            const open = openId === idea.id;
+            const isNext = nextShot?.id === idea.id;
             return (
-              <Card key={idea.id} className="p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-fg px-2 py-0.5 text-[11px] font-bold tabular-nums text-surface">
-                    Shot {index + 1}
-                  </span>
-                  {idea.role && <Badge tone="accent">{idea.role}</Badge>}
-                  {idea.durationSec && <Badge tone="neutral">{idea.durationSec}s</Badge>}
-                  {state === "produced" && (
-                    <Badge tone="teal">
-                      <Check size={11} /> Produced
-                    </Badge>
-                  )}
-                  {state === "producing" && (
-                    <Badge tone="accent">
-                      <Loader2 size={11} className="animate-spin" /> Producing
-                    </Badge>
-                  )}
-                  {state === "sent" && <Badge tone="neutral">In Make</Badge>}
-                  {state === "failed" && (
-                    <Badge tone="neutral" className="text-danger">
-                      <AlertTriangle size={11} /> Failed
-                    </Badge>
-                  )}
-                </div>
-                <h3 className="mt-2 font-display text-[16px] font-bold tracking-tight">{idea.title}</h3>
-                {idea.hook && <p className="mt-1 text-[13.5px] text-muted">{idea.hook}</p>}
+              <div key={idea.id} id={`shot-${idea.id}`}>
+                <Card className={cn("overflow-hidden p-0", open && "ring-1 ring-accent/20")}>
+                  <button
+                    onClick={() => setOpenId(open ? null : idea.id)}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-surface-2/60"
+                  >
+                    <span className="shrink-0 rounded-md bg-fg px-2 py-0.5 text-[11px] font-bold tabular-nums text-surface">
+                      Shot {index + 1}
+                    </span>
+                    {idea.role && <Badge tone="accent">{idea.role}</Badge>}
+                    {idea.durationSec && <Badge tone="neutral">{idea.durationSec}s</Badge>}
+                    <span className="min-w-0 flex-1 truncate font-display text-[14.5px] font-bold tracking-tight">
+                      {idea.title}
+                    </span>
+                    {isNext && state === "idea" && (
+                      <Badge tone="accent" className="shrink-0">
+                        Next up
+                      </Badge>
+                    )}
+                    {state === "produced" && (
+                      <Badge tone="teal" className="shrink-0">
+                        <Check size={11} /> Produced
+                      </Badge>
+                    )}
+                    {state === "producing" && (
+                      <Badge tone="accent" className="shrink-0">
+                        <Loader2 size={11} className="animate-spin" /> Producing
+                      </Badge>
+                    )}
+                    {state === "sent" && (
+                      <Badge tone="neutral" className="shrink-0">
+                        In Make
+                      </Badge>
+                    )}
+                    {state === "failed" && (
+                      <Badge tone="neutral" className="shrink-0 text-danger">
+                        <AlertTriangle size={11} /> Failed
+                      </Badge>
+                    )}
+                    <ChevronDown
+                      size={16}
+                      className={cn("shrink-0 text-faint transition-transform", open && "rotate-180")}
+                    />
+                  </button>
 
-                {!segments ? (
+                  {open && (
+                    <div className="border-t border-line px-4 pb-4 pt-3">
+                      {idea.hook && <p className="text-[13.5px] text-muted">{idea.hook}</p>}
+
+                      {!segments ? (
                   <p className="mt-3 whitespace-pre-line rounded-xl border border-line bg-surface-2 p-4 text-[13.5px] leading-relaxed text-fg">
                     {idea.prompt}
                   </p>
@@ -455,7 +569,10 @@ export function PlanView() {
                     </Button>
                   )}
                 </div>
-              </Card>
+                    </div>
+                  )}
+                </Card>
+              </div>
             );
           })}
         </div>
