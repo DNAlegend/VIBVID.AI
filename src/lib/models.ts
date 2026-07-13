@@ -5,7 +5,7 @@
 
 import type { Modality } from "./types";
 
-export type Resolution = "480p" | "720p" | "1080p";
+export type Resolution = "480p" | "720p" | "1080p" | "4K";
 
 export type Capability =
   | "text-to-video"
@@ -53,16 +53,19 @@ export const MODELS: ModelProvider[] = [
     vendor: "VIBVID",
     modality: "video",
     capabilities: ["text-to-video", "image-to-video"],
-    blurb: "The detailed production model — cinematic motion, native audio, up to 1080p.",
+    blurb: "The detailed production model — cinematic motion, native audio, up to native 4K.",
     glyph: "🎬",
     accent: "#ec1320",
     badge: "recommended",
     enabled: true,
-    // Premium video: a 5s 1080p render is ~50 credits (≈ $2.45 at the Pro rate),
-    // a 10s ~100 — well above upstream cost. See billing.ts for the economics.
-    creditsPerSec: 10,
-    creditsPerSecByRes: { "480p": 6, "720p": 8, "1080p": 10 },
-    resolutions: ["480p", "720p", "1080p"],
+    // Native-audio Seedance 2.0 is genuinely pricey and scales with pixels. Rates
+    // are set to ≥3× the real image-to-video cost at the cheapest sell price
+    // ($0.043/credit) — our shot-to-shot flow is reference-based, so i2v is the
+    // dominant path; pure text-to-video still clears cost. A 5s 1080p ≈ 90 credits,
+    // a 5s 4K ≈ 200. See billing.ts for the plan economics.
+    creditsPerSec: 18,
+    creditsPerSecByRes: { "480p": 5, "720p": 9, "1080p": 18, "4K": 40 },
+    resolutions: ["480p", "720p", "1080p", "4K"],
     maxDurationSec: 15,
     arkModel: "dreamina-seedance-2-0-260128",
     arkResolution: "1080p",
@@ -115,7 +118,8 @@ export const MODELS: ModelProvider[] = [
     accent: "#d6457a",
     badge: "recommended",
     enabled: true,
-    creditsPerImage: 2,
+    // ≥3× the ~$0.03 Seedream cost at the $0.043 floor.
+    creditsPerImage: 3,
     arkModel: "seedream-4-0-250828",
   },
   {
@@ -128,7 +132,7 @@ export const MODELS: ModelProvider[] = [
     glyph: "🎨",
     accent: "#b05ad0",
     enabled: true,
-    creditsPerImage: 3,
+    creditsPerImage: 4,
     arkModel: "seedream-4-5-251128",
     arkSize: "2k",
   },
@@ -138,12 +142,13 @@ export const MODELS: ModelProvider[] = [
     vendor: "VIBVID",
     modality: "image",
     capabilities: ["text-to-image", "image-to-image"],
-    blurb: "The flagship — best realism, lighting and fine detail.",
+    blurb: "The flagship — best realism, lighting and fine detail, up to 2K.",
     glyph: "✨",
     accent: "#ec1320",
     badge: "new",
     enabled: true,
-    creditsPerImage: 4,
+    // 2K hi-res output (~$0.135) — priced ≥3× at the floor.
+    creditsPerImage: 10,
     arkModel: "seedream-5-0-260128",
     arkSize: "2k",
   },

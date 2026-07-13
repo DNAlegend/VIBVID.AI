@@ -48,10 +48,12 @@ function fmtSec(total: number): string {
   return s ? `${m}:${String(s).padStart(2, "0")}` : `${m} min`;
 }
 
-/** One-click production presets: draft everything cheap, finalize the keepers. */
+/** One-click production presets: draft everything cheap, finalize the keepers.
+ *  `quality` names the tier; `resolution` is surfaced in the UI and the confirm
+ *  so a batch never renders at a quality the user didn't expect. */
 const QUALITY = {
-  draft: { modelId: "seedance-2-mini", resolution: "480p", label: "Draft" },
-  final: { modelId: "seedance-2-pro", resolution: "1080p", label: "Final" },
+  draft: { modelId: "seedance-2-mini", resolution: "480p", label: "Draft", quality: "480p draft" },
+  final: { modelId: "seedance-2-pro", resolution: "1080p", label: "Final", quality: "1080p · Full HD, native audio" },
 } as const;
 type QualityKey = keyof typeof QUALITY;
 
@@ -265,7 +267,7 @@ export function PlanView() {
     const total = remaining.reduce((sum, i) => sum + shotCost(i), 0);
     if (
       !confirm(
-        `Produce ${remaining.length} shots in ${QUALITY[quality].label} for ~${total} credits?`,
+        `Produce ${remaining.length} shots at ${QUALITY[quality].quality} for ~${total} credits?`,
       )
     ) {
       return;
@@ -598,12 +600,16 @@ export function PlanView() {
                     <button
                       key={k}
                       onClick={() => setQuality(k)}
+                      title={`${QUALITY[k].label} — renders every shot at ${QUALITY[k].quality}`}
                       className={cn(
                         "px-2.5 py-1 transition-colors",
                         quality === k ? "bg-fg text-surface" : "text-muted hover:text-fg",
                       )}
                     >
                       {QUALITY[k].label}
+                      <span className={cn("ml-1 font-medium", quality === k ? "text-surface/70" : "text-faint")}>
+                        {QUALITY[k].resolution}
+                      </span>
                     </button>
                   ))}
                 </div>
