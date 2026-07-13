@@ -1031,7 +1031,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       : "border-line text-muted hover:border-line-2",
                   )}
                 >
-                  {m.glyph} {m.name.replace(/^Mak /, "")}
+                  {m.glyph} {m.name.replace(/^Vib /, "")}
                 </button>
               ))}
             </div>
@@ -1142,7 +1142,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
             )}
             {needsSignIn && (
               <p className="mt-2 text-center text-xs text-faint">
-                Sign in to render with the real MightyMak engine.
+                Sign in to render with the real VIBVID engine.
               </p>
             )}
           </div>

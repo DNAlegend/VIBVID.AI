@@ -439,7 +439,7 @@ function PaywallGate({
           <div className="mb-5 text-center">
             <h1 className="font-display text-2xl font-bold tracking-tight">Complete your payment</h1>
             <p className="mt-1.5 text-[14px] text-muted">
-              MightyMak {paid.label} — {paid.priceLabel}/mo · {paid.credits.toLocaleString()} credits
+              VIBVID {paid.label} — {paid.priceLabel}/mo · {paid.credits.toLocaleString()} credits
               every month, for <span className="font-medium text-fg">{email.trim()}</span>.
             </p>
           </div>

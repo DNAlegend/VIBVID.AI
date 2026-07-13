@@ -49,8 +49,8 @@ export interface ModelProvider {
 export const MODELS: ModelProvider[] = [
   {
     id: "seedance-2-pro",
-    name: "Mak Production",
-    vendor: "MightyMak",
+    name: "Vib Production",
+    vendor: "VIBVID",
     modality: "video",
     capabilities: ["text-to-video", "image-to-video"],
     blurb: "The detailed production model — cinematic motion, native audio, up to 1080p.",
@@ -67,8 +67,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedance-2-mini",
-    name: "Mak Draft",
-    vendor: "MightyMak",
+    name: "Vib Draft",
+    vendor: "VIBVID",
     modality: "video",
     capabilities: ["text-to-video", "image-to-video"],
     blurb: "The draft model — fast, cheap takes to explore ideas before a Production render.",
@@ -86,8 +86,8 @@ export const MODELS: ModelProvider[] = [
   {
     // Legacy tier — hidden from pickers; old generations still resolve its badge.
     id: "seedance-2-lite",
-    name: "Mak Fast",
-    vendor: "MightyMak",
+    name: "Vib Fast",
+    vendor: "VIBVID",
     modality: "video",
     capabilities: ["text-to-video", "image-to-video"],
     blurb: "Faster, cheaper drafts at 720p.",
@@ -102,8 +102,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedream-3",
-    name: "Mak Image",
-    vendor: "MightyMak",
+    name: "Vib Image",
+    vendor: "VIBVID",
     modality: "image",
     capabilities: ["text-to-image"],
     blurb: "The proven workhorse — high-fidelity images with rich detail.",
@@ -116,8 +116,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedream-45",
-    name: "Mak Image Plus",
-    vendor: "MightyMak",
+    name: "Vib Image Plus",
+    vendor: "VIBVID",
     modality: "image",
     capabilities: ["text-to-image", "image-to-image"],
     blurb: "Sharper composition and better text rendering than 4.0.",
@@ -130,8 +130,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedream-5",
-    name: "Mak Image Pro",
-    vendor: "MightyMak",
+    name: "Vib Image Pro",
+    vendor: "VIBVID",
     modality: "image",
     capabilities: ["text-to-image", "image-to-image"],
     blurb: "The flagship — best realism, lighting and fine detail.",

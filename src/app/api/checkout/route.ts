@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   }
 
   const link = await createPaymentLink({
-    title: item.kind === "subscription" ? `MightyMak ${item.label} plan` : `${item.credits} credits`,
+    title: item.kind === "subscription" ? `VIBVID ${item.label} plan` : `${item.credits} credits`,
     amount: item.amount,
     currency: item.currency,
     returnUrl: `${origin}/app?purchase=success`,

@@ -118,7 +118,7 @@ function Hero() {
       />
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-16 text-center sm:px-6 sm:pt-24">
         <div className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[12px] font-medium text-muted">
-          <Sparkles size={13} className="text-accent-2" /> Powered by our own MightyMak engine
+          <Sparkles size={13} className="text-accent-2" /> Powered by our own VIBVID engine
         </div>
         <h1 className="font-display mx-auto mt-5 max-w-4xl text-4xl font-bold leading-[1.07] tracking-tight sm:text-[56px]">
           Your AI video studio,
@@ -145,7 +145,7 @@ function Hero() {
             <div className="relative aspect-video w-full bg-black">
               <MediaTile m={HERO} />
               <div className="absolute right-3 top-3 rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
-                Mak Production · 1080p · 5s
+                Vib Production · 1080p · 5s
               </div>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 sm:p-5">
                 <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-black/45 px-3.5 py-2.5 backdrop-blur-md">
@@ -189,11 +189,11 @@ function FloatChip({ m }: { m: ShowcaseMedia }) {
 }
 
 function ModelBand() {
-  const items = ["Mak Production", "Mak Draft", "The Strategist", "The Director", "+ more soon"];
+  const items = ["Vib Production", "Vib Draft", "The Strategist", "The Director", "+ more soon"];
   return (
     <section className="border-y border-line bg-surface-2/50">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-6 py-5">
-        <span className="text-[12px] font-semibold uppercase tracking-wider text-faint">The MightyMak engine</span>
+        <span className="text-[12px] font-semibold uppercase tracking-wider text-faint">The VIBVID engine</span>
         {items.map((i) => (
           <span key={i} className="text-sm font-medium text-muted">{i}</span>
         ))}
@@ -293,7 +293,7 @@ function DemoCard({ d }: { d: DemoItem }) {
             >
               <Clapperboard size={22} />
             </span>
-            <span className="text-[12px] font-medium text-muted">{d.aspect} · MightyMak</span>
+            <span className="text-[12px] font-medium text-muted">{d.aspect} · VIBVID</span>
           </div>
         )}
         <span className="absolute left-2.5 top-2.5">
@@ -343,7 +343,7 @@ function Showcase() {
   return (
     <section id="showcase" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
-        <Badge tone="accent" className="mb-3">Made with MightyMak</Badge>
+        <Badge tone="accent" className="mb-3">Made with VIBVID</Badge>
         <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Output that looks the part</h2>
         <p className="mt-3 text-[17px] text-muted">Video and images generated in seconds — every one ready to drop into your campaign.</p>
       </div>
@@ -493,7 +493,7 @@ function Pricing() {
 const FAQS = [
   {
     q: "What can I actually generate?",
-    a: "Real 4–15 second videos with native audio, rendered by our own MightyMak engine — vertical UGC ads, product films, fashion clips, brand spots. Draft quality for fast iteration, up to full 1080p Production quality for the final cut.",
+    a: "Real 4–15 second videos with native audio, rendered by our own VIBVID engine — vertical UGC ads, product films, fashion clips, brand spots. Draft quality for fast iteration, up to full 1080p Production quality for the final cut.",
   },
   {
     q: "How do my assets change the output?",
@@ -580,7 +580,7 @@ function Footer() {
           <a href="#pricing" className="hover:text-fg">Pricing</a>
           <Link href={APP} className="hover:text-fg">Launch studio</Link>
         </nav>
-        <p className="text-[13px] text-faint">© 2026 MightyMak</p>
+        <p className="text-[13px] text-faint">© 2026 VIBVID</p>
       </div>
     </footer>
   );

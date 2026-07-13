@@ -1,4 +1,4 @@
-// The MightyMak starter catalog — curated, pickable building blocks.
+// The VIBVID starter catalog — curated, pickable building blocks.
 // Assets are organized into five classes: Characters, Dresses, Scenes, Dances
 // and Audio. A client uploads their own into the same classes. In the Studio,
 // a shot is assembled by picking one asset per slot; each contributes a
