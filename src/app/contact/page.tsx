@@ -50,7 +50,7 @@ export default function ContactPage() {
           <Building2 size={17} className="mt-0.5 shrink-0 text-faint" />
           <span>
             {COMPANY.brand} is a product of <strong>{COMPANY.legalName}</strong>, a company registered in{" "}
-            {COMPANY.jurisdiction}.
+            {COMPANY.jurisdiction} (trade licence no. {COMPANY.licenseNo}).
             <br />
             Registered address: {COMPANY.address}.
           </span>

@@ -12,12 +12,13 @@ import { LogoWordmark } from "@/components/logo";
 /** The registered business behind VIBVID — the merchant of record's customer. */
 export const COMPANY = {
   brand: "VIBVID.AI",
-  /** Legal entity that holds the merchant account. */
-  legalName: "taxnow FZE",
-  /** UAE Free Zone Establishment. TODO: confirm the exact free zone + emirate. */
-  jurisdiction: "the United Arab Emirates",
-  /** TODO: replace with the registered address on the trade licence. */
-  address: "[REGISTERED ADDRESS — from trade licence]",
+  /** Legal entity that holds the merchant account (SRTIP trade licence 11311). */
+  legalName: "TAXNOW (FZE)",
+  licenseNo: "11311",
+  /** Sharjah Research Technology & Innovation Park free zone. */
+  jurisdiction: "Sharjah, United Arab Emirates",
+  /** Registered address on the SRTIP trade licence. */
+  address: "Block B, B56-179, Sharjah Research Technology & Innovation Park (SRTIP), Sharjah, United Arab Emirates",
   supportEmail: "support@vibvid.ai",
   salesEmail: "sales@vibvid.ai",
   /** Paddle is the merchant/seller of record for all VIBVID transactions. */
@@ -28,6 +29,7 @@ export const COMPANY = {
 export const LEGAL_LINKS: { href: string; label: string }[] = [
   { href: "/terms", label: "Terms of Service" },
   { href: "/privacy", label: "Privacy Policy" },
+  { href: "/cookies", label: "Cookie Policy" },
   { href: "/refunds", label: "Refund & Cancellation" },
   { href: "/acceptable-use", label: "Acceptable Use" },
   { href: "/contact", label: "Contact" },
