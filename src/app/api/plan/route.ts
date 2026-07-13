@@ -1,13 +1,12 @@
 // The Strategist — turns a creator's goal ("give me 5 videos that will go
-// viral for my brand") into distinct, production-ready video concepts via an
-// Ark LLM. Each concept lands on the Plan surface, where the creator can send
-// it to Make as a job. Nothing is generated from here.
+// viral for my brand") into distinct, production-ready video concepts.
+// Script writing runs on Claude when ANTHROPIC_API_KEY is set (Ark engine
+// otherwise — see src/lib/llm.ts). Each concept lands on the Plan surface,
+// where the creator can send it to Make as a job. Nothing is generated here.
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-const ARK_BASE = process.env.ARK_BASE_URL ?? "https://ark.ap-southeast.bytepluses.com/api/v3";
-const STRATEGIST_MODEL = process.env.ARK_DIRECTOR_MODEL ?? "deepseek-v4-flash-260425";
+import { chatText, llmConfigured } from "@/lib/llm";
 
 export const maxDuration = 60;
 
@@ -16,13 +15,42 @@ Given a creator's goal and a clip length, invent the requested number of DISTINC
 For each concept provide:
 - "title": a punchy concept name, at most 8 words, in the same language as the goal.
 - "hook": one sentence on why it stops the scroll, same language as the goal.
-- "prompt": an EXTREMELY DETAILED production plan for a cinematic AI video generation model — ALWAYS in English, written for a clip of EXACTLY the given length. Structure it as a second-by-second timeline ("0-2s: ... 2-5s: ... 5-8s: ...") whose beats add up to the full duration. Every beat must be concrete and visual: subject and exact action, setting and props, camera movement and framing (macro, POV, dolly, whip-pan...), lighting and color, pacing and transitions. End with one sentence of overall mood, style and sound design direction. 90–160 words. This is the complete blueprint the video model shoots from — the more precise, the better the result.
+- "prompt": an EXTREMELY DETAILED production blueprint for a cinematic AI video generation model — ALWAYS in English, written for a clip of EXACTLY the given length.
+Blueprint rules:
+- Structure it as a second-by-second timeline ("0-2s: ... 2-5s: ... 5-8s: ...") whose beats add up to the full duration — never shorter, never longer.
+- Every beat must be concrete and visual: one subject with an exact action, setting and props, camera movement and framing (macro, POV, dolly-in, whip-pan, orbit, crash-zoom...), lighting and color, pacing and transitions. Prefer one strong action per beat over several vague ones.
+- The model generates NATIVE AUDIO: after the timeline, add one "Audio:" sentence directing sound design — ambience, foley synced to the action, music energy, and (only when it strengthens the concept) one short spoken line in double quotes with the speaker described.
+- End with one sentence of overall mood, style and color grade.
+- NEVER request on-screen text, captions, subtitles, watermarks, logos or UI overlays — the model renders text poorly.
+- Keep one consistent protagonist and location logic across beats so the clip cuts together as one continuous idea.
+- 100–180 words per prompt. This is the complete blueprint the video model shoots from — the more precise, the better the result.
 Never reference real brand names, logos, trademarked or copyrighted characters, franchises, or real public figures.
 Make the concepts genuinely different from each other: different formats (POV, unboxing, transformation, walkthrough, testimonial...), settings and emotional angles.
 Output STRICT JSON only, no markdown fences, exactly: {"ideas":[{"title":"...","hook":"...","prompt":"..."}]}`;
 
+const IDEAS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ideas"],
+  properties: {
+    ideas: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "hook", "prompt"],
+        properties: {
+          title: { type: "string" },
+          hook: { type: "string" },
+          prompt: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
 export async function POST(req: Request) {
-  if (!process.env.ARK_API_KEY) {
+  if (!llmConfigured()) {
     return NextResponse.json({ error: "Strategist not configured" }, { status: 501 });
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -43,31 +71,19 @@ export async function POST(req: Request) {
   // Seedance accepts 4–15s; the UI offers 5/10/15.
   const durationSec = Math.min(15, Math.max(4, Number(body?.durationSec) || 5));
 
-  const res = await fetch(`${ARK_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.ARK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: STRATEGIST_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM },
-        {
-          role: "user",
-          content: `Number of concepts: ${count}.\nClip length: exactly ${durationSec} seconds.\nCreator's goal: ${brief}`,
-        },
-      ],
-      max_tokens: 550 * count + 200,
+  let raw: string;
+  try {
+    raw = await chatText({
+      system: SYSTEM,
+      user: `Number of concepts: ${count}.\nClip length: exactly ${durationSec} seconds.\nCreator's goal: ${brief}`,
+      maxTokens: 550 * count + 200,
       temperature: 0.9,
-    }),
-  });
-  if (!res.ok) {
-    const detail = (await res.text()).slice(0, 200);
+      jsonSchema: IDEAS_SCHEMA,
+    });
+  } catch (e) {
+    const detail = e instanceof Error ? e.message.slice(0, 200) : "unknown error";
     return NextResponse.json({ error: `Strategist error: ${detail}` }, { status: 502 });
   }
-  const json = await res.json();
-  const raw: string = json.choices?.[0]?.message?.content?.trim() ?? "";
   // Models sometimes wrap JSON in fences or prose — extract the object.
   const match = raw.match(/\{[\s\S]*\}/);
   let ideas: Array<{ title: string; hook: string; prompt: string }> = [];

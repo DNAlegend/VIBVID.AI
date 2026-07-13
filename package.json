@@ -10,6 +10,7 @@
     "generate:demo": "node scripts/generate-demo.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
     "@supabase/supabase-js": "^2.110.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",

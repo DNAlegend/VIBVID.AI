@@ -1,21 +1,22 @@
 // The Director — turns a rough brief (in ANY language) plus the picked
-// assets into a professional English video/image prompt via an Ark LLM.
-// The creator reviews and edits the result before generating; nothing is
-// auto-submitted to the video model.
+// assets into a professional English video/image prompt. Script writing
+// runs on Claude when ANTHROPIC_API_KEY is set (Ark engine otherwise —
+// see src/lib/llm.ts). The creator reviews and edits the result before
+// generating; nothing is auto-submitted to the video model.
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { chatText, llmConfigured } from "@/lib/llm";
 
-const ARK_BASE = process.env.ARK_BASE_URL ?? "https://ark.ap-southeast.bytepluses.com/api/v3";
-const DIRECTOR_MODEL = process.env.ARK_DIRECTOR_MODEL ?? "deepseek-v4-flash-260425";
-
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const SYSTEM = `You are a world-class commercial video director writing generation prompts for a professional cinematic video generation model.
 The user's brief may be written in ANY language — always answer with the final prompt in ENGLISH.
 Weave in every provided asset description naturally (they are visual references the model will also receive as images).
-Structure the prompt as one flowing paragraph covering: subject and action, setting, camera movement, lighting, mood, and style.
-Be concrete and visual; prefer verbs of motion; 40–90 words.
+Structure the prompt as one flowing paragraph covering: subject and exact action, setting, camera movement and framing, lighting, mood, and style. Prefer one strong continuous action over several vague ones.
+For video: the model generates NATIVE AUDIO — close the paragraph with a short audio direction (ambience, foley synced to the action, music energy; a short spoken line in double quotes only if the brief calls for one).
+Never request on-screen text, captions, subtitles, watermarks or logos — the model renders text poorly.
+Be concrete and visual; prefer verbs of motion; 40–110 words.
 Avoid real brand names, logos, trademarked or copyrighted characters, franchises, and real public figures unless the user explicitly supplies them as their own assets — prefer generic, original descriptions.
 Output ONLY the prompt paragraph — no preamble, no quotes, no lists, no explanations.`;
 
@@ -26,7 +27,7 @@ Answer in ENGLISH as one flowing paragraph, 40–80 words.
 Output ONLY the rewritten prompt — no preamble, no quotes, no explanations.`;
 
 export async function POST(req: Request) {
-  if (!process.env.ARK_API_KEY) {
+  if (!llmConfigured()) {
     return NextResponse.json({ error: "Director not configured" }, { status: 501 });
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,28 +63,17 @@ export async function POST(req: Request) {
     .filter(Boolean)
     .join("\n");
 
-  const res = await fetch(`${ARK_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.ARK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: DIRECTOR_MODEL,
-      messages: [
-        { role: "system", content: safe ? SAFE_SYSTEM : SYSTEM },
-        { role: "user", content: userMsg },
-      ],
-      max_tokens: 300,
+  let prompt: string;
+  try {
+    prompt = await chatText({
+      system: safe ? SAFE_SYSTEM : SYSTEM,
+      user: userMsg,
+      maxTokens: 300,
       temperature: safe ? 0.85 : 0.7,
-    }),
-  });
-  if (!res.ok) {
-    const detail = (await res.text()).slice(0, 200);
+    });
+  } catch (e) {
+    const detail = e instanceof Error ? e.message.slice(0, 200) : "unknown error";
     return NextResponse.json({ error: `Director error: ${detail}` }, { status: 502 });
   }
-  const json = await res.json();
-  const prompt = json.choices?.[0]?.message?.content?.trim();
-  if (!prompt) return NextResponse.json({ error: "Director returned nothing" }, { status: 502 });
   return NextResponse.json({ prompt });
 }
