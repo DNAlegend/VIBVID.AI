@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
 import { LogoWordmark } from "@/components/logo";
+import { MobileNav } from "@/components/marketing/mobile-nav";
 import {
   HERO,
   HERO_CHIPS,
@@ -117,6 +118,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <CTA href={APP} variant="soft" size="md" className="hidden sm:inline-flex">Sign in</CTA>
           <CTA href={APP} size="md">Get started</CTA>
+          <MobileNav appHref={APP} />
         </div>
       </div>
     </header>
