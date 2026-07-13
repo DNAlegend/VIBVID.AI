@@ -14,11 +14,22 @@ import {
   Film,
   Download,
   Play,
+  Repeat,
+  Tv,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
 import { LogoWordmark } from "@/components/logo";
-import { HERO, HERO_CHIPS, SHOWCASE, type ShowcaseMedia } from "@/lib/showcase";
+import {
+  HERO,
+  HERO_CHIPS,
+  SHOWCASE,
+  CONSISTENT_CHARACTER,
+  CHARACTER_SCENES,
+  SEASON,
+  type ShowcaseMedia,
+} from "@/lib/showcase";
 import { DEMO_CONTENT, generatedSrc, type DemoItem } from "@/lib/demo-content";
 import { LEGAL_LINKS, COMPANY } from "@/components/legal/legal-page";
 
@@ -95,10 +106,11 @@ function Header() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Brand />
         <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
-          <a href="#pricing" className="transition-colors hover:text-fg">Pricing</a>
           <a href="#features" className="transition-colors hover:text-fg">Features</a>
+          <a href="#characters" className="transition-colors hover:text-fg">Characters</a>
+          <a href="#longform" className="transition-colors hover:text-fg">Seasons</a>
           <a href="#usecases" className="transition-colors hover:text-fg">Use cases</a>
-          <a href="#showcase" className="transition-colors hover:text-fg">Showcase</a>
+          <a href="#pricing" className="transition-colors hover:text-fg">Pricing</a>
         </nav>
         <div className="flex items-center gap-2">
           <CTA href={APP} variant="soft" size="md" className="hidden sm:inline-flex">Sign in</CTA>
@@ -418,6 +430,174 @@ function UseCases() {
   );
 }
 
+function CharacterConsistency() {
+  const c = CONSISTENT_CHARACTER;
+  return (
+    <section id="characters" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <div className="mx-auto max-w-2xl text-center">
+        <Badge tone="accent" className="mb-3">Consistent characters</Badge>
+        <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          Cast once. Star them in every video.
+        </h2>
+        <p className="mt-3 text-[17px] text-muted">
+          The hardest part of AI video is keeping a face the same twice. Create a character once and
+          VIBVID locks their identity — so one cast member can carry a whole series of videos.
+        </p>
+      </div>
+
+      <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr] lg:items-start">
+        {/* The character sheet */}
+        <div className="rounded-[var(--radius-xl2)] border border-line bg-surface p-4 lg:sticky lg:top-24">
+          <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-line-2 bg-surface-2">
+            <MediaTile m={c} />
+            <span className="absolute left-2.5 top-2.5">
+              <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
+                <UserRound size={11} className="mr-1 inline" /> Character sheet
+              </Badge>
+            </span>
+          </div>
+          <div className="mt-3.5 px-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-[15px] font-semibold">{c.name}</h3>
+              <span className="text-[13px] text-faint">· {c.role}</span>
+            </div>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{c.blurb}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {["Locked identity", "Every angle", "Optional voice"].map((t) => (
+                <span key={t} className="inline-flex items-center gap-1 rounded-full border border-line-2 bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">
+                  <Check size={10} className="text-teal" /> {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* The same face, many videos */}
+        <div>
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-medium text-faint">
+            <Repeat size={14} className="text-accent-2" />
+            The same character, generated into six different videos
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {CHARACTER_SCENES.map((m) => (
+              <div
+                key={m.id}
+                className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-line bg-surface-2"
+              >
+                <MediaTile m={m} className="transition-transform duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+                {/* the consistent-identity chip pins the same face to every card */}
+                <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" /> {c.name}
+                </span>
+                <div className="absolute bottom-2 left-2.5 right-2.5">
+                  <span className="block text-[10px] font-medium uppercase tracking-wide text-white/60">{m.tag}</span>
+                  <span className="flex items-center gap-1 text-[12.5px] font-semibold text-white">
+                    {m.type === "video" && <Play size={11} fill="white" />} {m.label}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 rounded-2xl border border-line bg-surface-2/60 p-4 text-[13px] leading-relaxed text-muted">
+            <span className="font-semibold text-fg">How it works: </span>
+            open <span className="font-medium text-fg">Characters</span>, create {c.name} from a selfie or
+            a description, then cast them into any shot in <span className="font-medium text-fg">Make</span>.
+            Reuse the same character across unlimited videos — perfect for a recurring host, mascot, or
+            series lead.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const LONGFORM_STEPS = [
+  { icon: Clapperboard, label: "Scene", body: "One 4–15s shot with native audio." },
+  { icon: Film, label: "Episode", body: "Stitch scenes on the Post timeline into a full episode." },
+  { icon: Tv, label: "Season", body: "Chain episodes with the same cast and world." },
+];
+
+function LongForm() {
+  return (
+    <section id="longform" className="border-y border-line bg-surface-2/40">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <Badge tone="accent" className="mb-3">Long-form</Badge>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            Not just a clip — a whole season
+          </h2>
+          <p className="mt-3 text-[17px] text-muted">
+            Scenes ladder up into episodes, and episodes into a season or a feature. Plan the arc,
+            reuse your cast, and assemble everything into long-form video — all in one studio.
+          </p>
+        </div>
+
+        {/* scene → episode → season ladder */}
+        <div className="mt-12 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center">
+          {LONGFORM_STEPS.map((s, i) => (
+            <div key={s.label} className="flex items-center gap-3 sm:flex-col sm:gap-3">
+              <div className="flex flex-1 items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 sm:flex-col sm:px-6 sm:py-5 sm:text-center">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-2">
+                  <s.icon size={19} />
+                </span>
+                <span>
+                  <span className="block text-[15px] font-semibold">{s.label}</span>
+                  <span className="mt-0.5 block text-[12.5px] leading-snug text-muted">{s.body}</span>
+                </span>
+              </div>
+              {i < LONGFORM_STEPS.length - 1 && (
+                <ArrowRight size={18} className="mx-auto shrink-0 rotate-90 text-faint sm:rotate-0" />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* the season, laid out as episodes */}
+        <div className="mt-10 rounded-[var(--radius-xl2)] border border-line bg-surface p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
+              <Tv size={15} className="text-accent-2" /> Neon Samurai · Season 1
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-faint">
+              <Clock size={12} /> 9:45 · 33 scenes
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {SEASON.map((ep) => (
+              <div key={ep.n} className="overflow-hidden rounded-2xl border border-line bg-surface-2">
+                <div className="relative aspect-video overflow-hidden bg-black">
+                  <MediaTile m={ep.media} />
+                  <span className="absolute left-2 top-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {ep.n}
+                  </span>
+                  <span className="absolute bottom-2 right-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm">
+                    {ep.runtime}
+                  </span>
+                </div>
+                <div className="p-3">
+                  <h3 className="text-[14px] font-semibold">{ep.title}</h3>
+                  <p className="mt-0.5 text-[12px] text-faint">{ep.scenes}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 flex flex-col items-start justify-between gap-3 border-t border-line pt-5 sm:flex-row sm:items-center">
+            <p className="max-w-xl text-[13px] leading-relaxed text-muted">
+              <span className="font-semibold text-fg">Make a full movie the same way</span> — plan the
+              acts in Plan, generate every scene in Make with a consistent cast, then assemble the whole
+              runtime in Post and export one continuous film.
+            </p>
+            <CTA href={APP} size="md" className="shrink-0">
+              <Clapperboard size={16} /> Start your season
+            </CTA>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Showcase() {
   return (
     <section id="showcase" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
@@ -657,6 +837,10 @@ const FAQS = [
     q: "Can I keep the same character across videos?",
     a: "Yes — that's what Characters is for. Create one from a selfie or a description and you get a single reference sheet with every angle of them, plus an optional voice. Cast them in Make and the engine keeps their identity consistent from video to video.",
   },
+  {
+    q: "Can I make a full episode, season or movie?",
+    a: "Yes. Each generation is a scene (4–15s); stitch scenes on the Post timeline into an episode, then chain episodes — reusing the same cast and world — into a season or a feature-length film. Plan the arc in Plan, generate every shot in Make, assemble the whole runtime in Post, and export it as one continuous video. There's no cap on length beyond your credits.",
+  },
 ];
 
 function FAQ() {
@@ -771,7 +955,9 @@ export function Landing() {
         <ModelBand />
         <Features />
         <Steps />
+        <CharacterConsistency />
         <UseCases />
+        <LongForm />
         <Showcase />
         <Pricing />
         <FAQ />
