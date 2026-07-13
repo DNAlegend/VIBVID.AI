@@ -12,56 +12,41 @@ import {
   Check,
   AlertTriangle,
   Clapperboard,
+  UserRound,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
-import type { Plan, PlanIdea, VideoJob } from "@/lib/types";
+import type { Asset, Plan, PlanIdea, VideoJob } from "@/lib/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { Button, Card, Badge, EmptyState } from "@/components/ui";
-import { classifyGenError, genErrorReason, safeRewritePrompt } from "@/components/shared";
+import {
+  classifyGenError,
+  genErrorReason,
+  safeRewritePrompt,
+  planSegments,
+  ScriptBeats,
+} from "@/components/shared";
 
-/**
- * Split a script into timeline sections ("0-2s: ..."), plus trailing audio /
- * mood sections when present. Returns null when there's no timeline — the
- * script then renders as a plain paragraph.
- */
-function planSegments(prompt: string): { label: string; text: string }[] | null {
-  const re = /(\d+\s*[-–]\s*\d+\s*s)\s*[:.]\s*/gi;
-  const out: { label: string; text: string }[] = [];
-  let label: string | null = null;
-  let last = 0;
-  for (let m = re.exec(prompt); m; m = re.exec(prompt)) {
-    const before = prompt.slice(last, m.index).trim();
-    if (label !== null) out.push({ label, text: before });
-    else if (before) out.push({ label: "", text: before });
-    label = m[1].replace(/\s+/g, "");
-    last = re.lastIndex;
-  }
-  if (label === null) return null;
-  const tail = prompt.slice(last).trim();
-  // Peel the closing audio + style directions into their own sections.
-  const audioAt = tail.search(/Audio\s*:/i);
-  const styleAt = tail.search(/Overall\s+mood|Sound\s+design|Overall\s+style/i);
-  const cut = [audioAt, styleAt].filter((i) => i > 0).sort((a, b) => a - b)[0];
-  if (cut !== undefined) {
-    out.push({ label, text: tail.slice(0, cut).trim() });
-    const rest = tail.slice(cut).trim();
-    const styleInRest = rest.search(/Overall\s+mood|Sound\s+design|Overall\s+style/i);
-    if (/^Audio\s*:/i.test(rest) && styleInRest > 0) {
-      out.push({ label: "Audio", text: rest.slice(0, styleInRest).trim() });
-      out.push({ label: "Style", text: rest.slice(styleInRest).trim() });
-    } else {
-      out.push({ label: /^Audio\s*:/i.test(rest) ? "Audio" : "Style", text: rest });
-    }
-  } else {
-    out.push({ label, text: tail });
-  }
-  return out.filter((s) => s.text);
+/** Target runtimes offered for the whole production (null = Director decides). */
+const TARGETS: Array<{ label: string; sec: number | null }> = [
+  { label: "Auto", sec: null },
+  { label: "15s", sec: 15 },
+  { label: "30s", sec: 30 },
+  { label: "1 min", sec: 60 },
+  { label: "2 min", sec: 120 },
+  { label: "3 min", sec: 180 },
+];
+
+function fmtSec(total: number): string {
+  if (total < 60) return `${total}s`;
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return s ? `${m}:${String(s).padStart(2, "0")}` : `${m} min`;
 }
 
-type ClipState = "idea" | "sent" | "producing" | "produced" | "failed";
+type ShotState = "idea" | "sent" | "producing" | "produced" | "failed";
 
-function clipState(idea: PlanIdea, job: VideoJob | undefined): ClipState {
+function shotState(idea: PlanIdea, job: VideoJob | undefined): ShotState {
   if (job) {
     if (job.status === "succeeded") return "produced";
     if (job.status === "failed") return "failed";
@@ -74,21 +59,25 @@ export function PlanView() {
   const router = useRouter();
   const plans = useStore((s) => s.plans);
   const videos = useStore((s) => s.videos);
+  const assets = useStore((s) => s.assets);
   const hydrated = useStore((s) => s.hasHydrated);
   const addPlan = useStore((s) => s.addPlan);
   const removePlan = useStore((s) => s.removePlan);
   const markIdeaSent = useStore((s) => s.markIdeaSent);
   const setDraftDirection = useStore((s) => s.setDraftDirection);
+  const setDraftElements = useStore((s) => s.setDraftElements);
   const setDraftPlanRef = useStore((s) => s.setDraftPlanRef);
   const setAuthOpen = useStore((s) => s.setAuthOpen);
   const updateIdeaPrompt = useStore((s) => s.updateIdeaPrompt);
 
   const [brief, setBrief] = useState("");
+  const [targetSec, setTargetSec] = useState<number | null>(null);
+  const [castIds, setCastIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [fixingId, setFixingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // One plan at a time — the current cut.
+  // One production at a time — the current cut.
   const plan = plans[0] ?? null;
   const jobsById = useMemo(() => {
     const m = new Map<string, VideoJob>();
@@ -96,12 +85,22 @@ export function PlanView() {
     return m;
   }, [videos]);
 
+  // Saved characters the creator can cast into the production.
+  const characters = useMemo(
+    () => assets.filter((a) => a.class === "character" && (a.parts?.length ?? 0) > 0),
+    [assets],
+  );
+  const castOfPlan = useMemo(
+    () => (plan?.castIds ?? []).map((id) => assets.find((a) => a.id === id)).filter(Boolean) as Asset[],
+    [plan, assets],
+  );
+
   const totalSec = plan?.ideas.reduce((sum, i) => sum + (i.durationSec ?? 0), 0) ?? 0;
 
   async function writePlan() {
     const goal = brief.trim();
     if (!goal || busy) return;
-    if (plan && !confirm("Direct a new plan? It replaces this one (videos already made stay in My Videos).")) {
+    if (plan && !confirm("Direct a new production? It replaces this one (videos already made stay in My Videos).")) {
       return;
     }
     setBusy(true);
@@ -112,10 +111,14 @@ export function PlanView() {
         setAuthOpen(true);
         return;
       }
+      const cast = castIds
+        .map((id) => assets.find((a) => a.id === id))
+        .filter(Boolean)
+        .map((a) => ({ name: a!.name, look: a!.promptFragment ?? "" }));
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ brief: goal }),
+        body: JSON.stringify({ brief: goal, targetSec: targetSec ?? undefined, cast }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "The Strategist is unavailable");
@@ -130,7 +133,13 @@ export function PlanView() {
           role: c.role || undefined,
           durationSec: c.durationSec,
         })),
-        { title: data.title || undefined, logline: data.logline || undefined, direction: data.direction || undefined },
+        {
+          title: data.title || undefined,
+          logline: data.logline || undefined,
+          direction: data.direction || undefined,
+          targetSec: targetSec ?? undefined,
+          castIds: castIds.length ? [...castIds] : undefined,
+        },
       );
       setBrief("");
     } catch (e) {
@@ -143,11 +152,19 @@ export function PlanView() {
   function openAndMake(p: Plan, idea: PlanIdea) {
     setDraftDirection(idea.prompt);
     setDraftPlanRef({ planId: p.id, ideaId: idea.id });
+    // The production's cast rides along: sheets fill image slots, voices sound slots.
+    const elementIds = (p.castIds ?? []).flatMap((cid) => {
+      const c = assets.find((a) => a.id === cid);
+      if (!c) return [];
+      const voice = assets.find((a) => a.categoryId === c.categoryId && a.kind === "audio");
+      return [c.id, ...(voice ? [voice.id] : [])];
+    });
+    if (elementIds.length) setDraftElements(elementIds);
     markIdeaSent(p.id, idea.id);
     router.push("/app");
   }
 
-  /** A failed clip, rewritten by the Director to pass the checks, back into Make. */
+  /** A failed shot, rewritten by the Director to pass the checks, back into Make. */
   async function fixAndRetry(p: Plan, idea: PlanIdea, job: VideoJob | undefined) {
     if (fixingId) return;
     setFixingId(idea.id);
@@ -160,7 +177,7 @@ export function PlanView() {
       markIdeaSent(p.id, idea.id);
       router.push("/app");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn’t rewrite the clip");
+      setError(e instanceof Error ? e.message : "Couldn’t rewrite the shot");
     } finally {
       setFixingId(null);
     }
@@ -173,8 +190,9 @@ export function PlanView() {
       <header className="mb-5">
         <h1 className="text-2xl font-bold tracking-tight">Plan</h1>
         <p className="mt-1 text-sm text-muted">
-          Give the Strategist a goal — or a whole story. It directs the cut: how many clips,
-          how long each one should run (5, 10 or 15s) and why, with the full script for every clip.
+          The directing room. Give the Strategist a goal or a whole story, pick a runtime and your
+          cast — it directs the production shot by shot: each shot 5, 10 or 15s, with the reason
+          and the full script. Produce them one by one in Make.
         </p>
       </header>
 
@@ -190,25 +208,83 @@ export function PlanView() {
           rows={4}
           className="w-full resize-none rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-[15px] text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none"
         />
+
+        {/* Target runtime */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-medium uppercase tracking-wider text-faint">Runtime</span>
+          {TARGETS.map((t) => (
+            <button
+              key={t.label}
+              onClick={() => setTargetSec(t.sec)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-[13px] font-medium transition-colors",
+                targetSec === t.sec
+                  ? "border-accent/40 bg-accent-soft text-fg"
+                  : "border-line text-muted hover:border-faint hover:text-fg",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Cast */}
+        {characters.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[12px] font-medium uppercase tracking-wider text-faint">Cast</span>
+            {characters.map((c) => {
+              const on = castIds.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() =>
+                    setCastIds((ids) => (on ? ids.filter((i) => i !== c.id) : [...ids, c.id]))
+                  }
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-3 text-[13px] font-medium transition-colors",
+                    on
+                      ? "border-accent/40 bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-faint hover:text-fg",
+                  )}
+                  title={c.promptFragment ?? c.name}
+                >
+                  {c.posterUrl || c.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.posterUrl || c.url}
+                      alt=""
+                      className="h-5 w-5 rounded-full border border-line object-cover"
+                    />
+                  ) : (
+                    <UserRound size={14} className="ml-1" />
+                  )}
+                  {c.name}
+                  {on && <Check size={12} className="text-accent-2" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[12px] text-faint">
-            The Strategist picks each clip’s length — you can still change it in Make.
+            The Strategist breaks it into 5–15s shots and keeps your cast identical in every one.
           </span>
           <Button className="ml-auto shrink-0" onClick={writePlan} disabled={busy || !brief.trim()}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Clapperboard size={16} />}
-            {busy ? "Directing…" : plan ? "New plan" : "Direct it"}
+            {busy ? "Directing…" : plan ? "New production" : "Direct it"}
           </Button>
         </div>
         {error && <p className="mt-2 text-sm text-danger">{error}</p>}
       </div>
 
-      {/* The cut */}
+      {/* The production */}
       {!plan || plan.ideas.length === 0 ? (
         <div className="mt-6">
           <EmptyState
             icon={<Lightbulb size={24} />}
-            title="No plan yet"
-            description="Describe your goal or story above — the Strategist breaks it into clips with a recommended length and a full script for each."
+            title="No production yet"
+            description="Describe your goal or story above — the Strategist directs it into shots with a recommended length and a full script for each."
           />
         </div>
       ) : (
@@ -222,11 +298,35 @@ export function PlanView() {
                     {plan.title || plan.brief}
                   </h2>
                   <Badge tone="neutral">
-                    {plan.ideas.length} {plan.ideas.length === 1 ? "clip" : "clips"}
-                    {totalSec > 0 && <> · {totalSec}s</>}
+                    {plan.ideas.length} {plan.ideas.length === 1 ? "shot" : "shots"}
+                    {totalSec > 0 && <> · {fmtSec(totalSec)}</>}
                   </Badge>
+                  {plan.targetSec ? <Badge tone="neutral">target {fmtSec(plan.targetSec)}</Badge> : null}
                 </div>
                 {plan.logline && <p className="mt-1 text-[14px] text-muted">{plan.logline}</p>}
+                {castOfPlan.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-faint">
+                      Cast
+                    </span>
+                    {castOfPlan.map((c) => (
+                      <span
+                        key={c.id}
+                        className="flex items-center gap-1 rounded-full border border-line bg-surface-2 py-0.5 pl-0.5 pr-2 text-[12px] text-fg"
+                      >
+                        {(c.posterUrl || c.url) && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={c.posterUrl || c.url}
+                            alt=""
+                            className="h-4 w-4 rounded-full border border-line object-cover"
+                          />
+                        )}
+                        {c.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {plan.direction && (
                   <p className="mt-3 rounded-xl border border-line bg-surface-2 p-3 text-[13px] leading-relaxed text-fg">
                     <span className="mr-2 rounded-md bg-teal-soft px-2 py-0.5 text-[11px] font-bold text-teal">
@@ -238,12 +338,12 @@ export function PlanView() {
               </div>
               <button
                 onClick={() => {
-                  if (confirm("Delete this plan? Videos already made stay in My Videos.")) {
+                  if (confirm("Delete this production? Videos already made stay in My Videos.")) {
                     removePlan(plan.id);
                   }
                 }}
                 className="rounded-lg p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-danger"
-                aria-label="Delete plan"
+                aria-label="Delete production"
               >
                 <Trash2 size={15} />
               </button>
@@ -254,17 +354,17 @@ export function PlanView() {
             </p>
           </Card>
 
-          {/* The clips */}
+          {/* The shots */}
           {plan.ideas.map((idea, index) => {
             const job = idea.jobId ? jobsById.get(idea.jobId) : undefined;
-            const state = clipState(idea, job);
+            const state = shotState(idea, job);
             const fixing = fixingId === idea.id;
             const segments = planSegments(idea.prompt);
             return (
               <Card key={idea.id} className="p-5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-md bg-fg px-2 py-0.5 text-[11px] font-bold tabular-nums text-surface">
-                    Clip {index + 1}
+                    Shot {index + 1}
                   </span>
                   {idea.role && <Badge tone="accent">{idea.role}</Badge>}
                   {idea.durationSec && <Badge tone="neutral">{idea.durationSec}s</Badge>}
@@ -293,22 +393,8 @@ export function PlanView() {
                     {idea.prompt}
                   </p>
                 ) : (
-                  <div className="mt-3 space-y-1.5">
-                    {segments.map((s, i) => (
-                      <div key={i} className="flex items-start gap-3 rounded-xl border border-line bg-surface-2 p-3">
-                        <span
-                          className={cn(
-                            "mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums",
-                            s.label === "Style" || s.label === "Audio"
-                              ? "bg-teal-soft text-teal"
-                              : "bg-accent-soft text-accent-2",
-                          )}
-                        >
-                          {s.label || "Setup"}
-                        </span>
-                        <p className="text-[13.5px] leading-relaxed text-fg">{s.text}</p>
-                      </div>
-                    ))}
+                  <div className="mt-3">
+                    <ScriptBeats segments={segments} />
                   </div>
                 )}
 

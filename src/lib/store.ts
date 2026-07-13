@@ -91,7 +91,7 @@ interface StoreState {
   addPlan: (
     brief: string,
     ideas: Array<Pick<PlanIdea, "title" | "hook" | "prompt" | "durationSec" | "role">>,
-    meta?: Pick<Plan, "title" | "logline" | "direction">,
+    meta?: Pick<Plan, "title" | "logline" | "direction" | "targetSec" | "castIds">,
   ) => Plan;
   removePlan: (id: string) => void;
   markIdeaSent: (planId: string, ideaId: string) => void;

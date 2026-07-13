@@ -88,17 +88,21 @@ export interface PlanIdea {
   jobId?: string;
 }
 
-/** A planning session: the creator's brief, directed into a sequence of clips. */
+/** A production: the creator's brief, directed into a sequence of shots. */
 export interface Plan {
   id: string;
   brief: string;
   createdAt: number;
-  /** The piece's name, from the Director. */
+  /** The production's name, from the Director. */
   title?: string;
   /** One-sentence pitch for the whole piece. */
   logline?: string;
-  /** Overall treatment: arc, tone, continuity notes across clips. */
+  /** Overall treatment: arc, tone, continuity notes across shots. */
   direction?: string;
+  /** The creator's target runtime for the whole piece (unset = Director decides). */
+  targetSec?: number;
+  /** Saved characters cast into this production (character composite asset ids). */
+  castIds?: string[];
   ideas: PlanIdea[];
 }
 

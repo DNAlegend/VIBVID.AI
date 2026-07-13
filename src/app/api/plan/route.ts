@@ -1,43 +1,47 @@
 // The Strategist — the studio's directing room. Takes a creator's goal or a
-// whole story and directs it into a sequence of clips: for each clip a
-// recommended length (5 / 10 / 15s), its role in the cut, why that length,
-// and a complete second-by-second script. Script writing runs on Claude when
-// ANTHROPIC_API_KEY is set (Ark engine otherwise — see src/lib/llm.ts).
-// Each clip lands on the Plan surface, where the creator sends it to Make.
+// whole story plus an optional target runtime and cast, and directs it into
+// a PRODUCTION: a sequence of shots (each one Seedance generation, 5/10/15s)
+// with a recommended length and a complete second-by-second script per shot.
+// Script writing runs on Claude when ANTHROPIC_API_KEY is set (Ark engine
+// otherwise — see src/lib/llm.ts). Each shot lands on the Plan surface,
+// where the creator sends it to Make.
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { chatText, llmConfigured, llmEngine } from "@/lib/llm";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
-const SYSTEM = `You are a seasoned film director and viral short-form strategist working inside an AI video studio.
-The creator gives you a goal, an idea, or a WHOLE STORY. Direct it into a sequence of clips a cinematic AI video model will shoot — one generation per clip.
+const SYSTEM = `You are a seasoned film director and viral short-form strategist running a video production inside an AI video studio.
+The creator gives you a goal, an idea, or a WHOLE STORY — plus sometimes a target runtime and a cast of characters. Direct it into ONE production: a sequence of shots a cinematic AI video model will generate — one generation per shot, stitched together afterwards into the full video.
 
 FIRST decide the cut:
-- How many clips the piece truly needs (1–5). A single simple idea is ONE clip. A story gets broken into scenes that cut together.
-- For EACH clip, recommend its length from exactly {5, 10, 15} seconds and know why:
-  · 5s — one beat: a hook, a punchline, a single reveal or transformation. No room for more.
+- Total runtime. If the creator gives a target, the shot lengths must add up to within ±10% of it. If not, recommend the right total for the goal — a scroll-stopper can be one 5s shot; a story or ad may earn 30–120 seconds.
+- How many shots (1–16). Every shot's length is exactly 5, 10 or 15 seconds:
+  · 5s — one beat: a hook, a punchline, a single reveal or transformation.
   · 10s — two movements: build then payoff, question then answer, before then after.
   · 15s — a mini-narrative: setup, turn, payoff. Only for beats that earn the time.
-Sequence like a director: open on the strongest hook, escalate, land the payoff or call-to-action last.
+Sequence like a director: open on the strongest hook, escalate, land the payoff or call-to-action last. Vary framing and rhythm between consecutive shots so the edit breathes.
 
-CRITICAL — every clip is generated INDEPENDENTLY, with no memory of the others. Each clip's script must be fully self-contained AND keep continuity: repeat the same precise description of the protagonist (age, look, wardrobe), the world, and the color grade in every clip, word for word where possible, so the clips cut together as one piece.
+CAST — when the creator supplies characters, they are the protagonists:
+- Use them by name in shot scripts. Do not invent extra main characters when a cast is given.
+- CONSISTENCY IS SACRED: every shot is generated independently, so in EVERY shot where a character appears, repeat the exact same one-line physical description of them (from the cast list, enriched once with wardrobe you choose), word for word. Same wardrobe, same hair, same look in every shot unless the story demands a change — and then describe the change explicitly in that shot.
+Without a cast, keep continuity the same way: one protagonist described identically in every shot.
 
 Respond with STRICT JSON only, no markdown fences:
 {"title":"...","logline":"...","direction":"...","clips":[{"title":"...","role":"...","durationSec":5,"why":"...","prompt":"..."}]}
-- "title": name of the whole piece, same language as the creator's goal. At most 8 words.
+- "title": name of the production, same language as the creator's goal. At most 8 words.
 - "logline": one-sentence pitch for the piece, same language as the goal.
-- "direction": 2–3 sentences of overall treatment — arc across the clips, tone, look, continuity anchors. Same language as the goal.
-- clips[].title: punchy clip name, same language as the goal, at most 8 words.
-- clips[].role: the clip's job in the cut, ONE word or two — e.g. "Hook", "Build", "Reveal", "Payoff", "CTA".
+- "direction": 2–4 sentences of overall treatment — arc across the shots, tone, look, and the continuity anchors (character look lines, location, color grade) every shot repeats. Same language as the goal.
+- clips[].title: punchy shot name, same language as the goal, at most 8 words.
+- clips[].role: the shot's job in the cut, ONE word or two — e.g. "Hook", "Build", "Reveal", "Turn", "Payoff", "CTA".
 - clips[].durationSec: 5, 10 or 15 — your recommendation.
 - clips[].why: one sentence, same language as the goal: why this beat gets this length.
-- clips[].prompt: the shooting script — ALWAYS in English, written for EXACTLY that clip's length:
+- clips[].prompt: the shooting script — ALWAYS in English, written for EXACTLY that shot's length:
   · A second-by-second timeline ("0-2s: ... 2-5s: ...") whose beats add up to the full duration — never shorter, never longer.
   · Every beat concrete and visual: one subject with an exact action, setting and props, camera movement and framing (macro, POV, dolly-in, whip-pan, orbit, crash-zoom...), lighting and color, pacing and transitions. One strong action per beat.
-  · The model generates NATIVE AUDIO: after the timeline add one "Audio:" sentence — ambience, foley synced to the action, music energy, and (only when it strengthens the clip) one short spoken line in double quotes with the speaker described.
-  · End with one sentence of overall mood, style and color grade — identical across clips.
+  · The model generates NATIVE AUDIO: after the timeline add one "Audio:" sentence — ambience, foley synced to the action, music energy, and (only when it strengthens the shot) one short spoken line in double quotes with the speaker described.
+  · End with one sentence of overall mood, style and color grade — identical across shots.
   · NEVER request on-screen text, captions, subtitles, watermarks, logos or UI overlays — the model renders text poorly.
   · 100–180 words.
 Never reference real brand names, logos, trademarked or copyrighted characters, franchises, or real public figures.`;
@@ -92,13 +96,45 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const brief = typeof body?.brief === "string" ? body.brief.trim().slice(0, 4000) : "";
   if (!brief) return NextResponse.json({ error: "Empty brief" }, { status: 400 });
+  // Target runtime for the whole production (optional — Director decides otherwise).
+  const targetSec =
+    Number.isFinite(Number(body?.targetSec)) && Number(body?.targetSec) > 0
+      ? Math.min(240, Math.max(5, Math.round(Number(body.targetSec))))
+      : null;
+  // Cast of saved characters: name + one-line look, used as continuity anchors.
+  const cast: Array<{ name: string; look: string }> = Array.isArray(body?.cast)
+    ? body.cast
+        .filter((c: unknown): c is { name?: unknown; look?: unknown } => !!c && typeof c === "object")
+        .map((c: { name?: unknown; look?: unknown }) => ({
+          name: String(c.name ?? "").slice(0, 60),
+          look: String(c.look ?? "").slice(0, 300),
+        }))
+        .filter((c: { name: string }) => c.name)
+        .slice(0, 6)
+    : [];
 
+  const userMsg = [
+    targetSec
+      ? `Target runtime for the whole production: about ${targetSec} seconds (shot lengths must add up to within ±10% of this).`
+      : "Target runtime: your call — recommend the right total for the goal.",
+    cast.length
+      ? `Cast (use these characters, keep their look identical in every shot):\n${cast
+          .map((c) => `- ${c.name}${c.look ? ` — ${c.look}` : ""}`)
+          .join("\n")}`
+      : null,
+    `Creator's goal or story: ${brief}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  // Scale the output budget with the expected shot count.
+  const expectedShots = targetSec ? Math.min(16, Math.max(1, Math.round(targetSec / 10))) : 5;
   let raw: string;
   try {
     raw = await chatText({
       system: SYSTEM,
-      user: `Creator's goal or story: ${brief}`,
-      maxTokens: 3600,
+      user: userMsg,
+      maxTokens: Math.min(7500, 650 * expectedShots + 500),
       temperature: 0.9,
       jsonSchema: PLAN_SCHEMA,
     });
@@ -117,7 +153,7 @@ export async function POST(req: Request) {
     const parsed = JSON.parse(match ? match[0] : raw);
     title = typeof parsed?.title === "string" ? parsed.title.slice(0, 120) : "";
     logline = typeof parsed?.logline === "string" ? parsed.logline.slice(0, 300) : "";
-    direction = typeof parsed?.direction === "string" ? parsed.direction.slice(0, 700) : "";
+    direction = typeof parsed?.direction === "string" ? parsed.direction.slice(0, 900) : "";
     clips = (Array.isArray(parsed?.clips) ? parsed.clips : [])
       .filter(
         (c: unknown): c is { title: string; prompt: string; role?: string; why?: string; durationSec?: number } =>
@@ -132,7 +168,7 @@ export async function POST(req: Request) {
         why: String(c.why ?? "").slice(0, 300),
         prompt: String(c.prompt).slice(0, 1400),
       }))
-      .slice(0, 6);
+      .slice(0, 16);
   } catch {
     clips = [];
   }

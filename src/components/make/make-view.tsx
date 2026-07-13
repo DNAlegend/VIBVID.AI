@@ -22,6 +22,8 @@ import {
   UserRound,
   Mic,
   Image as ImageIcon,
+  Pencil,
+  Rows3,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
@@ -42,7 +44,15 @@ import {
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button, Card, Badge, Modal } from "@/components/ui";
-import { AssetThumb, ClassIcon, ResultHero, CompositeBadge, classifyGenError } from "@/components/shared";
+import {
+  AssetThumb,
+  ClassIcon,
+  ResultHero,
+  CompositeBadge,
+  classifyGenError,
+  planSegments,
+  ScriptBeats,
+} from "@/components/shared";
 
 type Picks = Partial<Record<AssetClass, string>>;
 
@@ -204,11 +214,13 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const draftPlanRef = useStore((s) => s.draftPlanRef);
   const setDraftPlanRef = useStore((s) => s.setDraftPlanRef);
   const plans = useStore((s) => s.plans);
-  // The plan idea this session is producing (provenance stamped on generate).
+  // The plan shot this session is producing (provenance stamped on generate).
   const [planRef, setPlanRef] = useState<{ planId: string; ideaId: string } | null>(null);
-  const planIdea = planRef
-    ? plans.find((p) => p.id === planRef.planId)?.ideas.find((i) => i.id === planRef.ideaId)
-    : null;
+  const planOfRef = planRef ? plans.find((p) => p.id === planRef.planId) : null;
+  const planIdea = planOfRef?.ideas.find((i) => i.id === planRef?.ideaId) ?? null;
+  const shotNumber = planIdea && planOfRef ? planOfRef.ideas.indexOf(planIdea) + 1 : 0;
+  // Script section: organized beat view when the prompt has a timeline; textarea to edit.
+  const [editScript, setEditScript] = useState(false);
 
   const byId = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, a])), [assets]);
 
@@ -262,6 +274,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
     }
     if (draftPlanRef) {
       setPlanRef(draftPlanRef);
+      // A fresh shot opens in the organized script view.
+      setEditScript(false);
       // The plan was written for a specific length — preset it.
       const idea = plans
         .find((p) => p.id === draftPlanRef.planId)
@@ -648,38 +662,97 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
       <Card className="overflow-hidden">
         <div className="p-5">
-          {/* Provenance: this session is producing a planned idea. */}
+          {/* Provenance: this session is producing a shot from the production. */}
           {planIdea && (
-            <div className="mb-3 flex items-center gap-2 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2">
-              <Lightbulb size={14} className="shrink-0 text-accent-2" />
-              <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">
-                From your plan: <span className="font-semibold">{planIdea.title}</span>
-              </span>
-              <button
-                onClick={() => setPlanRef(null)}
-                className="shrink-0 text-[12px] font-medium text-faint hover:text-fg"
-                title="Detach from the plan"
-              >
-                ✕
-              </button>
+            <div className="mb-3 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <Lightbulb size={14} className="shrink-0 text-accent-2" />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">
+                  {shotNumber > 0 && <span className="font-bold">Shot {shotNumber}</span>}
+                  {planOfRef?.title || planOfRef?.brief ? (
+                    <>
+                      {" "}of <span className="font-semibold">{planOfRef.title || planOfRef.brief}</span>
+                    </>
+                  ) : null}
+                  {" — "}
+                  {planIdea.title}
+                </span>
+                <button
+                  onClick={() => setPlanRef(null)}
+                  className="shrink-0 text-[12px] font-medium text-faint hover:text-fg"
+                  title="Detach from the plan"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-1.5 flex items-center gap-3 pl-6">
+                <Link
+                  href="/app/plan"
+                  className="text-[12px] font-semibold text-accent-2 hover:underline"
+                >
+                  ← Back to the plan to fix it
+                </Link>
+              </div>
             </div>
           )}
-          {/* Prompt — type # to reference added media by tag */}
-          <div className="relative">
-            <textarea
-              ref={promptRef}
-              value={prompt}
-              onChange={(e) => {
-                setPrompt(e.target.value);
-                const upToCaret = e.target.value.slice(0, e.target.selectionStart ?? 0);
-                const m = upToCaret.match(/#([A-Za-z0-9]*)$/);
-                setTagQuery(m ? m[1] : null);
-              }}
-              onBlur={() => setTimeout(() => setTagQuery(null), 200)}
-              rows={3}
-              placeholder={purpose.placeholder}
-              className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3.5 text-[15px] leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
-            />
+
+          {/* Script — organized beat view when it has a timeline; textarea to edit. */}
+          {(() => {
+            const segs = planSegments(prompt);
+            const canOrganize = !!segs && segs.length > 1;
+            if (canOrganize && !editScript) {
+              return (
+                <div>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="text-[12px] font-semibold uppercase tracking-wider text-faint">
+                      Script
+                    </span>
+                    <span className="text-[11px] text-faint">{segs!.length} beats</span>
+                    <Button
+                      variant="soft"
+                      size="sm"
+                      className="ml-auto gap-1.5"
+                      onClick={() => setEditScript(true)}
+                    >
+                      <Pencil size={13} /> Edit script
+                    </Button>
+                  </div>
+                  <ScriptBeats segments={segs!} compact />
+                </div>
+              );
+            }
+            return (
+              <div>
+                {canOrganize && (
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="text-[12px] font-semibold uppercase tracking-wider text-faint">
+                      Script
+                    </span>
+                    <Button
+                      variant="soft"
+                      size="sm"
+                      className="ml-auto gap-1.5"
+                      onClick={() => setEditScript(false)}
+                    >
+                      <Rows3 size={13} /> Organized view
+                    </Button>
+                  </div>
+                )}
+                <div className="relative">
+                  <textarea
+                    ref={promptRef}
+                    value={prompt}
+                    onChange={(e) => {
+                      setPrompt(e.target.value);
+                      const upToCaret = e.target.value.slice(0, e.target.selectionStart ?? 0);
+                      const m = upToCaret.match(/#([A-Za-z0-9]*)$/);
+                      setTagQuery(m ? m[1] : null);
+                    }}
+                    onBlur={() => setTimeout(() => setTagQuery(null), 200)}
+                    rows={Math.min(16, Math.max(4, Math.ceil(prompt.length / 80)))}
+                    placeholder={purpose.placeholder}
+                    className="w-full resize-none rounded-xl border border-line bg-surface-2 p-3.5 text-[15px] leading-relaxed text-fg placeholder:text-faint focus:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  />
             {tagQuery !== null && (
               <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-[0_16px_40px_-16px_rgba(16,18,27,0.3)]">
                 {taggedMedia.length === 0 ? (
@@ -723,7 +796,10 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 )}
               </div>
             )}
-          </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* The Director — any language in, pro English prompt out */}
           <div className="mt-2.5 flex flex-wrap items-center gap-2">

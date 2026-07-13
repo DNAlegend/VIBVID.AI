@@ -43,6 +43,82 @@ function extractMessage(raw?: string): string {
   }
 }
 
+/**
+ * Split a shooting script into timeline sections ("0-2s: ..."), plus trailing
+ * Audio / Style sections when present. Returns null when there's no timeline —
+ * the script then renders as a plain paragraph.
+ */
+export function planSegments(prompt: string): { label: string; text: string }[] | null {
+  const re = /(\d+\s*[-–]\s*\d+\s*s)\s*[:.]\s*/gi;
+  const out: { label: string; text: string }[] = [];
+  let label: string | null = null;
+  let last = 0;
+  for (let m = re.exec(prompt); m; m = re.exec(prompt)) {
+    const before = prompt.slice(last, m.index).trim();
+    if (label !== null) out.push({ label, text: before });
+    else if (before) out.push({ label: "", text: before });
+    label = m[1].replace(/\s+/g, "");
+    last = re.lastIndex;
+  }
+  if (label === null) return null;
+  const tail = prompt.slice(last).trim();
+  // Peel the closing audio + style directions into their own sections.
+  const audioAt = tail.search(/Audio\s*:/i);
+  const styleAt = tail.search(/Overall\s+mood|Sound\s+design|Overall\s+style/i);
+  const cut = [audioAt, styleAt].filter((i) => i > 0).sort((a, b) => a - b)[0];
+  if (cut !== undefined) {
+    out.push({ label, text: tail.slice(0, cut).trim() });
+    const rest = tail.slice(cut).trim();
+    const styleInRest = rest.search(/Overall\s+mood|Sound\s+design|Overall\s+style/i);
+    if (/^Audio\s*:/i.test(rest) && styleInRest > 0) {
+      out.push({ label: "Audio", text: rest.slice(0, styleInRest).trim() });
+      out.push({ label: "Style", text: rest.slice(styleInRest).trim() });
+    } else {
+      out.push({ label: /^Audio\s*:/i.test(rest) ? "Audio" : "Style", text: rest });
+    }
+  } else {
+    out.push({ label, text: tail });
+  }
+  return out.filter((s) => s.text);
+}
+
+/** Renders a parsed script as labeled beat rows — the studio's script look. */
+export function ScriptBeats({
+  segments,
+  compact,
+}: {
+  segments: { label: string; text: string }[];
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "space-y-1" : "space-y-1.5"}>
+      {segments.map((s, i) => (
+        <div
+          key={i}
+          className={cn(
+            "flex items-start gap-3 rounded-xl border border-line bg-surface-2",
+            compact ? "p-2.5" : "p-3",
+          )}
+        >
+          <span
+            className={cn(
+              "mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums",
+              s.label === "Style" || s.label === "Audio"
+                ? "bg-teal-soft text-teal"
+                : "bg-accent-soft text-accent-2",
+            )}
+          >
+            {s.label || "Setup"}
+          </span>
+          <p className={cn("leading-relaxed text-fg", compact ? "text-[13px]" : "text-[13.5px]")}>
+            {s.text}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export type GenErrorKind = "policy" | "timeout" | "credits" | "generic";
 
 /** The exact machine reason (error code + message) for showing alongside the friendly text. */
