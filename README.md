@@ -1,4 +1,4 @@
-# MightyMAK — AI Video Generator (front-end)
+# VIBVID.AI — AI Video Studio (front-end)
 
 "Seedance, but simple." A friendly web app to generate AI videos, save every clip, and
 organize your own assets into categories.

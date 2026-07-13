@@ -632,7 +632,7 @@ export const useStore = create<StoreState>()(
       },
     }),
     {
-      name: "mightymak-v3",
+      name: "vibvid-v1",
       version: 5,
       storage: createJSONStorage(() => localStorage),
       // v5: the demo starter library is gone — drop seeded content but keep

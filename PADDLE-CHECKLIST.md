@@ -21,8 +21,9 @@ is already wired through Terms, Privacy, Refunds, Acceptable Use, and Contact.
 
 ## 2. Point the site at your real domain
 
-- `src/app/layout.tsx` still uses `metadataBase: "https://mightymak.vercel.app"`.
-  Change it to `https://vibvid.ai` (or whatever you submit to Paddle).
+- `src/app/layout.tsx` `metadataBase` is set to `https://vibvid.ai`. The
+  checkout return-URL fallback (`src/app/api/checkout/route.ts`) and the
+  MamoPay setup script also point at `https://vibvid.ai`.
 - Paddle reviews a **live** site at the domain on your account. Make sure
   vibvid.ai is deployed and the footer legal links resolve publicly.
 - In the Paddle dashboard, add vibvid.ai as an **approved domain** (Checkout →

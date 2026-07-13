@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk", display: "swap" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://mightymak.vercel.app"),
+  metadataBase: new URL("https://vibvid.ai"),
   title: "VIBVID.AI — Your AI Video Studio",
   description:
     "Plan the concept, cast your characters, and produce scroll-stopping video with native audio — cheap drafts to iterate, full 1080p when it counts. One studio, every video managed.",

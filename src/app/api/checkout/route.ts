@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   const origin =
     (typeof body?.origin === "string" && /^https?:\/\//.test(body.origin) && body.origin) ||
     req.headers.get("origin") ||
-    "https://mightymak.vercel.app";
+    "https://vibvid.ai";
 
   // Record the intent first so the webhook has something to reconcile against.
   const { data: purchase, error: insErr } = await supabaseAdmin
