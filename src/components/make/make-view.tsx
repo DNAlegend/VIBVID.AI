@@ -19,6 +19,8 @@ import {
   Music,
   RefreshCw,
   Lightbulb,
+  UserRound,
+  Mic,
   Image as ImageIcon,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -367,6 +369,36 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
   const refImageAssets = board.refs.map((id) => byId[id]).filter(Boolean) as Asset[];
   const refVideoAssets = board.refVideos.map((id) => byId[id]).filter(Boolean) as Asset[];
+
+  // Saved characters the creator can cast into the shot.
+  const characters = useMemo(
+    () => assets.filter((a) => a.class === "character" && (a.parts?.length ?? 0) > 0),
+    [assets],
+  );
+  const voiceForCharacter = (c: Asset) =>
+    assets.find((a) => a.categoryId === c.categoryId && a.kind === "audio") ?? null;
+
+  /** Cast a character: their sheet fills an image slot, their voice a sound slot. */
+  function castCharacter(c: Asset) {
+    const voice = voiceForCharacter(c);
+    setBoard((b) => {
+      const on = b.refs.includes(c.id);
+      const refs = on
+        ? b.refs.filter((id) => id !== c.id)
+        : b.refs.length < REF_IMAGE_LIMIT
+          ? [...b.refs, c.id]
+          : b.refs;
+      const influences = voice
+        ? on
+          ? b.influences.filter((id) => id !== voice.id)
+          : b.influences.includes(voice.id) || b.influences.length >= STYLE_LIMIT
+            ? b.influences
+            : [...b.influences, voice.id]
+        : b.influences;
+      // Casting uses reference mode — clear any exact-frame selection.
+      return { ...b, firstFrame: on ? b.firstFrame : null, lastFrame: on ? b.lastFrame : null, refs, influences };
+    });
+  }
 
   /**
    * Every board slot gets a referenceable tag (#I1, #V2, #A1, #F1…). Tags
@@ -733,6 +765,62 @@ export function MakeView({ mode }: { mode?: Modality }) {
           <div className="mt-5 border-t border-line pt-4">
             {modality === "video" ? (
               <div className="space-y-3.5">
+                {/* Characters — cast a saved character; fills image + voice slots */}
+                <div>
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent text-white">
+                      <UserRound size={12} />
+                    </span>
+                    <span className="text-[12px] font-semibold text-fg">Characters</span>
+                    <Link href="/app/characters" className="ml-auto text-[11px] font-medium text-accent-2 hover:underline">
+                      {characters.length ? "Manage" : "Create one"}
+                    </Link>
+                  </div>
+                  {characters.length === 0 ? (
+                    <Link
+                      href="/app/characters"
+                      className="flex items-center gap-2 rounded-xl border border-dashed border-line-2 px-3 py-2 text-[12.5px] text-muted transition-colors hover:border-accent/50 hover:text-fg"
+                    >
+                      <UserRound size={14} className="text-accent-2" /> Create a character to cast them in your videos
+                    </Link>
+                  ) : (
+                    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                      {characters.map((c) => {
+                        const on = board.refs.includes(c.id);
+                        const hasVoice = !!voiceForCharacter(c);
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => castCharacter(c)}
+                            title={on ? `Remove ${c.name}` : `Cast ${c.name}`}
+                            className={cn(
+                              "flex shrink-0 items-center gap-2 rounded-xl border py-1.5 pl-1.5 pr-3 text-[12px] font-medium transition-colors",
+                              on ? "border-accent bg-accent-soft text-fg" : "border-line text-muted hover:border-line-2",
+                            )}
+                          >
+                            <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+                              <AssetThumb a={c} className="h-full w-full" />
+                              {on && (
+                                <span className="absolute inset-0 flex items-center justify-center bg-accent/70 text-white">
+                                  <Check size={13} />
+                                </span>
+                              )}
+                            </span>
+                            <span className="flex flex-col items-start leading-tight">
+                              {c.name}
+                              {hasVoice && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-teal">
+                                  <Mic size={9} /> voice
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <SlotRow
                   tone="image"
                   icon={<ImageIcon size={12} />}
