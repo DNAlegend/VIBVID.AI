@@ -301,9 +301,13 @@ function PaywallGate({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
-  // Set when a free signup link is sent. `confirmMode` tailors the confirm copy.
+  // Set when a free signup code is sent. `confirmMode` tailors the confirm copy.
   const [paidEmail, setPaidEmail] = useState<string | null>(null);
   const [confirmMode, setConfirmMode] = useState<"paid" | "free">("paid");
+  // The 6-digit code typed on the confirm step.
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (preselect) setSelectedId(preselect.id);
@@ -353,8 +357,8 @@ function PaywallGate({
     }
   }
 
-  // Free plan: no payment. Send a passwordless sign-in link — clicking it
-  // creates the account, which starts with the free credit balance (DB default).
+  // Free plan: no payment. Email a 6-digit code — verifying it creates the
+  // account, which starts with the free credit balance (DB default).
   async function goFree() {
     if (busy) return;
     setError(null);
@@ -387,9 +391,36 @@ function PaywallGate({
     if (!supabase || !confirmingEmail) return;
     await supabase.auth.signInWithOtp({
       email: confirmingEmail,
-      options: { emailRedirectTo: `${window.location.origin}/app` },
+      options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/app` },
     });
     setResent(true);
+  }
+
+  // Type the 6-digit code from the email; success flips the session and the
+  // gate unmounts by itself (AppShell listens to onAuthStateChange).
+  async function verifyCode() {
+    if (!supabase || !confirmingEmail || verifying) return;
+    const token = otpCode.trim();
+    if (!/^\d{6,8}$/.test(token)) return;
+    setVerifying(true);
+    setOtpError(null);
+    try {
+      const { error: vErr } = await supabase.auth.verifyOtp({
+        email: confirmingEmail,
+        token,
+        type: "email",
+      });
+      if (vErr) throw vErr;
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : "";
+      setOtpError(
+        /expired|invalid/i.test(raw)
+          ? "That code didn’t match or has expired — check the digits or resend."
+          : raw || "Couldn’t verify the code.",
+      );
+    } finally {
+      setVerifying(false);
+    }
   }
 
   if (confirmingEmail) {
@@ -399,22 +430,43 @@ function PaywallGate({
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
             <Mail size={26} />
           </span>
-          <h1 className="font-display mt-5 text-2xl font-bold tracking-tight">Confirm your email</h1>
+          <h1 className="font-display mt-5 text-2xl font-bold tracking-tight">Enter your code</h1>
           <p className="mt-3 text-[15px] leading-relaxed text-muted">
             {confirmMode === "free"
               ? "Your free account is ready — 20 credits to try the studio."
-              : "Payment received — your credits are already in your account."}{" "}
-            We sent a sign-in link to <span className="font-semibold text-fg">{confirmingEmail}</span>.
-            Click it to activate your account and open the studio.
+              : "Payment received."}{" "}
+            We emailed a sign-in code to{" "}
+            <span className="font-semibold text-fg">{confirmingEmail}</span>. Type it below — or tap
+            the link in the same email.
           </p>
-          <div className="mt-6 flex flex-col items-center gap-3">
-            <Button variant="outline" onClick={resend} disabled={resent}>
-              <Mail size={15} /> {resent ? "Link sent again — check your inbox" : "Resend the link"}
+          <div className="mx-auto mt-6 max-w-[240px]">
+            <TextInput
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              maxLength={8}
+              autoFocus
+              value={otpCode}
+              className="text-center font-mono !text-2xl tracking-[0.35em]"
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+              onKeyDown={(e) => e.key === "Enter" && verifyCode()}
+            />
+          </div>
+          {otpError && <p className="mt-3 text-sm text-danger">{otpError}</p>}
+          <div className="mt-5 flex flex-col items-center gap-3">
+            <Button onClick={verifyCode} disabled={verifying || !/^\d{6,8}$/.test(otpCode.trim())}>
+              {verifying ? <Loader2 size={16} className="animate-spin" /> : <>Verify &amp; open the studio</>}
+            </Button>
+            <Button variant="outline" size="sm" onClick={resend} disabled={resent}>
+              <Mail size={14} /> {resent ? "Code sent again — check your inbox" : "Resend the code"}
             </Button>
             <button
               className="text-[13px] font-medium text-accent-2 hover:underline"
               onClick={() => {
                 setPaidEmail(null);
+                setOtpCode("");
+                setOtpError(null);
                 onStartOver();
               }}
             >

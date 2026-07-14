@@ -1,185 +1,183 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, LogIn, Mail, UserPlus } from "lucide-react";
+// OTP-only sign-in: enter your email, get a one-time code, type it, you're in.
+// One flow for new and returning users (the code creates the account when the
+// email is new). No passwords anywhere. The email Supabase sends also carries
+// a sign-in link — tapping it works too — but the code keeps everything on
+// this device, in this modal. Code length follows the project setting
+// (currently 8 digits in production), so validation accepts 6–8.
+
+import { useEffect, useRef, useState } from "react";
+import { KeyRound, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button, Modal, TextInput } from "@/components/ui";
 
-type Mode = "signin" | "signup";
+const RESEND_COOLDOWN_S = 30;
 
 export function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [mode, setMode] = useState<Mode>("signin");
-  // Magic link is the default sign-in: most accounts are created passwordless
-  // (paywall free tier + guest checkout), so leading with a password field
-  // dead-ends users who never set one. Password entry is opt-in.
-  const [usePassword, setUsePassword] = useState(false);
+  const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [msg, setMsg] = useState<{ tone: "error" | "ok"; text: string } | null>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
-  const valid = emailValid && password.length >= 6;
-  const passwordMode = mode === "signup" || usePassword;
+  const codeValid = /^\d{6,8}$/.test(code.trim());
 
-  // The modal stays mounted across open/close — reset transient state on close
-  // so reopening always starts back at the magic-link-first view (email kept).
+  // The modal stays mounted across open/close — start over on close (keep the
+  // email; it's convenient on reopen).
   useEffect(() => {
     if (open) return;
-    setUsePassword(false);
-    setPassword("");
+    setStep("email");
+    setCode("");
     setMsg(null);
+    setCooldown(0);
   }, [open]);
 
-  async function submit() {
-    if (!supabase || busy) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        onClose();
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/app` },
-        });
-        if (error) throw error;
-        if (data.session) onClose();
-        else setMsg({ tone: "ok", text: "Almost there — confirm the email we just sent you, then sign in." });
-      }
-    } catch (e) {
-      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Something went wrong." });
-    } finally {
-      setBusy(false);
-    }
-  }
+  // Resend cooldown ticker.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
-  async function magicLink() {
-    if (!supabase || busy) return;
+  async function sendCode() {
+    if (!supabase || busy || cooldown > 0) return;
     if (!emailValid) {
-      setMsg({ tone: "error", text: "Enter your email first." });
+      setMsg({ tone: "error", text: "Enter a valid email first." });
       return;
     }
     setBusy(true);
     setMsg(null);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/app` },
+        email: email.trim().toLowerCase(),
+        options: {
+          shouldCreateUser: true, // new email → account created on verify
+          emailRedirectTo: `${window.location.origin}/app`, // emailed link works too
+        },
       });
       if (error) throw error;
-      setMsg({ tone: "ok", text: "Sign-in link sent — check your inbox and tap it on this device." });
+      setStep("code");
+      setCooldown(RESEND_COOLDOWN_S);
+      setMsg({ tone: "ok", text: "Code sent — check your inbox." });
+      setTimeout(() => codeRef.current?.focus(), 50);
     } catch (e) {
-      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Something went wrong." });
+      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Couldn’t send the code." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyCode() {
+    if (!supabase || busy || !codeValid) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: code.trim(),
+        type: "email",
+      });
+      if (error) throw error;
+      onClose(); // session is live; AppShell reacts via onAuthStateChange
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : "";
+      setMsg({
+        tone: "error",
+        text: /expired|invalid/i.test(raw)
+          ? "That code didn’t match or has expired — check the digits or resend."
+          : raw || "Couldn’t verify the code.",
+      });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={mode === "signin" ? "Sign in" : "Create your account"} size="md">
-      <p className="mb-4 text-sm text-muted">
-        {mode === "signin"
-          ? "Enter your email and we’ll send a one-tap sign-in link — no password needed."
-          : "Your library and credits sync to your account, on any device."}
-      </p>
-      <div className="space-y-3">
-        <TextInput
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          autoComplete="email"
-          onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            if (!passwordMode && emailValid) magicLink();
-          }}
-        />
-        {passwordMode && (
+    <Modal open={open} onClose={onClose} title="Sign in" size="md">
+      {step === "email" ? (
+        <>
+          <p className="mb-4 text-sm text-muted">
+            Enter your email and we’ll send a one-time sign-in code. New here? The same code creates
+            your account — no password, ever.
+          </p>
           <TextInput
-            type="password"
-            placeholder={mode === "signup" ? "Password (6+ characters)" : "Password"}
-            value={password}
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && valid && submit()}
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            autoComplete="email"
+            autoFocus
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && emailValid && sendCode()}
           />
-        )}
-      </div>
-
-      {msg && (
-        <p className={cn("mt-3 text-sm", msg.tone === "error" ? "text-danger" : "text-teal")}>{msg.text}</p>
-      )}
-
-      <div className="mt-4 flex flex-col gap-2">
-        {passwordMode ? (
-          <>
-            <Button className="w-full" disabled={!valid || busy} onClick={submit}>
-              {busy ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : mode === "signin" ? (
-                <>
-                  <LogIn size={16} /> Sign in
-                </>
-              ) : (
-                <>
-                  <UserPlus size={16} /> Create account
-                </>
-              )}
-            </Button>
-            {mode === "signin" && (
-              <Button variant="outline" className="w-full" disabled={busy} onClick={magicLink}>
-                <Mail size={16} /> Email me a sign-in link instead
-              </Button>
+          {msg && (
+            <p className={cn("mt-3 text-sm", msg.tone === "error" ? "text-danger" : "text-teal")}>{msg.text}</p>
+          )}
+          <Button className="mt-4 w-full" disabled={!emailValid || busy} onClick={sendCode}>
+            {busy ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <>
+                <Mail size={16} /> Email me a code
+              </>
             )}
-          </>
-        ) : (
-          <>
-            <Button className="w-full" disabled={!emailValid || busy} onClick={magicLink}>
-              {busy ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <>
-                  <Mail size={16} /> Email me a sign-in link
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={busy}
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="mb-4 text-sm text-muted">
+            We sent a sign-in code to <span className="font-semibold text-fg">{email.trim()}</span>.
+            Type it here — or tap the link in the same email.
+          </p>
+          <TextInput
+            ref={codeRef}
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="123456"
+            maxLength={8}
+            value={code}
+            className="text-center font-mono !text-2xl tracking-[0.35em]"
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+            onKeyDown={(e) => e.key === "Enter" && codeValid && verifyCode()}
+          />
+          {msg && (
+            <p className={cn("mt-3 text-sm", msg.tone === "error" ? "text-danger" : "text-teal")}>{msg.text}</p>
+          )}
+          <Button className="mt-4 w-full" disabled={!codeValid || busy} onClick={verifyCode}>
+            {busy ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <>
+                <KeyRound size={16} /> Verify &amp; sign in
+              </>
+            )}
+          </Button>
+          <div className="mt-3 flex items-center justify-between text-[13px] text-muted">
+            <button
+              className="font-medium text-accent-2 hover:underline"
               onClick={() => {
-                setUsePassword(true);
+                setStep("email");
+                setCode("");
                 setMsg(null);
               }}
             >
-              <LogIn size={16} /> Use a password instead
-            </Button>
-          </>
-        )}
-      </div>
-
-      <p className="mt-4 text-center text-[13px] text-muted">
-        {mode === "signin" ? (
-          <>
-            New here?{" "}
-            <button className="font-medium text-accent-2 hover:underline" onClick={() => { setMode("signup"); setMsg(null); }}>
-              Create an account
+              Change email
             </button>
-          </>
-        ) : (
-          <>
-            Already have an account?{" "}
-            <button className="font-medium text-accent-2 hover:underline" onClick={() => { setMode("signin"); setUsePassword(false); setMsg(null); }}>
-              Sign in
+            <button
+              className={cn("font-medium", cooldown > 0 ? "text-faint" : "text-accent-2 hover:underline")}
+              disabled={cooldown > 0 || busy}
+              onClick={sendCode}
+            >
+              {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
             </button>
-          </>
-        )}
-      </p>
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

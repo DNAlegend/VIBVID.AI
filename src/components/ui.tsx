@@ -286,7 +286,7 @@ export function Modal({
 export function TextInput({
   className,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+}: React.ComponentProps<"input">) {
   return (
     <input
       className={cn(
