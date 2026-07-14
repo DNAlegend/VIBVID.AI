@@ -48,16 +48,29 @@ unset, the app falls back to demo credits (no charge).
 Currency is **USD** (matches the billing catalog). Mamo supports USD; settlement
 is handled by Mamo per your account terms.
 
-## 5. Webhook
+## 5. Webhook (registered via API — no dashboard UI)
 
-In the Mamo dashboard → **Developer → Webhooks**, add a webhook:
+Mamo manages webhooks over the API, not the dashboard, so register it with the
+helper script. `MAMOPAY_WEBHOOK_SECRET` must be **≤ 50 characters** (Mamo's
+limit on the auth header):
 
-- URL: `https://vibvid.ai/api/mamo/webhook`
-- Events: **`charge.succeeded`** and **`subscription.succeeded`**
-  (add the `*.failed` events too if you want failure logging).
-- **Auth header:** set it to exactly the same value as `MAMOPAY_WEBHOOK_SECRET`.
-  Mamo echoes this in the `Authorization` header of every delivery, and
-  `/api/mamo/webhook` verifies it in constant time.
+```
+MAMOPAY_API_KEY=sk_… \
+MAMOPAY_WEBHOOK_SECRET=your-secret \
+MAMOPAY_ENV=production \
+npm run setup:mamo-webhook -- https://vibvid.ai
+```
+
+This registers `https://vibvid.ai/api/mamo/webhook` for `charge.succeeded` +
+`subscription.succeeded` (and the `*.failed` events), with the auth header set
+to `MAMOPAY_WEBHOOK_SECRET`. Mamo echoes that header on every delivery and
+`/api/mamo/webhook` verifies it in constant time.
+
+To see what's already registered without creating anything:
+
+```
+MAMOPAY_API_KEY=sk_… npm run setup:mamo-webhook -- --list
+```
 
 The webhook matches the pending purchase we created (via `external_id` /
 `custom_data.purchase_id`), checks amount + currency, and grants credits
