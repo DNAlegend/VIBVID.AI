@@ -10,7 +10,7 @@
 //
 // Register a webhook (dashboard → Developer → Webhooks, or the API) pointing at
 // /api/mamo/webhook, subscribed to charge.succeeded and subscription.succeeded,
-// with the auth header set to MAMO_WEBHOOK_SECRET.
+// with the auth header set to MAMOPAY_WEBHOOK_SECRET.
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";

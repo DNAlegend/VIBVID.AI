@@ -37,12 +37,12 @@ re-checks the amount + currency before granting credits.
 ## 4. Environment variables (Vercel — Production + Preview)
 
 ```
-MAMO_ENV=sandbox          # switch to "production" when live
-MAMO_API_KEY=…            # Mamo dashboard → Developer → API keys (secret)
-MAMO_WEBHOOK_SECRET=…     # any strong random string you choose (see step 5)
+MAMOPAY_ENV=sandbox          # switch to "production" when live
+MAMOPAY_API_KEY=…            # Mamo dashboard → Developer → API keys (secret)
+MAMOPAY_WEBHOOK_SECRET=…     # any strong random string you choose (see step 5)
 ```
 
-Once `MAMO_API_KEY` is set, `/api/checkout` starts real Mamo checkouts. With it
+Once `MAMOPAY_API_KEY` is set, `/api/checkout` starts real Mamo checkouts. With it
 unset, the app falls back to demo credits (no charge).
 
 Currency is **USD** (matches the billing catalog). Mamo supports USD; settlement
@@ -55,7 +55,7 @@ In the Mamo dashboard → **Developer → Webhooks**, add a webhook:
 - URL: `https://vibvid.ai/api/mamo/webhook`
 - Events: **`charge.succeeded`** and **`subscription.succeeded`**
   (add the `*.failed` events too if you want failure logging).
-- **Auth header:** set it to exactly the same value as `MAMO_WEBHOOK_SECRET`.
+- **Auth header:** set it to exactly the same value as `MAMOPAY_WEBHOOK_SECRET`.
   Mamo echoes this in the `Authorization` header of every delivery, and
   `/api/mamo/webhook` verifies it in constant time.
 
@@ -66,7 +66,7 @@ replays and each monthly renewal credit exactly once.
 
 ## 6. Test in sandbox
 
-With `MAMO_ENV=sandbox` and a sandbox API key, run a checkout end-to-end using
+With `MAMOPAY_ENV=sandbox` and a sandbox API key, run a checkout end-to-end using
 Mamo's test card. Confirm: **click a plan → redirect to Mamo → pay → redirect
 back to `/app?purchase=success` → webhook fires → credits land**. Test both a
 one-time top-up and a subscription plan.

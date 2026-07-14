@@ -10,22 +10,22 @@ import type { BillingItem } from "@/lib/billing";
 // Docs: https://mamopay.readme.io/reference/post_links
 //
 // Config (set in the environment / Vercel):
-//   MAMO_ENV             "sandbox" (default) or "production"
-//   MAMO_API_KEY         secret API key (Dashboard → Developer → API keys) — server only
-//   MAMO_WEBHOOK_SECRET  the auth_header value registered on the webhook; Mamo
-//                        echoes it in the Authorization header of every delivery,
-//                        which we verify in constant time.
+//   MAMOPAY_ENV             "sandbox" (default) or "production"
+//   MAMOPAY_API_KEY         secret API key (Dashboard → Developer → API keys) — server only
+//   MAMOPAY_WEBHOOK_SECRET  the auth_header value registered on the webhook; Mamo
+//                           echoes it in the Authorization header of every delivery,
+//                           which we verify in constant time.
 
 const LIVE_BASE = "https://business.mamopay.com/manage_api/v1";
 const SANDBOX_BASE = "https://sandbox.dev.business.mamopay.com/manage_api/v1";
 
 export function mamoEnvironment(): "sandbox" | "production" {
-  return process.env.MAMO_ENV === "production" ? "production" : "sandbox";
+  return process.env.MAMOPAY_ENV === "production" ? "production" : "sandbox";
 }
 
 /** True once the pieces needed to open a Mamo checkout are present. */
 export function mamoConfigured(): boolean {
-  return !!process.env.MAMO_API_KEY;
+  return !!process.env.MAMOPAY_API_KEY;
 }
 
 function mamoBaseUrl(): string {
@@ -75,7 +75,7 @@ export async function createMamoLink(opts: {
   const res = await fetch(`${mamoBaseUrl()}/links/`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.MAMO_API_KEY}`,
+      Authorization: `Bearer ${process.env.MAMOPAY_API_KEY}`,
       "Content-Type": "application/json",
       Accept: "application/json",
     },
@@ -98,13 +98,13 @@ export async function createMamoLink(opts: {
 
 /**
  * Verify a Mamo webhook. When the webhook is registered (dashboard or API) its
- * `auth_header` is set to MAMO_WEBHOOK_SECRET; Mamo then sends that value in the
+ * `auth_header` is set to MAMOPAY_WEBHOOK_SECRET; Mamo then sends that value in the
  * Authorization header on every delivery. We compare in constant time and
  * accept either the raw secret or a "Bearer <secret>" form. Returns false
  * (rather than throwing) on any malformed input.
  */
 export function verifyMamoWebhook(authHeader: string | null): boolean {
-  const secret = process.env.MAMO_WEBHOOK_SECRET;
+  const secret = process.env.MAMOPAY_WEBHOOK_SECRET;
   if (!secret || !authHeader) return false;
   const provided = authHeader.replace(/^Bearer\s+/i, "").trim();
   const a = Buffer.from(provided);
