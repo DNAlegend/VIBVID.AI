@@ -852,7 +852,7 @@ export function Pricing() {
               Custom credit volumes, API access, priority support and onboarding for high-volume teams.
             </p>
           </div>
-          <CTA href="mailto:sales@vibvid.ai?subject=VIBVID%20Business%20plan" variant="outline" size="md" className="shrink-0">
+          <CTA href="mailto:support@vibvid.ai?subject=VIBVID%20Business%20plan" variant="outline" size="md" className="shrink-0">
             Contact sales <ArrowRight size={16} />
           </CTA>
         </div>

@@ -17,7 +17,8 @@ export const COMPANY = {
   /** Governing-law jurisdiction (used for Terms; not an entity registration). */
   jurisdiction: "the United Arab Emirates",
   supportEmail: "support@vibvid.ai",
-  salesEmail: "sales@vibvid.ai",
+  /** One real inbox — sales/business inquiries also route to support. */
+  salesEmail: "support@vibvid.ai",
   /**
    * Mamo is our payment processor: it securely handles card payments and
    * subscriptions. VIBVID.AI™ is the seller for all transactions.
