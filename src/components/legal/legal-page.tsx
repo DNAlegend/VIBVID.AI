@@ -13,7 +13,7 @@ import { LogoWordmark } from "@/components/logo";
 export const COMPANY = {
   brand: "VIBVID.AI",
   /** Legal entity that holds the merchant account (SRTIP trade licence 11311). */
-  legalName: "TAXNOW (FZE)",
+  legalName: "Tradio FZE",
   licenseNo: "11311",
   /** Sharjah Research Technology & Innovation Park free zone. */
   jurisdiction: "Sharjah, United Arab Emirates",
@@ -23,7 +23,7 @@ export const COMPANY = {
   salesEmail: "sales@vibvid.ai",
   /**
    * Mamo is our payment processor (not a merchant of record): it securely
-   * handles card payments and subscriptions, while TAXNOW (FZE) remains the
+   * handles card payments and subscriptions, while Tradio FZE remains the
    * seller of record for all VIBVID transactions.
    */
   paymentProcessor: "Mamo (Mamopay Limited)",

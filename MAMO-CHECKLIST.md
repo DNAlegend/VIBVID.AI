@@ -1,21 +1,21 @@
 # MamoPay go-live checklist
 
 VIBVID launches with **Mamo (Mamo Pay)** as its payment processor. Mamo is a
-UAE payment gateway — **not** a merchant of record — so **TAXNOW (FZE) is the
+UAE payment gateway — **not** a merchant of record — so **Tradio FZE is the
 seller of record** and is responsible for its own invoicing and any applicable
 VAT/tax. Below is everything to do outside the code before real charges work.
 
 > ⚠️ **Tax note:** With Paddle (the previous setup) tax was collected by the MoR.
-> With Mamo, that responsibility moves to TAXNOW (FZE). Confirm your UAE VAT
+> With Mamo, that responsibility moves to Tradio FZE. Confirm your UAE VAT
 > position (registration + whether prices are tax-inclusive) with your
 > accountant. The site copy now says prices are "exclusive of any applicable
-> taxes" and names TAXNOW as seller of record.
+> taxes" and names Tradio FZE as seller of record.
 
 ## 1. Legal pages — already wired
 
 All legal copy lives in `src/components/legal/legal-page.tsx` (the `COMPANY`
-object) and flows into every page. Legal name `TAXNOW (FZE)`, the SRTIP
-address, `support@vibvid.ai`, and **Mamo as payment processor / TAXNOW as
+object) and flows into every page. Legal name `Tradio FZE`, the SRTIP
+address, `support@vibvid.ai`, and **Mamo as payment processor / Tradio FZE as
 seller of record** are already wired through Terms, Privacy, Refunds, Cookies,
 Acceptable Use, and Contact. Just review them against your trade licence.
 
