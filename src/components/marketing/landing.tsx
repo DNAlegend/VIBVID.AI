@@ -867,7 +867,8 @@ export function Pricing() {
         </p>
         <p className="mx-auto mt-3 max-w-2xl text-center text-[12px] leading-relaxed text-faint">
           Plans are billed monthly in US dollars and renew automatically until you cancel — cancel
-          anytime from your account. Card payments and subscriptions are processed securely by our
+          anytime from your account. The price you see is the total you pay: no taxes or extra fees
+          are added at checkout. Card payments and subscriptions are processed securely by our
           payment processor, {COMPANY.paymentProcessor}; {COMPANY.legalName} is the seller of record.
           See our{" "}
           <Link href="/refunds" className="underline hover:text-fg">Refund &amp; Cancellation Policy</Link>{" "}

@@ -58,7 +58,8 @@ export default function TermsPage() {
         <p>
           Subscriptions renew automatically each billing period at the then-current price until you
           cancel. You authorise us and Mamo to charge your payment method on each renewal. Prices are
-          shown in US dollars unless stated otherwise, exclusive of any applicable taxes.
+          shown in US dollars and are the total amount you pay — the advertised price is charged in
+          full, with no additional taxes or fees added at checkout.
         </p>
         <p>
           Cancellation and refunds are governed by our{" "}
