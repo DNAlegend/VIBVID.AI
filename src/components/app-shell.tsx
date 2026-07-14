@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clapperboard, Film, FolderOpen, Lightbulb, LogOut, Loader2, Mail, Plus, Coins, Scissors, UserCircle, UserRound, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, Lightbulb, LogOut, Loader2, Mail, Plus, Coins, Scissors, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { TOPUPS, PLAN_ITEMS, billingItem, type BillingItem } from "@/lib/billing";
@@ -292,6 +292,8 @@ function PaywallGate({
   onStartOver: () => void;
 }) {
   const setAuthOpen = useStore((s) => s.setAuthOpen);
+  // Two-step flow: collect the email first, then let them pick a plan.
+  const [step, setStep] = useState<"email" | "plan">("email");
   const [email, setEmail] = useState("");
   const [selectedId, setSelectedId] = useState(
     preselect?.id ?? PLAN_ITEMS.find((p) => p.popular)?.id ?? PLAN_ITEMS[0].id,
@@ -315,6 +317,16 @@ function PaywallGate({
   const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
   // Confirm step: reached via full-page return (?purchase=success) or on-page.
   const confirmingEmail = confirmEmail ?? paidEmail;
+
+  // Step 1 → Step 2: validate the email, then reveal the plans.
+  function toPlanStep() {
+    setError(null);
+    if (!emailValid) {
+      setError("Enter a valid email to continue.");
+      return;
+    }
+    setStep("plan");
+  }
 
   async function go() {
     if (busy) return;
@@ -414,124 +426,163 @@ function PaywallGate({
     );
   }
 
+  // Step 1 — email. Step 2 — plan selection.
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-lg">
-        <div className="text-center">
+        <div className="flex justify-center">
           <LogoWordmark className="text-2xl" />
-          <h1 className="font-display mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
-          <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-            Start free with 20 credits, or pick a paid plan and go straight to payment —
-            your account is created on the way. Cancel anytime.
-          </p>
         </div>
 
-        <div className="mt-7 space-y-3">
-          {/* Free — no payment, 20 credits to try */}
-          <button
-            onClick={() => setSelectedId("free")}
-            className={cn(
-              "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
-              isFree ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
-            )}
-          >
-            <span className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex h-4 w-4 items-center justify-center rounded-full border",
-                  isFree ? "border-accent" : "border-line-2",
-                )}
-              >
-                {isFree && <span className="h-2 w-2 rounded-full bg-accent" />}
-              </span>
-              <span>
-                <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
-                  Free
-                  <Badge tone="neutral">No card</Badge>
-                </span>
-                <span className="block text-[12.5px] text-faint">
-                  20 credits · try the studio, watermarked output
-                </span>
-              </span>
-            </span>
-            <span className="text-lg font-bold text-fg">$0</span>
-          </button>
+        {step === "email" ? (
+          <>
+            <div className="mt-5 text-center">
+              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Let’s get started</h1>
+              <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
+                Enter your email to create your account — you’ll pick a plan next.
+                Start free or go straight to a paid plan. Cancel anytime.
+              </p>
+            </div>
 
-          {PLAN_ITEMS.map((p) => {
-            const active = selectedId === p.id;
-            return (
+            <div className="mt-7">
+              <label className="mb-1.5 block text-[13px] font-medium text-fg">Email</label>
+              <TextInput
+                type="email"
+                placeholder="you@example.com"
+                autoComplete="email"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && toPlanStep()}
+              />
+            </div>
+
+            <Button className="mt-4 w-full gap-2" size="lg" onClick={toPlanStep}>
+              Continue <ArrowRight size={17} />
+            </Button>
+            {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
+
+            <p className="mt-5 text-center text-[13px] text-muted">
+              Already have an account?{" "}
               <button
-                key={p.id}
-                onClick={() => setSelectedId(p.id)}
+                className="font-medium text-accent-2 hover:underline"
+                onClick={() => onSignInInstead(preselect ? paid : null)}
+              >
+                Sign in
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="mt-5 flex justify-center">
+              <button
+                onClick={() => {
+                  setError(null);
+                  setStep("email");
+                }}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-2 bg-surface px-3 py-1 text-[13px] font-medium text-muted transition-colors hover:text-fg"
+              >
+                <ArrowLeft size={13} className="shrink-0" />
+                <span className="truncate">{email}</span>
+                <span className="shrink-0 text-accent-2">· change</span>
+              </button>
+            </div>
+
+            <div className="mt-3 text-center">
+              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
+              <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
+                Start free with 20 credits, or pick a paid plan and go straight to payment. Cancel anytime.
+              </p>
+            </div>
+
+            <div className="mt-7 space-y-3">
+              {/* Free — no payment, 20 credits to try */}
+              <button
+                onClick={() => setSelectedId("free")}
                 className={cn(
                   "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
-                  active ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
+                  isFree ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
                 )}
               >
                 <span className="flex items-center gap-3">
                   <span
                     className={cn(
                       "flex h-4 w-4 items-center justify-center rounded-full border",
-                      active ? "border-accent" : "border-line-2",
+                      isFree ? "border-accent" : "border-line-2",
                     )}
                   >
-                    {active && <span className="h-2 w-2 rounded-full bg-accent" />}
+                    {isFree && <span className="h-2 w-2 rounded-full bg-accent" />}
                   </span>
                   <span>
                     <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
-                      {p.label}
-                      {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
+                      Free
+                      <Badge tone="neutral">No card</Badge>
                     </span>
                     <span className="block text-[12.5px] text-faint">
-                      {p.credits.toLocaleString()} credits / mo · {p.sublabel}
+                      20 credits · try the studio, watermarked output
                     </span>
                   </span>
                 </span>
-                <span className="text-lg font-bold text-fg">
-                  {p.priceLabel}
-                  <span className="text-xs font-normal text-faint">/mo</span>
-                </span>
+                <span className="text-lg font-bold text-fg">$0</span>
               </button>
-            );
-          })}
-        </div>
 
-        <div className="mt-4">
-          <TextInput
-            type="email"
-            placeholder="you@example.com"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && go()}
-          />
-        </div>
+              {PLAN_ITEMS.map((p) => {
+                const active = selectedId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedId(p.id)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
+                      active ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
+                    )}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 items-center justify-center rounded-full border",
+                          active ? "border-accent" : "border-line-2",
+                        )}
+                      >
+                        {active && <span className="h-2 w-2 rounded-full bg-accent" />}
+                      </span>
+                      <span>
+                        <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
+                          {p.label}
+                          {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
+                        </span>
+                        <span className="block text-[12.5px] text-faint">
+                          {p.credits.toLocaleString()} credits / mo · {p.sublabel}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="text-lg font-bold text-fg">
+                      {p.priceLabel}
+                      <span className="text-xs font-normal text-faint">/mo</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-        <Button className="mt-4 w-full" size="lg" onClick={isFree ? goFree : go} disabled={busy}>
-          {busy ? (
-            <Loader2 size={17} className="animate-spin" />
-          ) : isFree ? (
-            <>Start free — no card needed</>
-          ) : (
-            <>Continue to payment — {paid.priceLabel}/mo</>
-          )}
-        </Button>
-        {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
+            <Button className="mt-4 w-full" size="lg" onClick={isFree ? goFree : go} disabled={busy}>
+              {busy ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : isFree ? (
+                <>Start free — no card needed</>
+              ) : (
+                <>Continue to payment — {paid.priceLabel}/mo</>
+              )}
+            </Button>
+            {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
 
-        <p className="mt-4 text-center text-[13px] text-muted">
-          Already have an account?{" "}
-          <button
-            className="font-medium text-accent-2 hover:underline"
-            onClick={() => onSignInInstead(preselect ? paid : null)}
-          >
-            Sign in
-          </button>
-        </p>
-        <p className="mt-5 text-center text-[12px] text-faint">
-          {isFree
-            ? "No card required — upgrade any time from inside the studio."
-            : "Secure checkout by Mamo · charged in US dollars · renews monthly · cancel anytime."}
-        </p>
+            <p className="mt-5 text-center text-[12px] text-faint">
+              {isFree
+                ? "No card required — upgrade any time from inside the studio."
+                : "Secure checkout by Mamo · charged in US dollars · renews monthly · cancel anytime."}
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
