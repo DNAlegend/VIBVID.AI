@@ -10,6 +10,7 @@ import { TOPUPS, PLAN_ITEMS, billingItem, type BillingItem } from "@/lib/billing
 import { cn } from "@/lib/utils";
 import { Button, Modal, Badge, TextInput } from "@/components/ui";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { Turnstile, captchaEnabled } from "@/components/auth/turnstile";
 import { LogoWordmark } from "@/components/logo";
 
 // The nav splits into the production pipeline and the library of what you own.
@@ -308,6 +309,14 @@ function PaywallGate({
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
+  // Captcha (active only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is configured).
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const captchaReady = !captchaEnabled || Boolean(captchaToken);
+  function consumeCaptcha() {
+    setCaptchaToken(null);
+    setCaptchaReset((k) => k + 1);
+  }
 
   useEffect(() => {
     if (preselect) setSelectedId(preselect.id);
@@ -370,12 +379,20 @@ function PaywallGate({
       setError("Accounts aren’t configured on this server yet — try again later.");
       return;
     }
+    if (!captchaReady) {
+      setError("Complete the verification first.");
+      return;
+    }
     setBusy(true);
     try {
       const e = email.trim().toLowerCase();
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: e,
-        options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/app` },
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/app`,
+          ...(captchaToken ? { captchaToken } : {}),
+        },
       });
       if (otpError) throw otpError;
       setConfirmMode("free");
@@ -383,16 +400,23 @@ function PaywallGate({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn’t start your free account");
     } finally {
+      consumeCaptcha();
       setBusy(false);
     }
   }
 
   async function resend() {
     if (!supabase || !confirmingEmail) return;
+    if (!captchaReady) return;
     await supabase.auth.signInWithOtp({
       email: confirmingEmail,
-      options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/app` },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/app`,
+        ...(captchaToken ? { captchaToken } : {}),
+      },
     });
+    consumeCaptcha();
     setResent(true);
   }
 
@@ -405,12 +429,20 @@ function PaywallGate({
     setVerifying(true);
     setOtpError(null);
     try {
-      const { error: vErr } = await supabase.auth.verifyOtp({
+      const { data: vData, error: vErr } = await supabase.auth.verifyOtp({
         email: confirmingEmail,
         token,
         type: "email",
       });
       if (vErr) throw vErr;
+      // Record ToS/Privacy acceptance (the consent line is shown on the form).
+      const uid = vData?.user?.id;
+      if (uid) {
+        void supabase
+          .from("profiles")
+          .update({ accepted_terms_at: new Date().toISOString() })
+          .eq("id", uid);
+      }
     } catch (e) {
       const raw = e instanceof Error ? e.message : "";
       setOtpError(
@@ -435,9 +467,24 @@ function PaywallGate({
             {confirmMode === "free"
               ? "Your free account is ready — 20 credits to try the studio."
               : "Payment received."}{" "}
-            We emailed a sign-in code to{" "}
-            <span className="font-semibold text-fg">{confirmingEmail}</span>. Type it below — or tap
-            the link in the same email.
+            {captchaEnabled && confirmMode === "paid" ? (
+              <>
+                Complete the quick check below and press “Send the code” — we’ll email a sign-in
+                code to <span className="font-semibold text-fg">{confirmingEmail}</span>.
+              </>
+            ) : (
+              <>
+                We emailed a sign-in code to{" "}
+                <span className="font-semibold text-fg">{confirmingEmail}</span>. Type it below — or
+                tap the link in the same email.
+              </>
+            )}
+            {confirmMode === "paid" && (
+              <span className="mt-2 block text-[13px] text-faint">
+                If your credits don’t appear after signing in, email support@vibvid.ai — include the
+                receipt Mamo sent you.
+              </span>
+            )}
           </p>
           <div className="mx-auto mt-6 max-w-[240px]">
             <TextInput
@@ -458,8 +505,14 @@ function PaywallGate({
             <Button onClick={verifyCode} disabled={verifying || !/^\d{6,8}$/.test(otpCode.trim())}>
               {verifying ? <Loader2 size={16} className="animate-spin" /> : <>Verify &amp; open the studio</>}
             </Button>
-            <Button variant="outline" size="sm" onClick={resend} disabled={resent}>
-              <Mail size={14} /> {resent ? "Code sent again — check your inbox" : "Resend the code"}
+            {!resent && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
+            <Button variant="outline" size="sm" onClick={resend} disabled={resent || !captchaReady}>
+              <Mail size={14} />{" "}
+              {resent
+                ? "Code sent — check your inbox"
+                : captchaEnabled && confirmMode === "paid"
+                  ? "Send the code"
+                  : "Resend the code"}
             </Button>
             <button
               className="text-[13px] font-medium text-accent-2 hover:underline"
@@ -617,7 +670,13 @@ function PaywallGate({
               })}
             </div>
 
-            <Button className="mt-4 w-full" size="lg" onClick={isFree ? goFree : go} disabled={busy}>
+            {isFree && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
+            <Button
+              className="mt-4 w-full"
+              size="lg"
+              onClick={isFree ? goFree : go}
+              disabled={busy || (isFree && !captchaReady)}
+            >
               {busy ? (
                 <Loader2 size={17} className="animate-spin" />
               ) : isFree ? (
@@ -627,6 +686,11 @@ function PaywallGate({
               )}
             </Button>
             {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
+            <p className="mt-3 text-center text-[12px] text-faint">
+              By continuing you agree to the{" "}
+              <Link href="/terms" className="underline hover:text-fg">Terms of Service</Link> and{" "}
+              <Link href="/privacy" className="underline hover:text-fg">Privacy Policy</Link>.
+            </p>
 
             <p className="mt-5 text-center text-[12px] text-faint">
               {isFree
@@ -698,14 +762,27 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (data.session) {
         localStorage.removeItem(CHECKOUT_EMAIL_KEY);
         setPurchaseNote("Payment received — adding your credits…");
+        // Only claim success when the balance actually increased — the webhook
+        // grants credits async and can fail; never tell a customer "all set"
+        // on faith.
+        const before = useStore.getState().credits;
         let n = 0;
         poll = setInterval(async () => {
           const uid = (await supabase!.auth.getSession()).data.session?.user?.id;
-          if (uid) void hydrateFromCloud(uid);
-          if (++n >= 5) {
+          if (uid) await hydrateFromCloud(uid);
+          const now = useStore.getState().credits;
+          if (now > before) {
             if (poll) clearInterval(poll);
             setPurchaseNote("Credits added — you’re all set.");
             setTimeout(() => setPurchaseNote(null), 4000);
+            return;
+          }
+          if (++n >= 7) {
+            if (poll) clearInterval(poll);
+            setPurchaseNote(
+              "Payment received — your credits are still processing. If they don’t appear in a few minutes, email support@vibvid.ai.",
+            );
+            setTimeout(() => setPurchaseNote(null), 20000);
           }
         }, 3000);
         return;
@@ -713,10 +790,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       const guestEmail = localStorage.getItem(CHECKOUT_EMAIL_KEY);
       if (guestEmail) {
         localStorage.removeItem(CHECKOUT_EMAIL_KEY);
-        void supabase!.auth.signInWithOtp({
-          email: guestEmail,
-          options: { emailRedirectTo: `${window.location.origin}/app` },
-        });
+        // With captcha enforced, a token-less send would be rejected — the
+        // confirm step's captcha-gated send button becomes the send path.
+        if (!captchaEnabled) {
+          void supabase!.auth.signInWithOtp({
+            email: guestEmail,
+            options: { emailRedirectTo: `${window.location.origin}/app` },
+          });
+        }
         setGuestConfirmEmail(guestEmail); // gate shows the confirm-email step
       } else {
         setPurchaseNote("Payment received — sign in to see your credits.");

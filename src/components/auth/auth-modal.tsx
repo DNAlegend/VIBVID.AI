@@ -8,10 +8,12 @@
 // (currently 8 digits in production), so validation accepts 6–8.
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { KeyRound, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button, Modal, TextInput } from "@/components/ui";
+import { Turnstile, captchaEnabled } from "@/components/auth/turnstile";
 
 const RESEND_COOLDOWN_S = 30;
 
@@ -22,10 +24,13 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [msg, setMsg] = useState<{ tone: "error" | "ok"; text: string } | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const codeValid = /^\d{6,8}$/.test(code.trim());
+  const captchaReady = !captchaEnabled || Boolean(captchaToken);
 
   // The modal stays mounted across open/close — start over on close (keep the
   // email; it's convenient on reopen).
@@ -50,6 +55,10 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
       setMsg({ tone: "error", text: "Enter a valid email first." });
       return;
     }
+    if (!captchaReady) {
+      setMsg({ tone: "error", text: "Complete the verification below first." });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -58,6 +67,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
         options: {
           shouldCreateUser: true, // new email → account created on verify
           emailRedirectTo: `${window.location.origin}/app`, // emailed link works too
+          ...(captchaToken ? { captchaToken } : {}),
         },
       });
       if (error) throw error;
@@ -68,6 +78,9 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     } catch (e) {
       setMsg({ tone: "error", text: e instanceof Error ? e.message : "Couldn’t send the code." });
     } finally {
+      // Tokens are single-use — mint a fresh challenge for any retry/resend.
+      setCaptchaToken(null);
+      setCaptchaReset((k) => k + 1);
       setBusy(false);
     }
   }
@@ -77,12 +90,20 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     setBusy(true);
     setMsg(null);
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         email: email.trim().toLowerCase(),
         token: code.trim(),
         type: "email",
       });
       if (error) throw error;
+      // Record ToS/Privacy acceptance (the consent line is shown on the form).
+      const uid = data?.user?.id;
+      if (uid) {
+        void supabase
+          .from("profiles")
+          .update({ accepted_terms_at: new Date().toISOString() })
+          .eq("id", uid);
+      }
       onClose(); // session is live; AppShell reacts via onAuthStateChange
     } catch (e) {
       const raw = e instanceof Error ? e.message : "";
@@ -114,10 +135,11 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && emailValid && sendCode()}
           />
+          <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />
           {msg && (
             <p className={cn("mt-3 text-sm", msg.tone === "error" ? "text-danger" : "text-teal")}>{msg.text}</p>
           )}
-          <Button className="mt-4 w-full" disabled={!emailValid || busy} onClick={sendCode}>
+          <Button className="mt-4 w-full" disabled={!emailValid || !captchaReady || busy} onClick={sendCode}>
             {busy ? (
               <Loader2 size={16} className="animate-spin" />
             ) : (
@@ -126,6 +148,11 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
               </>
             )}
           </Button>
+          <p className="mt-3 text-center text-[12px] text-faint">
+            By continuing you agree to the{" "}
+            <Link href="/terms" className="underline hover:text-fg">Terms of Service</Link> and{" "}
+            <Link href="/privacy" className="underline hover:text-fg">Privacy Policy</Link>.
+          </p>
         </>
       ) : (
         <>

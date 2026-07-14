@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { chatText, llmConfigured, llmEngine } from "@/lib/llm";
+import { allowRequest, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 export const maxDuration = 300;
 
@@ -102,6 +103,11 @@ export async function POST(req: Request) {
   });
   const { data: userData } = await sb.auth.getUser();
   if (!userData?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // The Strategist is the most expensive unmetered call in the app — cap it.
+  if (!(await allowRequest(sb, "plan", 10))) {
+    return NextResponse.json({ error: RATE_LIMIT_MESSAGE }, { status: 429 });
+  }
 
   const body = await req.json().catch(() => null);
   const brief = typeof body?.brief === "string" ? body.brief.trim().slice(0, 4000) : "";

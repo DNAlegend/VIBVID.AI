@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { clampResolution, getModel, priceFor } from "@/lib/models";
+import { allowRequest, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 // The finalize step downloads the rendered MP4 from Ark and re-uploads it to
 // Storage — give the function headroom beyond the serverless default.
@@ -54,6 +55,23 @@ async function refund(sb: SupabaseClient, cost: number) {
   await sb.rpc("adjust_credits", { delta: cost });
 }
 
+/**
+ * Free-tier output carries the provider watermark, as the pricing copy
+ * promises; anyone with a settled paid purchase renders clean. RLS lets the
+ * caller read only their own purchase rows. Fail toward paid (no watermark)
+ * on lookup errors — never punish a paying customer for a transient failure.
+ */
+async function isFreeTier(sb: SupabaseClient, userId: string): Promise<boolean> {
+  const { data, error } = await sb
+    .from("credit_purchases")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("status", "paid")
+    .limit(1);
+  if (error) return false;
+  return (data?.length ?? 0) === 0;
+}
+
 async function storeFile(
   sb: SupabaseClient,
   userId: string,
@@ -80,10 +98,17 @@ export async function POST(req: Request) {
   const user = userData?.user;
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (!(await allowRequest(sb, "generate", 30))) {
+    return NextResponse.json({ error: RATE_LIMIT_MESSAGE }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => null);
   const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
   const id = typeof body?.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(body.id) ? body.id : null;
   if (!prompt || !id) return NextResponse.json({ error: "Bad request" }, { status: 400 });
+
+  // Free tier renders with the provider watermark, per the pricing promise.
+  const watermark = await isFreeTier(sb, user.id);
 
   const model = getModel(body.modelId);
   if (!model.arkModel) {
@@ -146,7 +171,7 @@ export async function POST(req: Request) {
           (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)[aspectRatio] ??
           (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)["16:9"],
         response_format: "b64_json",
-        watermark: false,
+        watermark,
         ...(imageRefs.length ? { image: imageRefs.length === 1 ? imageRefs[0] : imageRefs } : {}),
       }),
     });
@@ -175,7 +200,7 @@ export async function POST(req: Request) {
   // (probed contract): FRAMES (first_frame ± last_frame) or REFERENCE MEDIA
   // (≤9 reference_image + ≤3 reference_video). Frames win when both arrive.
   // `resolution` was clamped above — the charge and the render always match.
-  const flags = ` --resolution ${resolution} --duration ${durationSec} --ratio ${aspectRatio} --watermark false`;
+  const flags = ` --resolution ${resolution} --duration ${durationSec} --ratio ${aspectRatio} --watermark ${watermark}`;
   const asHttps = (v: unknown): v is string => typeof v === "string" && /^https:\/\/.+/i.test(v);
   const httpsList = (v: unknown, cap: number) =>
     (Array.isArray(v) ? v : []).filter(asHttps).slice(0, cap);
@@ -290,21 +315,26 @@ export async function GET(req: Request) {
 
   if (task.status === "failed" || task.status === "cancelled") {
     const message = JSON.stringify(task.error ?? task.status).slice(0, 300);
-    // Concurrent pollers are normal (multiple tabs, post-checkout rehydrates).
-    // The status filter makes this finalize atomic: only the request that
-    // actually flips rendering→failed performs the refund, so a failed render
-    // credits back exactly once no matter how many pollers observe it.
-    // (Residual: flip and refund are two statements — a serverless kill between
-    // them loses the refund. Folding both into one RPC is the eventual fix.)
-    const { data: flipped } = await sb
-      .from("generations")
-      .update({ status: "failed", progress: 100, error: message })
-      .eq("id", id)
-      .eq("status", "rendering")
-      .select("id");
-    if (flipped && flipped.length > 0) {
-      await refund(sb, row.credits_cost ?? 0);
+    // settle_render_failure flips rendering→failed AND refunds in ONE
+    // transaction, so concurrent pollers can't double-refund and a serverless
+    // kill can't separate the flip from the refund.
+    const { data: settled, error: settleErr } = await sb.rpc("settle_render_failure", {
+      p_id: id,
+      p_error: message,
+    });
+    if (settleErr) {
+      // RPC not deployed yet — fall back to the guarded two-step settle.
+      const { data: flipped } = await sb
+        .from("generations")
+        .update({ status: "failed", progress: 100, error: message })
+        .eq("id", id)
+        .eq("status", "rendering")
+        .select("id");
+      if (flipped && flipped.length > 0) {
+        await refund(sb, row.credits_cost ?? 0);
+      }
     }
+    void settled;
     const { data: balance } = await sb.rpc("adjust_credits", { delta: 0 });
     return NextResponse.json({ status: "failed", error: message, credits: balance ?? undefined });
   }
