@@ -19,6 +19,8 @@ import {
   Clock,
   ShieldCheck,
   Ban,
+  Mail,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui";
@@ -965,39 +967,97 @@ function FinalCTA() {
   );
 }
 
+const FOOTER_COLS: { heading: string; links: { label: string; href: string }[] }[] = [
+  {
+    heading: "Product",
+    links: [
+      { label: "Features", href: "/#features" },
+      { label: "How it works", href: "/#how" },
+      { label: "Characters", href: "/#characters" },
+      { label: "Seasons & series", href: "/#longform" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Launch studio", href: APP },
+    ],
+  },
+  {
+    heading: "Explore",
+    links: [
+      { label: "Use cases", href: "/#usecases" },
+      { label: "Showcase", href: "/#showcase" },
+      { label: "Responsible AI", href: "/#responsible" },
+      { label: "FAQ", href: "/#faq" },
+    ],
+  },
+];
+
 export function Footer() {
+  const year = new Date().getFullYear();
   return (
-    <footer className="border-t border-line">
-      <div className="mx-auto max-w-6xl px-6 py-12">
-        <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
-          <div className="max-w-xs">
+    <footer className="border-t border-line bg-surface-2/30">
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          {/* Brand + contact */}
+          <div className="max-w-sm">
             <Brand />
-            <p className="mt-3 text-[13px] leading-relaxed text-faint">
-              An AI video studio. Plan, cast, shoot and cut — from idea to a finished 1080p video.
+            <p className="mt-4 text-[13.5px] leading-relaxed text-faint">
+              The AI video studio. Brief the Strategist, cast consistent characters, generate every
+              scene, and cut them into one finished 1080p video — from idea to export, all in one place.
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-x-10 gap-y-2 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">Product</span>
-              <a href="/#features" className="text-sm text-muted hover:text-fg">Features</a>
-              <a href="/#how" className="text-sm text-muted hover:text-fg">How it works</a>
-              <a href="/pricing" className="text-sm text-muted hover:text-fg">Pricing</a>
-              <Link href={APP} className="text-sm text-muted hover:text-fg">Launch studio</Link>
+            <div className="mt-5 flex flex-col gap-2.5">
+              <a
+                href={`mailto:${COMPANY.supportEmail}`}
+                className="inline-flex items-center gap-2 text-[13px] text-muted transition-colors hover:text-fg"
+              >
+                <Mail size={14} className="text-accent-2" /> {COMPANY.supportEmail}
+              </a>
+              <span className="inline-flex items-center gap-2 text-[13px] text-faint">
+                <MapPin size={14} className="text-accent-2" /> Operated under the laws of {COMPANY.jurisdiction}.
+              </span>
+              <span className="inline-flex items-center gap-2 text-[13px] text-faint">
+                <ShieldCheck size={14} className="text-teal" /> Secure payments by {COMPANY.paymentProcessor}
+              </span>
             </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">Legal</span>
-              {LEGAL_LINKS.map((l) => (
-                <Link key={l.href} href={l.href} className="text-sm text-muted hover:text-fg">
+          </div>
+
+          {/* Link columns */}
+          {FOOTER_COLS.map((col) => (
+            <div key={col.heading} className="flex flex-col gap-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">{col.heading}</span>
+              {col.links.map((l) => (
+                <Link key={l.href} href={l.href} className="text-sm text-muted transition-colors hover:text-fg">
                   {l.label}
                 </Link>
               ))}
             </div>
+          ))}
+
+          <div className="flex flex-col gap-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">Legal</span>
+            {LEGAL_LINKS.map((l) => (
+              <Link key={l.href} href={l.href} className="text-sm text-muted transition-colors hover:text-fg">
+                {l.label}
+              </Link>
+            ))}
           </div>
         </div>
-        <div className="mt-10 border-t border-line pt-6">
-          <p className="text-[13px] leading-relaxed text-faint">
-            © 2026 {COMPANY.legalName}. All rights reserved. Card payments and subscriptions are
-            processed securely by our payment processor, {COMPANY.paymentProcessor}.
+
+        {/* Bottom bar */}
+        <div className="mt-12 flex flex-col gap-4 border-t border-line pt-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[13px] text-faint">© {year} {COMPANY.legalName}. All rights reserved.</p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-faint">
+              <Link href="/terms" className="transition-colors hover:text-fg">Terms</Link>
+              <Link href="/privacy" className="transition-colors hover:text-fg">Privacy</Link>
+              <Link href="/refunds" className="transition-colors hover:text-fg">Refunds</Link>
+              <a href={`mailto:${COMPANY.supportEmail}`} className="transition-colors hover:text-fg">Contact</a>
+            </div>
+          </div>
+          <p className="max-w-3xl text-[12px] leading-relaxed text-faint">
+            Card payments and subscriptions are processed securely by our payment processor,{" "}
+            {COMPANY.paymentProcessor}; we never store your card details. Prices are shown in US dollars,
+            total at checkout. Generation credits are non-transferable service-usage units with no cash
+            value. VIBVID.AI is a creation tool for original and authorized content only — see the{" "}
+            <Link href="/acceptable-use" className="underline hover:text-fg">Acceptable Use Policy</Link>.
           </p>
         </div>
       </div>
