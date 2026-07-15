@@ -45,6 +45,16 @@ const studioOnly = argv.includes("--studio");
 const doImages = !studioOnly && !argv.includes("--videos");
 const doVideos = !studioOnly && !argv.includes("--images");
 const doStudio = studioOnly || argv.includes("--all");
+// --only id1,id2 renders JUST those ids (images & videos filtered alike) —
+// without it a --videos run re-renders EVERY demo, burning real Ark spend.
+const onlyArg = argv.find((a) => a.startsWith("--only"));
+const onlyIds = onlyArg
+  ? (onlyArg.includes("=") ? onlyArg.split("=")[1] : argv[argv.indexOf(onlyArg) + 1] ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  : null;
+const wanted = (id) => !onlyIds || onlyIds.includes(id);
 
 /* ------------------------------ content --------------------------------- */
 
@@ -192,7 +202,7 @@ await mkdir(OUT_DIR, { recursive: true });
 const failures = [];
 
 if (doImages) {
-  for (const img of IMAGES) {
+  for (const img of IMAGES.filter((i) => wanted(i.id))) {
     process.stdout.write(`image  ${img.id} … `);
     try { await generateImage(img); console.log("done"); }
     catch (e) { console.log("FAILED"); console.error(`  ${e.message}`); failures.push(img.id); }
@@ -200,7 +210,7 @@ if (doImages) {
 }
 
 if (doStudio) {
-  for (const img of STUDIO) {
+  for (const img of STUDIO.filter((i) => wanted(i.id))) {
     process.stdout.write(`studio ${img.id} … `);
     try { await generateImage(img); console.log("done"); }
     catch (e) { console.log("FAILED"); console.error(`  ${e.message}`); failures.push(img.id); }
@@ -208,7 +218,7 @@ if (doStudio) {
 }
 
 if (doVideos) {
-  for (const vid of VIDEOS) {
+  for (const vid of VIDEOS.filter((v) => wanted(v.id))) {
     process.stdout.write(`video  ${vid.id} `);
     try { await generateVideo(vid); console.log(" done"); }
     catch (e) { console.log(" FAILED"); console.error(`  ${e.message}`); failures.push(vid.id); }

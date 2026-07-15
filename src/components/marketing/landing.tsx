@@ -36,14 +36,15 @@ import {
   SEASON,
   type ShowcaseMedia,
 } from "@/lib/showcase";
-import { DEMO_CONTENT, generatedSrc, type DemoItem } from "@/lib/demo-content";
+import { generatedSrc, type DemoItem } from "@/lib/demo-content";
+import { USE_CASES, heroDemo, type UseCase } from "@/lib/use-cases";
 import { LEGAL_LINKS, COMPANY } from "@/components/legal/legal-page";
 
 const APP = "/app";
 
 /* ------------------------------ Primitives ------------------------------ */
 
-function CTA({
+export function CTA({
   href,
   children,
   variant = "primary",
@@ -384,35 +385,42 @@ function Steps() {
   );
 }
 
-function DemoCard({ d }: { d: DemoItem }) {
+/** The media block of a demo card: real clip when generated, styled placeholder otherwise. */
+export function DemoMedia({ d }: { d: DemoItem }) {
   const src = generatedSrc(d.id);
   const vertical = d.aspect === "9:16";
   return (
+    <div
+      className={cn("relative w-full overflow-hidden", vertical ? "aspect-[3/4]" : "aspect-video")}
+      style={{ background: `linear-gradient(135deg, ${d.accent}22, ${d.accent}08 60%, transparent)` }}
+    >
+      {src ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video src={src} autoPlay muted loop playsInline className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full flex-col items-center justify-center gap-2">
+          <span
+            className="flex h-12 w-12 items-center justify-center rounded-2xl text-white"
+            style={{ backgroundColor: d.accent }}
+          >
+            <Clapperboard size={22} />
+          </span>
+          <span className="text-[12px] font-medium text-muted">{d.aspect} · VIBVID</span>
+        </div>
+      )}
+      <span className="absolute left-2.5 top-2.5">
+        <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
+          {d.tag}
+        </Badge>
+      </span>
+    </div>
+  );
+}
+
+export function DemoCard({ d }: { d: DemoItem }) {
+  return (
     <div className="flex flex-col overflow-hidden rounded-[var(--radius-xl2)] border border-line bg-surface">
-      <div
-        className={cn("relative w-full overflow-hidden", vertical ? "aspect-[3/4]" : "aspect-video")}
-        style={{ background: `linear-gradient(135deg, ${d.accent}22, ${d.accent}08 60%, transparent)` }}
-      >
-        {src ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={src} autoPlay muted loop playsInline className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2">
-            <span
-              className="flex h-12 w-12 items-center justify-center rounded-2xl text-white"
-              style={{ backgroundColor: d.accent }}
-            >
-              <Clapperboard size={22} />
-            </span>
-            <span className="text-[12px] font-medium text-muted">{d.aspect} · VIBVID</span>
-          </div>
-        )}
-        <span className="absolute left-2.5 top-2.5">
-          <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
-            {d.tag}
-          </Badge>
-        </span>
-      </div>
+      <DemoMedia d={d} />
       <div className="flex flex-1 flex-col p-4">
         <h3 className="text-[15px] font-semibold">{d.title}</h3>
         <p className="mt-2 flex-1 rounded-xl border border-line bg-surface-2 p-2.5 text-[12.5px] leading-relaxed text-muted">
@@ -429,20 +437,54 @@ function DemoCard({ d }: { d: DemoItem }) {
   );
 }
 
+/** A commercial use case: flagship demo media + buyer/pain framing + two paths in. */
+export function UseCaseCard({ u }: { u: UseCase }) {
+  const demo = heroDemo(u);
+  return (
+    <div className="flex flex-col overflow-hidden rounded-[var(--radius-xl2)] border border-line bg-surface">
+      <DemoMedia d={demo} />
+      <div className="flex flex-1 flex-col p-4">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-accent-2">{u.buyer}</div>
+        <h3 className="mt-1 text-[15px] font-semibold">{u.label}</h3>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">{u.pain}</p>
+        <p className="mt-2.5 flex-1 rounded-xl border border-line bg-surface-2 p-2.5 text-[12.5px] leading-relaxed text-muted">
+          “{demo.prompt}”
+        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
+          <Link
+            href={`/app/make?purpose=${u.purposeId}&prompt=${encodeURIComponent(demo.prompt)}`}
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent-2 transition-colors hover:text-accent"
+          >
+            <Wand2 size={14} /> Try this prompt
+          </Link>
+          <Link
+            href={`/use-cases/${u.slug}`}
+            className="inline-flex items-center gap-1 text-[13px] font-medium text-muted transition-colors hover:text-fg"
+          >
+            Learn more <ArrowRight size={13} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UseCases() {
   return (
     <section id="usecases" className="border-y border-line bg-surface-2/40">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Every format, one prompt</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            What teams ship with VIBVID
+          </h2>
           <p className="mt-3 text-[17px] text-muted">
-            Vertical UGC ads, product films, fashion, brand spots — these are the exact prompts.
-            Tap one to open it in the studio and make it yours.
+            Ads, explainers, training, courses, comms, onboarding — real prompts from real
+            workflows. Tap one to open it in the studio, or read the playbook.
           </p>
         </div>
         <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {DEMO_CONTENT.map((d) => (
-            <DemoCard key={d.id} d={d} />
+          {USE_CASES.map((u) => (
+            <UseCaseCard key={u.slug} u={u} />
           ))}
         </div>
       </div>
@@ -919,9 +961,13 @@ const FAQS = [
     q: "Can I make a full episode, season or movie?",
     a: "Yes. Each generation is a scene (4–15s); stitch scenes on the Post timeline into an episode, then chain episodes — reusing the same cast and world — into a season or a feature-length film. Plan the arc in Plan, generate every shot in Make, assemble the whole runtime in Post, and export it as one continuous video. There's no cap on length beyond your credits.",
   },
+  {
+    q: "Can I make training or presenter-style videos?",
+    a: "Yes — as scenario re-enactments, demonstrations, b-roll and explainer scenes featuring original characters you create. VIBVID does not lip-sync a presenter to a script, clone voices, or generate talking-head avatars of real people — pair generated scenes with your own narration or instructor recordings instead.",
+  },
 ];
 
-export function FAQ() {
+export function FAQ({ items = FAQS }: { items?: { q: string; a: string }[] }) {
   return (
     <section id="faq" className="border-t border-line bg-surface-2/40">
       <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
@@ -929,7 +975,7 @@ export function FAQ() {
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Questions, answered</h2>
         </div>
         <div className="mt-10 space-y-3">
-          {FAQS.map((f) => (
+          {items.map((f) => (
             <details
               key={f.q}
               className="group rounded-2xl border border-line bg-surface p-5 open:border-accent/40"
@@ -994,9 +1040,15 @@ const FOOTER_COLS: { heading: string; links: { label: string; href: string }[] }
     ],
   },
   {
+    heading: "Use cases",
+    links: [
+      ...USE_CASES.map((u) => ({ label: u.label, href: `/use-cases/${u.slug}` })),
+      { label: "All use cases", href: "/use-cases" },
+    ],
+  },
+  {
     heading: "Explore",
     links: [
-      { label: "Use cases", href: "/#usecases" },
       { label: "Showcase", href: "/#showcase" },
       { label: "Responsible AI", href: "/#responsible" },
       { label: "FAQ", href: "/#faq" },
@@ -1009,7 +1061,7 @@ export function Footer() {
   return (
     <footer className="border-t border-line bg-surface-2/30">
       <div className="mx-auto max-w-6xl px-6 py-14">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="grid grid-cols-2 gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr_1fr] max-md:[&>*:first-child]:col-span-2">
           {/* Brand + contact */}
           <div className="max-w-sm">
             <Brand />

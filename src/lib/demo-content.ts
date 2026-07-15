@@ -15,6 +15,8 @@ export interface DemoItem {
   prompt: string;
   /** Purpose preset id this demo maps to in Make (see lib/purposes.ts). */
   purpose: string;
+  /** Use-case slug this demo belongs to (see lib/use-cases.ts); "" = none. */
+  useCase: string;
 }
 
 export const DEMO_CONTENT = demoData.demos as DemoItem[];

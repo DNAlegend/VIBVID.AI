@@ -3,11 +3,12 @@
     {
       "id": "ugc-skincare",
       "tag": "UGC Ad",
-      "title": "Skincare testimonial",
+      "title": "Skincare creator ad",
       "aspect": "9:16",
       "accent": "#d6457a",
       "prompt": "UGC-style ad: a young woman in a sunlit bathroom holds a glass serum bottle up to the camera and talks excitedly, iPhone selfie framing, ring-light catchlights in her eyes, authentic creator energy",
-      "purpose": "ugc-ad"
+      "purpose": "ugc-ad",
+      "useCase": "ai-ugc-ads"
     },
     {
       "id": "ugc-unboxing",
@@ -16,25 +17,28 @@
       "aspect": "9:16",
       "accent": "#c2820a",
       "prompt": "Overhead unboxing video: hands lift limited-edition sneakers out of a box on a wooden desk, tissue paper crinkles, warm afternoon light, satisfying slow reveal",
-      "purpose": "ugc-ad"
+      "purpose": "ugc-ad",
+      "useCase": "ai-ugc-ads"
     },
     {
       "id": "ugc-food",
-      "tag": "Food",
+      "tag": "Social",
       "title": "Smoothie bowl pour",
       "aspect": "9:16",
       "accent": "#0d9488",
       "prompt": "POV food reel: thick berry smoothie pours into a ceramic bowl, granola sprinkled on top in slow motion, bright morning kitchen, appetizing macro detail",
-      "purpose": "social"
+      "purpose": "social",
+      "useCase": "product-explainers"
     },
     {
       "id": "product-earbuds",
-      "tag": "Product",
+      "tag": "Product marketing",
       "title": "Earbuds hero shot",
       "aspect": "16:9",
       "accent": "#6d5ef8",
       "prompt": "Studio product film: matte-black wireless earbuds rotate on a glass pedestal, dramatic rim lighting, dust particles drifting through the light beam",
-      "purpose": "product"
+      "purpose": "explainer",
+      "useCase": "product-explainers"
     },
     {
       "id": "fashion-gown",
@@ -43,7 +47,8 @@
       "aspect": "16:9",
       "accent": "#d6457a",
       "prompt": "Fashion film: a model in a flowing crimson evening gown walks toward camera through a mirrored hallway, slow motion, cinematic lighting",
-      "purpose": "fashion"
+      "purpose": "fashion",
+      "useCase": ""
     },
     {
       "id": "brand-city",
@@ -52,7 +57,48 @@
       "aspect": "16:9",
       "accent": "#22d3ee",
       "prompt": "Aerial brand film: a drone rises over a neon-lit city at dusk revealing the skyline, cinematic teal and magenta color grade",
-      "purpose": "brand"
+      "purpose": "brand",
+      "useCase": ""
+    },
+    {
+      "id": "training-safety",
+      "tag": "Training",
+      "title": "Safe-lifting scenario",
+      "aspect": "16:9",
+      "accent": "#0d9488",
+      "prompt": "Workplace training scenario: a warehouse worker in a hi-vis vest demonstrates correct lifting posture beside tall shelving, a supervisor nods approval, clean instructional framing, bright even lighting",
+      "purpose": "training",
+      "useCase": "training-videos"
+    },
+    {
+      "id": "course-solar",
+      "tag": "Course",
+      "title": "Solar system lesson",
+      "aspect": "16:9",
+      "accent": "#6d5ef8",
+      "prompt": "Educational lesson visual: the solar system forms from a swirling disk of dust and gas, planets condensing one by one around a young sun, clear scientific visualization, deep-space backdrop",
+      "purpose": "course",
+      "useCase": "course-videos"
+    },
+    {
+      "id": "internal-launch",
+      "tag": "Internal comms",
+      "title": "Launch-day announcement",
+      "aspect": "16:9",
+      "accent": "#c2820a",
+      "prompt": "Internal announcement video: confetti drifts over a modern open-plan office as a small team celebrates a product launch at a standing desk, warm natural light, genuine energy",
+      "purpose": "internal",
+      "useCase": "internal-communications"
+    },
+    {
+      "id": "onboarding-checklist",
+      "tag": "Onboarding",
+      "title": "Getting-started explainer",
+      "aspect": "16:9",
+      "accent": "#22d3ee",
+      "prompt": "SaaS onboarding explainer: a laptop on a tidy desk glows as an animated checklist ticks itself complete beside a steaming coffee cup, soft gradient light, modern tech aesthetic",
+      "purpose": "explainer",
+      "useCase": "customer-onboarding"
     }
   ]
 }
