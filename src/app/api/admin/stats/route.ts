@@ -55,7 +55,10 @@ export async function GET(req: Request) {
     supabaseAdmin.from("billing_customers").select("user_id, stripe_customer_id").limit(1000),
   ]);
 
-  const users = usersRes.data?.users ?? [];
+  // Only real, registered accounts — a confirmed email means they entered the
+  // correct one-time code. Requesting a code creates an unconfirmed placeholder
+  // row (no session, no access); those are abandoned sign-ups, not users.
+  const users = (usersRes.data?.users ?? []).filter((u) => u.email_confirmed_at ?? u.last_sign_in_at);
   const credits = new Map((profilesRes.data ?? []).map((p) => [p.id, p.credits as number]));
   const gens = gensRes.data ?? [];
   const assets = assetsRes.data ?? [];
