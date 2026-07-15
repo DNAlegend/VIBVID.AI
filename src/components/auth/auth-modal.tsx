@@ -4,8 +4,7 @@
 // One flow for new and returning users (the code creates the account when the
 // email is new). No passwords anywhere. The email Supabase sends also carries
 // a sign-in link — tapping it works too — but the code keeps everything on
-// this device, in this modal. Code length follows the project setting
-// (currently 8 digits in production), so validation accepts 6–8.
+// this device, in this modal. The project's email OTP length is 6 digits.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -29,7 +28,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
   const codeRef = useRef<HTMLInputElement>(null);
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
-  const codeValid = /^\d{6,8}$/.test(code.trim());
+  const codeValid = /^\d{6}$/.test(code.trim());
   const captchaReady = !captchaEnabled || Boolean(captchaToken);
 
   // The modal stays mounted across open/close — start over on close (keep the
@@ -166,10 +165,10 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
             inputMode="numeric"
             autoComplete="one-time-code"
             placeholder="123456"
-            maxLength={8}
+            maxLength={6}
             value={code}
             className="text-center font-mono !text-2xl tracking-[0.35em]"
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             onKeyDown={(e) => e.key === "Enter" && codeValid && verifyCode()}
           />
           {msg && (

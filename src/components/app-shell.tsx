@@ -389,7 +389,7 @@ function SignUpGate() {
   async function verifyCode() {
     if (!supabase || verifying) return;
     const token = otpCode.trim();
-    if (!/^\d{6,8}$/.test(token)) return;
+    if (!/^\d{6}$/.test(token)) return;
     setVerifying(true);
     setOtpError(null);
     try {
@@ -492,17 +492,17 @@ function SignUpGate() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 placeholder="123456"
-                maxLength={8}
+                maxLength={6}
                 autoFocus
                 value={otpCode}
                 className="text-center font-mono !text-2xl tracking-[0.35em]"
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 onKeyDown={(e) => e.key === "Enter" && verifyCode()}
               />
             </div>
             {otpError && <p className="mt-3 text-center text-sm text-danger">{otpError}</p>}
             <div className="mt-5 flex flex-col items-center gap-3">
-              <Button onClick={verifyCode} disabled={verifying || !/^\d{6,8}$/.test(otpCode.trim())}>
+              <Button onClick={verifyCode} disabled={verifying || !/^\d{6}$/.test(otpCode.trim())}>
                 {verifying ? <Loader2 size={16} className="animate-spin" /> : <>Verify &amp; continue</>}
               </Button>
               {captchaEnabled && !resent && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
