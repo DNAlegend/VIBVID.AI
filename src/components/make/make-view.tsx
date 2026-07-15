@@ -261,8 +261,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
   }, [modelId]);
 
   // Draft-first for small balances: the purpose presets default to Production
-  // (~90cr for 5s), which a free account (20cr) can never afford — their first
-  // click would be a disabled button. Once the balance is known, if it can't
+  // (~90cr for 5s), which a low balance can't afford — the first click would
+  // be a disabled button. Once the balance is known, if it can't
   // cover a single 5s render on the preset model, start them on Draft instead.
   // Runs once per mount and never overrides a choice the user made themselves.
   const autoDrafted = useRef(false);

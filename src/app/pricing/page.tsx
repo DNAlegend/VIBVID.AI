@@ -4,7 +4,7 @@ import { Header, Pricing, FAQ, Footer } from "@/components/marketing/landing";
 export const metadata: Metadata = {
   title: "Pricing — VIBVID.AI",
   description:
-    "Simple monthly plans for VIBVID.AI. Start free, then scale on credits — Creator, Pro and Agency. Cancel anytime.",
+    "Simple plans for VIBVID.AI — Creator, Pro and Agency, from $19/month. Pay yearly and get 4 months on us. Cancel anytime.",
 };
 
 export default function PricingPage() {

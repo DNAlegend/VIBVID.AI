@@ -50,7 +50,7 @@ export default function CookiesPage() {
               rel="noopener noreferrer"
               className="text-accent-2 underline hover:text-accent"
             >
-              Mamo&rsquo;s privacy &amp; cookie policy
+              Stripe&rsquo;s privacy &amp; cookie policy
             </a>
             .
           </li>

@@ -62,7 +62,7 @@ export default function ContactPage() {
           <span>
             Card payments and subscriptions are processed securely by our payment processor,{" "}
             <strong>{COMPANY.paymentProcessor}</strong>. For payment or invoice queries, email us or
-            use the link on the receipt Mamo emailed you.
+            use the link on the receipt Stripe emailed you.
           </span>
         </p>
       </Section>

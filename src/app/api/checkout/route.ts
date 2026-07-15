@@ -1,8 +1,8 @@
 // Start a checkout for a top-up pack or a subscription plan.
 // Records a pending purchase (server-priced from the billing catalog — never
-// trusts the client's amount), then creates a hosted Mamo payment link and
-// hands the browser its checkout URL to redirect to. Mamo is our payment
-// processor; VIBVID.AI is the seller. We never touch card data.
+// trusts the client's amount), then creates a Stripe Checkout Session and
+// hands the browser its URL to redirect to. Stripe is our payment processor;
+// VIBVID.AI is the seller. We never touch card data.
 //
 // Two ways in: a signed-in caller (Authorization header), or a guest with just
 // an email — we create their account server-side so they can pay first and
@@ -11,21 +11,21 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin, userIdFromRequest, userIdForEmail } from "@/lib/supabase-admin";
 import { billingItem } from "@/lib/billing";
-import { mamoConfigured, createMamoLink } from "@/lib/mamo";
+import { stripeConfigured, createStripeCheckout } from "@/lib/stripe";
 
 export const maxDuration = 20;
 
 export async function POST(req: Request) {
-  if (!mamoConfigured() || !supabaseAdmin) {
-    // Mamo not wired up — the client falls back to demo credits.
+  if (!stripeConfigured() || !supabaseAdmin) {
+    // Stripe not wired up — the client falls back to demo credits.
     return NextResponse.json({ error: "Payments not configured" }, { status: 501 });
   }
   const body = await req.json().catch(() => null);
   const item = billingItem(typeof body?.itemId === "string" ? body.itemId : "");
   if (!item) return NextResponse.json({ error: "Unknown item" }, { status: 400 });
 
-  // Where Mamo redirects the buyer back to. Trust our own header origin first,
-  // falling back to a client-sent origin for local dev.
+  // Where Stripe redirects the buyer back to. Trust our own header origin
+  // first, falling back to a client-sent origin for local dev.
   const origin =
     req.headers.get("origin") ??
     (typeof body?.origin === "string" ? body.origin : new URL(req.url).origin);
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   let userId = await userIdFromRequest(req);
   let customerEmail: string | null = null;
   if (userId) {
-    // Look up the payer's email to prefill Mamo's checkout.
+    // Look up the payer's email to prefill Stripe's checkout.
     const { data } = await supabaseAdmin.auth.admin.getUserById(userId);
     customerEmail = data.user?.email ?? null;
   } else {
@@ -67,24 +67,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not start checkout" }, { status: 500 });
   }
 
-  // Create the hosted Mamo link. external_id + custom_data.purchase_id tie the
-  // resulting charge (and every subscription renewal) back to this pending row
-  // so the webhook can settle it.
+  // Create the Checkout Session. The purchase id rides in the session (and,
+  // for plans, the subscription) metadata so the webhook can settle the first
+  // charge and every renewal against this pending row.
   try {
-    const link = await createMamoLink({
+    const session = await createStripeCheckout({
       item,
       purchaseId: purchase.id,
+      userId,
       origin,
       email: customerEmail,
     });
     return NextResponse.json({
-      provider: "mamo",
+      provider: "stripe",
       purchaseId: purchase.id,
-      checkoutUrl: link.paymentUrl,
+      checkoutUrl: session.url,
     });
   } catch (e) {
     await supabaseAdmin.from("credit_purchases").update({ status: "failed" }).eq("id", purchase.id);
-    console.error("[checkout] Mamo link creation failed:", e instanceof Error ? e.message : e);
+    console.error("[checkout] Stripe session creation failed:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Could not start checkout" }, { status: 502 });
   }
 }

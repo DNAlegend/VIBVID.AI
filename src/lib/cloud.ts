@@ -212,7 +212,7 @@ export async function fetchCloudState(): Promise<CloudState | null> {
     const firstError = profile.error ?? cats.error ?? assets.error ?? gens.error;
     if (firstError) throw firstError;
     return {
-      credits: profile.data?.credits ?? 20,
+      credits: profile.data?.credits ?? 0,
       categories: (cats.data ?? []).map(rowToCategory),
       assets: (assets.data ?? []).map(rowToAsset),
       videos: (gens.data ?? []).map(rowToJob),

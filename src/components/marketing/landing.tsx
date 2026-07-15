@@ -177,13 +177,13 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <CTA href={APP}>
-            <Sparkles size={18} /> Start creating free
+            <Sparkles size={18} /> Start creating
           </CTA>
           <CTA href="#how" variant="outline">
             See how it works <ArrowRight size={16} />
           </CTA>
         </div>
-        <p className="mt-3 text-[13px] text-faint">Free to start · paid plans from $19/month · cancel anytime</p>
+        <p className="mt-3 text-[13px] text-faint">Plans from $19/month · 4 months on us when billed yearly · cancel anytime</p>
 
         {/* concrete value pills */}
         <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
@@ -703,33 +703,16 @@ type Plan = {
   perks: string[];
   cta: string;
   /** Billing catalog id — the CTA jumps straight into checkout. */
-  itemId?: string;
-  /** For the free plan: go straight into the app instead of checkout. */
-  href?: string;
+  itemId: string;
+  /** Annual offer (8× the monthly price — 4 months on us). */
+  yearPrice: string;
 };
 
 const PLANS: Plan[] = [
   {
-    name: "Free",
-    price: "$0",
-    period: "",
-    headline: "20 credits to try",
-    credits: "20",
-    blurb: "Kick the tires — no card needed.",
-    popular: false,
-    perks: [
-      "20 credits included",
-      "Draft & Production models",
-      "Output carries a small watermark",
-      "Standard queue priority",
-    ],
-    cta: "Start free",
-    href: APP,
-  },
-  {
     name: "Creator",
     price: "$19",
-    aed: "AED 69",
+    aed: "AED 70",
     period: "/ mo",
     headline: "≈ 3 Full-HD clips (5s each) / mo",
     credits: "300",
@@ -744,42 +727,45 @@ const PLANS: Plan[] = [
     ],
     cta: "Get Creator",
     itemId: "plan-creator",
+    yearPrice: "$152",
   },
   {
     name: "Pro",
-    price: "$49",
-    aed: "AED 179",
+    price: "$39",
+    aed: "AED 143",
     period: "/ mo",
-    headline: "≈ 11 Full-HD clips (5s each) / mo",
-    credits: "1,000",
+    headline: "≈ 8 Full-HD clips (5s each) / mo",
+    credits: "800",
     blurb: "For businesses & marketers.",
     popular: true,
     perks: [
-      "1,000 credits / month",
+      "800 credits / month",
       "Everything in Creator",
       "Native 4K export",
       "Faster generation",
     ],
     cta: "Get Pro",
     itemId: "plan-pro",
+    yearPrice: "$312",
   },
   {
     name: "Agency",
-    price: "$129",
-    aed: "AED 475",
+    price: "$69",
+    aed: "AED 253",
     period: "/ mo",
-    headline: "≈ 33 Full-HD clips (5s each) / mo",
-    credits: "3,000",
+    headline: "≈ 16 Full-HD clips (5s each) / mo",
+    credits: "1,500",
     blurb: "For agencies & content teams.",
     popular: false,
     perks: [
-      "3,000 credits / month",
+      "1,500 credits / month",
       "Everything in Pro",
       "Multiple brand workspaces",
       "Team access",
     ],
     cta: "Get Agency",
     itemId: "plan-agency",
+    yearPrice: "$552",
   },
 ];
 
@@ -789,13 +775,13 @@ export function Pricing() {
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <Badge tone="accent" className="mb-3">Pricing</Badge>
-          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Start free. Scale on credits.</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Simple plans. Scale on credits.</h2>
           <p className="mt-3 text-[17px] text-muted">
             Every plan is a monthly credit budget — draft cheaply, produce in full quality, and
-            top up any time. No surprise bills, no lock-in.
+            top up any time. Pay for the year and get 4 months on us. No surprise bills, no lock-in.
           </p>
         </div>
-        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {PLANS.map((p) => (
             <div
               key={p.name}
@@ -830,13 +816,19 @@ export function Pricing() {
                 ))}
               </ul>
               <CTA
-                href={p.href ?? `${APP}?buy=${p.itemId}`}
+                href={`${APP}?buy=${p.itemId}`}
                 variant={p.popular ? "primary" : "outline"}
                 size="md"
                 className="mt-6 w-full"
               >
                 {p.cta}
               </CTA>
+              <Link
+                href={`${APP}?buy=${p.itemId}-year`}
+                className="mt-2.5 text-center text-[12.5px] font-medium text-accent-2 hover:underline"
+              >
+                or {p.yearPrice}/yr — 4 months on us
+              </Link>
             </div>
           ))}
         </div>
@@ -866,10 +858,10 @@ export function Pricing() {
           cannot be exchanged, transferred or resold.
         </p>
         <p className="mx-auto mt-3 max-w-2xl text-center text-[12px] leading-relaxed text-faint">
-          Plans are billed monthly in US dollars and renew automatically until you cancel — cancel
-          anytime from your account. The price you see is the total you pay: no taxes or extra fees
-          are added at checkout. Card payments and subscriptions are processed securely by our
-          payment processor, {COMPANY.paymentProcessor}. See our{" "}
+          Plans are billed in US dollars — monthly, or yearly with 4 months on us — and renew
+          automatically until you cancel — cancel anytime from your account. The price you see is
+          the total you pay: no taxes or extra fees are added at checkout. Card payments and
+          subscriptions are processed securely by our payment processor, {COMPANY.paymentProcessor}. See our{" "}
           <Link href="/refunds" className="underline hover:text-fg">Refund &amp; Cancellation Policy</Link>{" "}
           and{" "}
           <Link href="/terms" className="underline hover:text-fg">Terms</Link>.
@@ -894,7 +886,7 @@ const FAQS = [
   },
   {
     q: "How do credits work?",
-    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~3 credits, a 5-second Draft clip ~15, a 5-second 720p HD render ~45, and a 5-second 1080p Full-HD render (native audio) ~90; native 4K is the top tier at ~200. Paid plans refill monthly (Creator 300, Pro 1,000, Agency 3,000) and reset each cycle; the Free tier includes 20 one-time credits to try the studio. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
+    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~3 credits, a 5-second Draft clip ~15, a 5-second 720p HD render ~45, and a 5-second 1080p Full-HD render (native audio) ~90; native 4K is the top tier at ~200. Plans refill monthly (Creator 300, Pro 800, Agency 1,500) and reset each cycle; annual billing deposits the full year of credits up front. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
   },
   {
     q: "Do I own what I make, and can I use it commercially?",
@@ -963,7 +955,7 @@ function FinalCTA() {
           Start producing today
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-[16px] text-white/85">
-          Spin up your studio in seconds — free to start, paid plans from $19/month, cancel anytime.
+          Spin up your studio in seconds — plans from $19/month, 4 months on us when billed yearly, cancel anytime.
         </p>
         <div className="mt-7 flex justify-center">
           <Link

@@ -20,11 +20,11 @@ export const COMPANY = {
   /** One real inbox — sales/business inquiries also route to support. */
   salesEmail: "support@vibvid.ai",
   /**
-   * Mamo is our payment processor: it securely handles card payments and
+   * Stripe is our payment processor: it securely handles card payments and
    * subscriptions. VIBVID.AI™ is the seller for all transactions.
    */
-  paymentProcessor: "Mamo (Mamopay Limited)",
-  paymentProcessorSite: "https://www.mamopay.com",
+  paymentProcessor: "Stripe",
+  paymentProcessorSite: "https://stripe.com",
 } as const;
 
 /** Footer/nav links to every legal page — reused across the marketing site. */

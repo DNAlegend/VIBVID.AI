@@ -41,22 +41,23 @@ export default function TermsPage() {
       <Section heading="3. Credits, plans and billing">
         <p>
           The Service runs on a credit system. Generating content spends credits at the rates shown in
-          the app. You obtain credits by subscribing to a monthly plan (credits refresh each billing
-          cycle and do not roll over) or by buying one-time top-up packs (which remain valid for 12
-          months from purchase). Free-tier credits are provided for evaluation and may carry a
+          the app. You obtain credits by subscribing to a plan — billed monthly (credits refresh each
+          billing cycle and do not roll over) or annually (the full year of credits is deposited up
+          front on each yearly charge) — or by buying one-time top-up packs (which remain valid for 12
+          months from purchase). Promotional or evaluation credits, where granted, may carry a
           watermark. Credits are non-transferable service-usage units: they have no cash value and
           cannot be exchanged, transferred, resold, or redeemed for money.
         </p>
         <p>
           <strong>Payment processing.</strong> Card payments and subscriptions are processed securely
-          by our payment processor, {COMPANY.paymentProcessor} (&ldquo;Mamo&rdquo;); Mamo handles the
+          by our payment processor, {COMPANY.paymentProcessor}; Stripe handles the
           checkout and card processing but is not a party to your purchase. When you buy from us, your
           contract for both the purchase and the use of the Service is with {COMPANY.legalName} under
-          these Terms. Mamo&rsquo;s terms also apply to the payment transaction itself.
+          these Terms. Stripe&rsquo;s terms also apply to the payment transaction itself.
         </p>
         <p>
           Subscriptions renew automatically each billing period at the then-current price until you
-          cancel. You authorise us and Mamo to charge your payment method on each renewal. Prices are
+          cancel. You authorise us and Stripe to charge your payment method on each renewal. Prices are
           shown in US dollars and are the total amount you pay — the advertised price is charged in
           full, with no additional taxes or fees added at checkout.
         </p>

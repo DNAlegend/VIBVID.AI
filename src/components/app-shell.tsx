@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, Lightbulb, LogOut, Loader2, Mail, Plus, Coins, Scissors, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
-import { TOPUPS, PLAN_ITEMS, billingItem, type BillingItem } from "@/lib/billing";
+import { TOPUPS, PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 import { Button, Modal, Badge, TextInput } from "@/components/ui";
 import { AuthModal } from "@/components/auth/auth-modal";
@@ -104,7 +104,7 @@ function CreditWidget({ onBuy }: { onBuy: () => void }) {
 const CHECKOUT_EMAIL_KEY = "vibvid-checkout-email";
 
 /**
- * Ask the server to start a Mamo checkout. Pass a `token` for a signed-in
+ * Ask the server to start a Stripe checkout. Pass a `token` for a signed-in
  * buyer, or an `email` for a guest (their account is created server-side).
  * Returns the hosted checkout URL to redirect to, or null when payments aren't
  * configured on the server (501), in which case callers fall back to demo credits.
@@ -131,7 +131,7 @@ async function requestCheckout(
     throw new Error(d.error ?? "Checkout failed");
   }
   const data = await res.json();
-  if (data.provider === "mamo" && typeof data.checkoutUrl === "string") {
+  if (data.provider === "stripe" && typeof data.checkoutUrl === "string") {
     return { checkoutUrl: data.checkoutUrl };
   }
   return null;
@@ -151,18 +151,20 @@ function BuyCreditsModal({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [cycle, setCycle] = useState<"month" | "year">("month");
   const autostarted = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
     setSelected(autostart?.id ?? null);
+    setCycle(autostart?.interval === "year" ? "year" : "month");
   }, [open, autostart]);
 
-  // Start a Mamo checkout by redirecting to the hosted payment page. Only
-  // signed-in users reach this modal (the paywall gate handles guests); without
-  // cloud keys, fall back to demo credits. On return (?purchase=success) the
-  // AppShell effect polls the webhook-granted credits in.
+  // Start a Stripe checkout by redirecting to the hosted payment page. Only
+  // signed-in users reach this modal (the paywall gate handles guests). The
+  // demo grant exists ONLY for local no-cloud setups — a real account never
+  // gets free credits, even if Stripe is temporarily unconfigured.
   async function buy(item: BillingItem) {
     if (busy) return;
     setSelected(item.id);
@@ -177,13 +179,15 @@ function BuyCreditsModal({
       if (token) {
         const start = await requestCheckout(item, { token });
         if (start) {
-          // Leave the app for Mamo's hosted checkout; the webhook grants credits.
+          // Leave the app for Stripe's hosted checkout; the webhook grants credits.
           window.location.href = start.checkoutUrl;
           return;
         }
-        // null → payments not configured yet; fall through to demo.
+        // null → payments not configured on the server (501).
+        setError("Payments aren’t configured on this server yet — try again later.");
+        return;
       }
-      // Demo fallback: instant credits, no charge.
+      // Local demo (no cloud): instant credits, no charge.
       addCredits(item.credits);
       onClose();
     } catch (e) {
@@ -235,11 +239,25 @@ function BuyCreditsModal({
         ))}
       </div>
 
-      <div className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-faint">
-        Or subscribe — monthly
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wider text-faint">Or subscribe</div>
+        <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12px] font-medium">
+          <button
+            onClick={() => setCycle("month")}
+            className={cn("rounded-full px-3 py-1 transition-colors", cycle === "month" ? "bg-accent text-white" : "text-muted hover:text-fg")}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setCycle("year")}
+            className={cn("rounded-full px-3 py-1 transition-colors", cycle === "year" ? "bg-accent text-white" : "text-muted hover:text-fg")}
+          >
+            Annual · 4 months on us
+          </button>
+        </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {PLAN_ITEMS.map((p) => (
+      <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {(cycle === "year" ? PLAN_ITEMS_YEARLY : PLAN_ITEMS).map((p) => (
           <button
             key={p.id}
             disabled={!!busy}
@@ -255,10 +273,16 @@ function BuyCreditsModal({
           >
             <div>
               <div className="text-sm font-semibold text-fg">{p.label}</div>
-              <div className="text-xs text-faint">{p.credits.toLocaleString()} credits / mo · {p.sublabel}</div>
+              <div className="text-xs text-faint">
+                {p.credits.toLocaleString()} credits / {p.interval === "year" ? "yr" : "mo"} · {p.sublabel}
+              </div>
             </div>
             <div className="flex items-center gap-1.5 text-lg font-semibold text-accent-2">
-              {busy === p.id ? <Loader2 size={16} className="animate-spin" /> : <>{p.priceLabel}<span className="text-xs font-normal text-faint">/mo</span></>}
+              {busy === p.id ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <>{p.priceLabel}<span className="text-xs font-normal text-faint">/{p.interval === "year" ? "yr" : "mo"}</span></>
+              )}
             </div>
           </button>
         ))}
@@ -266,8 +290,8 @@ function BuyCreditsModal({
 
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       <p className="mt-4 text-xs text-faint">
-        Secure checkout by Mamo, our payment processor. Plans renew monthly until cancelled;
-        credits are added the moment your payment clears. See our{" "}
+        Secure checkout by Stripe, our payment processor. Plans renew each billing period until
+        cancelled; credits are added the moment your payment clears. See our{" "}
         <a href="/refunds" className="underline hover:text-fg">Refund &amp; Cancellation Policy</a>.
       </p>
     </Modal>
@@ -275,9 +299,9 @@ function BuyCreditsModal({
 }
 
 /**
- * Full-screen gate shown to visitors who aren't signed in: pick a paid plan
- * (email → payment → confirm) or create a free account. Nothing behind it is
- * usable until they've done one of the two.
+ * Full-screen gate shown to visitors who aren't signed in: pick a plan
+ * (email → payment → confirm). No free tier — nothing behind the gate is
+ * usable until they've paid or signed in to an existing account.
  */
 function PaywallGate({
   preselect,
@@ -292,19 +316,20 @@ function PaywallGate({
   onSignInInstead: (resume: BillingItem | null) => void;
   onStartOver: () => void;
 }) {
-  const setAuthOpen = useStore((s) => s.setAuthOpen);
   // Two-step flow: collect the email first, then let them pick a plan.
   const [step, setStep] = useState<"email" | "plan">("email");
   const [email, setEmail] = useState("");
+  // Only subscription items may preselect a plan here — a top-up ?buy= link
+  // resumes through BuyCreditsModal after sign-in instead.
+  const planPreselect = preselect?.kind === "subscription" ? preselect : null;
   const [selectedId, setSelectedId] = useState(
-    preselect?.id ?? PLAN_ITEMS.find((p) => p.popular)?.id ?? PLAN_ITEMS[0].id,
+    planPreselect?.id.replace(/-year$/, "") ?? PLAN_ITEMS.find((p) => p.popular)?.id ?? PLAN_ITEMS[0].id,
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
-  // Set when a free signup code is sent. `confirmMode` tailors the confirm copy.
-  const [paidEmail, setPaidEmail] = useState<string | null>(null);
-  const [confirmMode, setConfirmMode] = useState<"paid" | "free">("paid");
+  // Billing cycle for the plan picker — annual is 8× the monthly price ("4 months on us").
+  const [cycle, setCycle] = useState<"month" | "year">(planPreselect?.interval === "year" ? "year" : "month");
   // The 6-digit code typed on the confirm step.
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -319,17 +344,20 @@ function PaywallGate({
   }
 
   useEffect(() => {
-    if (preselect) setSelectedId(preselect.id);
-  }, [preselect]);
+    if (!planPreselect) return;
+    // Normalize a yearly preselect to its monthly base + the annual cycle.
+    setSelectedId(planPreselect.id.replace(/-year$/, ""));
+    if (planPreselect.interval === "year") setCycle("year");
+  }, [planPreselect]);
 
-  const isFree = selectedId === "free";
-  // The paid plan the CTA acts on (Free falls back to the popular plan for copy).
-  const paid = PLAN_ITEMS.find((p) => p.id === selectedId)
+  // The monthly plan the picker tracks, and the actual billed item per cycle.
+  const baseMonthly = PLAN_ITEMS.find((p) => p.id === selectedId)
     ?? PLAN_ITEMS.find((p) => p.popular)
     ?? PLAN_ITEMS[0];
+  const paid = (cycle === "year" ? planVariant(baseMonthly.id, "year") : null) ?? baseMonthly;
   const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
-  // Confirm step: reached via full-page return (?purchase=success) or on-page.
-  const confirmingEmail = confirmEmail ?? paidEmail;
+  // Confirm step: reached via full-page return (?purchase=success).
+  const confirmingEmail = confirmEmail;
 
   // Step 1 → Step 2: validate the email, then reveal the plans.
   function toPlanStep() {
@@ -357,50 +385,11 @@ function PaywallGate({
       }
       // Remember who's paying so the return handler can confirm their account.
       localStorage.setItem(CHECKOUT_EMAIL_KEY, email.trim().toLowerCase());
-      // Redirect to Mamo's hosted checkout; on return (?purchase=success) the
+      // Redirect to Stripe's hosted checkout; on return (?purchase=success) the
       // AppShell reads this email and sends the account-confirmation link.
       window.location.href = start.checkoutUrl;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");
-      setBusy(false);
-    }
-  }
-
-  // Free plan: no payment. Email a 6-digit code — verifying it creates the
-  // account, which starts with the free credit balance (DB default).
-  async function goFree() {
-    if (busy) return;
-    setError(null);
-    if (!emailValid) {
-      setError("Enter your email to start on the free plan.");
-      return;
-    }
-    if (!supabase) {
-      setError("Accounts aren’t configured on this server yet — try again later.");
-      return;
-    }
-    if (!captchaReady) {
-      setError("Complete the verification first.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const e = email.trim().toLowerCase();
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: e,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}/app`,
-          ...(captchaToken ? { captchaToken } : {}),
-        },
-      });
-      if (otpError) throw otpError;
-      setConfirmMode("free");
-      setPaidEmail(e);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn’t start your free account");
-    } finally {
-      consumeCaptcha();
       setBusy(false);
     }
   }
@@ -464,10 +453,8 @@ function PaywallGate({
           </span>
           <h1 className="font-display mt-5 text-2xl font-bold tracking-tight">Enter your code</h1>
           <p className="mt-3 text-[15px] leading-relaxed text-muted">
-            {confirmMode === "free"
-              ? "Your free account is ready — 20 credits to try the studio."
-              : "Payment received."}{" "}
-            {captchaEnabled && confirmMode === "paid" ? (
+            Payment received.{" "}
+            {captchaEnabled ? (
               <>
                 Complete the quick check below and press “Send the code” — we’ll email a sign-in
                 code to <span className="font-semibold text-fg">{confirmingEmail}</span>.
@@ -479,12 +466,10 @@ function PaywallGate({
                 tap the link in the same email.
               </>
             )}
-            {confirmMode === "paid" && (
-              <span className="mt-2 block text-[13px] text-faint">
-                If your credits don’t appear after signing in, email support@vibvid.ai — include the
-                receipt Mamo sent you.
-              </span>
-            )}
+            <span className="mt-2 block text-[13px] text-faint">
+              If your credits don’t appear after signing in, email support@vibvid.ai — include the
+              receipt Stripe sent you.
+            </span>
           </p>
           <div className="mx-auto mt-6 max-w-[240px]">
             <TextInput
@@ -510,14 +495,13 @@ function PaywallGate({
               <Mail size={14} />{" "}
               {resent
                 ? "Code sent — check your inbox"
-                : captchaEnabled && confirmMode === "paid"
+                : captchaEnabled
                   ? "Send the code"
                   : "Resend the code"}
             </Button>
             <button
               className="text-[13px] font-medium text-accent-2 hover:underline"
               onClick={() => {
-                setPaidEmail(null);
                 setOtpCode("");
                 setOtpError(null);
                 onStartOver();
@@ -545,7 +529,7 @@ function PaywallGate({
               <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Let’s get started</h1>
               <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
                 Enter your email to create your account — you’ll pick a plan next.
-                Start free or go straight to a paid plan. Cancel anytime.
+                Pay monthly or annually. Cancel anytime.
               </p>
             </div>
 
@@ -571,7 +555,7 @@ function PaywallGate({
               Already have an account?{" "}
               <button
                 className="font-medium text-accent-2 hover:underline"
-                onClick={() => onSignInInstead(preselect ? paid : null)}
+                onClick={() => onSignInInstead(preselect)}
               >
                 Sign in
               </button>
@@ -596,47 +580,41 @@ function PaywallGate({
             <div className="mt-3 text-center">
               <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
               <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-                Start free with 20 credits, or pick a paid plan and go straight to payment. Cancel anytime.
+                Pick a plan and go straight to payment. Pay for the year and get 4 months on us. Cancel anytime.
               </p>
             </div>
 
-            <div className="mt-7 space-y-3">
-              {/* Free — no payment, 20 credits to try */}
-              <button
-                onClick={() => setSelectedId("free")}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
-                  isFree ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-full border",
-                      isFree ? "border-accent" : "border-line-2",
-                    )}
-                  >
-                    {isFree && <span className="h-2 w-2 rounded-full bg-accent" />}
-                  </span>
-                  <span>
-                    <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
-                      Free
-                      <Badge tone="neutral">No card</Badge>
-                    </span>
-                    <span className="block text-[12.5px] text-faint">
-                      20 credits · try the studio, watermarked output
-                    </span>
-                  </span>
-                </span>
-                <span className="text-lg font-bold text-fg">$0</span>
-              </button>
+            <div className="mt-5 flex justify-center">
+              <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12.5px] font-medium">
+                <button
+                  onClick={() => setCycle("month")}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 transition-colors",
+                    cycle === "month" ? "bg-accent text-white" : "text-muted hover:text-fg",
+                  )}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setCycle("year")}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 transition-colors",
+                    cycle === "year" ? "bg-accent text-white" : "text-muted hover:text-fg",
+                  )}
+                >
+                  Annual · 4 months on us
+                </button>
+              </div>
+            </div>
 
-              {PLAN_ITEMS.map((p) => {
-                const active = selectedId === p.id;
+            <div className="mt-4 space-y-3">
+              {PLAN_ITEMS.map((base) => {
+                const p = (cycle === "year" ? planVariant(base.id, "year") : null) ?? base;
+                const active = selectedId === base.id;
                 return (
                   <button
-                    key={p.id}
-                    onClick={() => setSelectedId(p.id)}
+                    key={base.id}
+                    onClick={() => setSelectedId(base.id)}
                     className={cn(
                       "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
                       active ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
@@ -657,32 +635,26 @@ function PaywallGate({
                           {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
                         </span>
                         <span className="block text-[12.5px] text-faint">
-                          {p.credits.toLocaleString()} credits / mo · {p.sublabel}
+                          {cycle === "year"
+                            ? p.sublabel
+                            : `${p.credits.toLocaleString()} credits / mo · ${p.sublabel}`}
                         </span>
                       </span>
                     </span>
                     <span className="text-lg font-bold text-fg">
                       {p.priceLabel}
-                      <span className="text-xs font-normal text-faint">/mo</span>
+                      <span className="text-xs font-normal text-faint">{cycle === "year" ? "/yr" : "/mo"}</span>
                     </span>
                   </button>
                 );
               })}
             </div>
 
-            {isFree && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
-            <Button
-              className="mt-4 w-full"
-              size="lg"
-              onClick={isFree ? goFree : go}
-              disabled={busy || (isFree && !captchaReady)}
-            >
+            <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
               {busy ? (
                 <Loader2 size={17} className="animate-spin" />
-              ) : isFree ? (
-                <>Start free — no card needed</>
               ) : (
-                <>Continue to payment — {paid.priceLabel}/mo</>
+                <>Continue to payment — {paid.priceLabel}{cycle === "year" ? "/yr" : "/mo"}</>
               )}
             </Button>
             {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
@@ -693,9 +665,8 @@ function PaywallGate({
             </p>
 
             <p className="mt-5 text-center text-[12px] text-faint">
-              {isFree
-                ? "No card required — upgrade any time from inside the studio."
-                : "Secure checkout by Mamo · charged in US dollars · renews monthly · cancel anytime."}
+              Secure checkout by Stripe · charged in US dollars · renews{" "}
+              {cycle === "year" ? "yearly" : "monthly"} · cancel anytime.
             </p>
           </>
         )}

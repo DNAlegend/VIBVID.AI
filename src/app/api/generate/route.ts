@@ -10,10 +10,12 @@
 //            result into Storage and finalize the row; on failure refund.
 //
 // All Supabase access uses the CALLER's token (anon key + Authorization
-// header), so RLS applies exactly as it does in the browser.
+// header), so RLS applies exactly as it does in the browser — except refunds,
+// which go through the service role (clients can never add credits).
 
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { clampResolution, getModel, priceFor } from "@/lib/models";
 import { allowRequest, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
@@ -51,15 +53,25 @@ function arkHeaders() {
   return { "Content-Type": "application/json", Authorization: `Bearer ${process.env.ARK_API_KEY}` };
 }
 
-async function refund(sb: SupabaseClient, cost: number) {
+// Refund a spend after a failed generation. Positive adjustments are locked
+// to the service role (20260715130000_lock_credit_writes.sql); the
+// caller-scoped RPC remains as a fallback for setups without a service key
+// or before that migration is applied.
+async function refund(sb: SupabaseClient, userId: string, cost: number) {
+  if (cost <= 0) return;
+  if (supabaseAdmin) {
+    const { error } = await supabaseAdmin.rpc("grant_credits", { p_user: userId, p_delta: cost });
+    if (!error) return;
+  }
   await sb.rpc("adjust_credits", { delta: cost });
 }
 
 /**
- * Free-tier output carries the provider watermark, as the pricing copy
- * promises; anyone with a settled paid purchase renders clean. RLS lets the
- * caller read only their own purchase rows. Fail toward paid (no watermark)
- * on lookup errors — never punish a paying customer for a transient failure.
+ * Accounts with no settled paid purchase (legacy free signups, admin credit
+ * grants) render with the provider watermark; any paid purchase removes it.
+ * RLS lets the caller read only their own purchase rows. Fail toward paid
+ * (no watermark) on lookup errors — never punish a paying customer for a
+ * transient failure.
  */
 async function isFreeTier(sb: SupabaseClient, userId: string): Promise<boolean> {
   const { data, error } = await sb
@@ -176,20 +188,20 @@ export async function POST(req: Request) {
       }),
     });
     if (!res.ok) {
-      await refund(sb, cost);
+      await refund(sb, user.id, cost);
       const detail = (await res.text()).slice(0, 300);
       return NextResponse.json({ error: `Model error: ${detail}` }, { status: 502 });
     }
     const json = await res.json();
     const b64 = json.data?.[0]?.b64_json;
     if (!b64) {
-      await refund(sb, cost);
+      await refund(sb, user.id, cost);
       return NextResponse.json({ error: "Model returned no image" }, { status: 502 });
     }
     const bytes = Buffer.from(b64, "base64");
     const publicUrl = await storeFile(sb, user.id, `gen-${id}.png`, bytes.buffer as ArrayBuffer, "image/png");
     if (!publicUrl) {
-      await refund(sb, cost);
+      await refund(sb, user.id, cost);
       return NextResponse.json({ error: "Failed to store the image" }, { status: 500 });
     }
     await sb.from("generations").insert({ ...baseRow, status: "succeeded", progress: 100, poster_url: publicUrl });
@@ -248,13 +260,13 @@ export async function POST(req: Request) {
     });
   }
   if (!res.ok) {
-    await refund(sb, cost);
+    await refund(sb, user.id, cost);
     const detail = (await res.text()).slice(0, 300);
     return NextResponse.json({ error: `Model error: ${detail}` }, { status: 502 });
   }
   const task = await res.json();
   if (!task.id) {
-    await refund(sb, cost);
+    await refund(sb, user.id, cost);
     return NextResponse.json({ error: "Model returned no task" }, { status: 502 });
   }
   await sb.from("generations").insert({
@@ -331,7 +343,7 @@ export async function GET(req: Request) {
         .eq("status", "rendering")
         .select("id");
       if (flipped && flipped.length > 0) {
-        await refund(sb, row.credits_cost ?? 0);
+        await refund(sb, user.id, row.credits_cost ?? 0);
       }
     }
     void settled;

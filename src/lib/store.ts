@@ -35,7 +35,8 @@ import {
   uploadDataUrl,
 } from "./cloud";
 
-// Free-plan starting balance — kept in sync with FREE_CREDITS in billing.ts.
+// Local demo balance (no cloud configured). Cloud accounts start at 0 —
+// paid only; the Stripe webhook deposits plan credits after payment.
 const STARTING_CREDITS = 20;
 
 // Module-level (non-persisted) handles for the in-flight simulation timers.
