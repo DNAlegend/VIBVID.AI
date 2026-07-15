@@ -694,7 +694,6 @@ function Showcase() {
 type Plan = {
   name: string;
   price: string;
-  aed?: string;
   period: string;
   headline: string;
   credits: string;
@@ -712,7 +711,6 @@ const PLANS: Plan[] = [
   {
     name: "Creator",
     price: "$19",
-    aed: "AED 70",
     period: "/ mo",
     headline: "≈ 3 Full-HD clips (5s each) / mo",
     credits: "300",
@@ -732,7 +730,6 @@ const PLANS: Plan[] = [
   {
     name: "Pro",
     price: "$39",
-    aed: "AED 143",
     period: "/ mo",
     headline: "≈ 8 Full-HD clips (5s each) / mo",
     credits: "800",
@@ -751,7 +748,6 @@ const PLANS: Plan[] = [
   {
     name: "Agency",
     price: "$69",
-    aed: "AED 253",
     period: "/ mo",
     headline: "≈ 16 Full-HD clips (5s each) / mo",
     credits: "1,500",
@@ -800,7 +796,6 @@ export function Pricing() {
                 <span className="text-4xl font-bold tracking-tight">{p.price}</span>
                 <span className="text-sm text-faint">{p.period}</span>
               </div>
-              <p className="mt-0.5 h-4 text-[12px] text-faint">{p.aed ?? " "}</p>
               <p className="mt-1 text-[13px] text-faint">{p.blurb}</p>
 
               <div className="mt-5 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5">

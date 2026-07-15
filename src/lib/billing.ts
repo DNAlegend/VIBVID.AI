@@ -16,11 +16,9 @@ export interface BillingItem {
   credits: number;
   /** Price in major units of `currency` (e.g. 19 = $19.00). */
   amount: number;
-  /** Charge currency. USD today; AED shown alongside for the UAE market. */
+  /** Charge currency. */
   currency: "USD";
   priceLabel: string;
-  /** Secondary price shown for the local market (display only). */
-  aedLabel?: string;
   sublabel: string;
   popular?: boolean;
   /** Top-up credits expire this many months after purchase (subscription credits reset each cycle). */
@@ -33,10 +31,10 @@ export interface BillingItem {
  * Packs expire after 12 months.
  */
 export const TOPUPS: BillingItem[] = [
-  { id: "topup-200", label: "Starter", kind: "topup", credits: 200, amount: 15, currency: "USD", priceLabel: "$15", aedLabel: "AED 55", sublabel: "≈ 2 Full-HD clips (5s each)", expiresMonths: 12 },
-  { id: "topup-600", label: "Popular", kind: "topup", credits: 600, amount: 39, currency: "USD", priceLabel: "$39", aedLabel: "AED 143", sublabel: "≈ 6 Full-HD clips (5s each)", popular: true, expiresMonths: 12 },
-  { id: "topup-1500", label: "Value", kind: "topup", credits: 1500, amount: 89, currency: "USD", priceLabel: "$89", aedLabel: "AED 327", sublabel: "≈ 16 Full-HD clips (5s each)", expiresMonths: 12 },
-  { id: "topup-5000", label: "Bulk", kind: "topup", credits: 5000, amount: 249, currency: "USD", priceLabel: "$249", aedLabel: "AED 914", sublabel: "≈ 55 Full-HD clips (5s each)", expiresMonths: 12 },
+  { id: "topup-200", label: "Starter", kind: "topup", credits: 200, amount: 15, currency: "USD", priceLabel: "$15", sublabel: "≈ 2 Full-HD clips (5s each)", expiresMonths: 12 },
+  { id: "topup-600", label: "Popular", kind: "topup", credits: 600, amount: 39, currency: "USD", priceLabel: "$39", sublabel: "≈ 6 Full-HD clips (5s each)", popular: true, expiresMonths: 12 },
+  { id: "topup-1500", label: "Value", kind: "topup", credits: 1500, amount: 89, currency: "USD", priceLabel: "$89", sublabel: "≈ 16 Full-HD clips (5s each)", expiresMonths: 12 },
+  { id: "topup-5000", label: "Bulk", kind: "topup", credits: 5000, amount: 249, currency: "USD", priceLabel: "$249", sublabel: "≈ 55 Full-HD clips (5s each)", expiresMonths: 12 },
 ];
 
 /**
@@ -50,16 +48,16 @@ export const TOPUPS: BillingItem[] = [
  * deposits the full year of credits (12× monthly) up front.
  */
 export const PLAN_ITEMS: BillingItem[] = [
-  { id: "plan-creator", label: "Creator", kind: "subscription", interval: "month", credits: 300, amount: 19, currency: "USD", priceLabel: "$19", aedLabel: "AED 70", sublabel: "≈ 3 Full-HD clips (5s each) or 6 in HD / mo" },
-  { id: "plan-pro", label: "Pro", kind: "subscription", interval: "month", credits: 800, amount: 39, currency: "USD", priceLabel: "$39", aedLabel: "AED 143", sublabel: "≈ 8 Full-HD clips (5s each) or 17 in HD / mo", popular: true },
-  { id: "plan-agency", label: "Agency", kind: "subscription", interval: "month", credits: 1500, amount: 69, currency: "USD", priceLabel: "$69", aedLabel: "AED 253", sublabel: "≈ 16 Full-HD clips (5s each) or 33 in HD / mo" },
+  { id: "plan-creator", label: "Creator", kind: "subscription", interval: "month", credits: 300, amount: 19, currency: "USD", priceLabel: "$19", sublabel: "≈ 3 Full-HD clips (5s each) or 6 in HD / mo" },
+  { id: "plan-pro", label: "Pro", kind: "subscription", interval: "month", credits: 800, amount: 39, currency: "USD", priceLabel: "$39", sublabel: "≈ 8 Full-HD clips (5s each) or 17 in HD / mo", popular: true },
+  { id: "plan-agency", label: "Agency", kind: "subscription", interval: "month", credits: 1500, amount: 69, currency: "USD", priceLabel: "$69", sublabel: "≈ 16 Full-HD clips (5s each) or 33 in HD / mo" },
 ];
 
 /** Annual twins of PLAN_ITEMS: 8× the monthly price, 12× the monthly credits. */
 export const PLAN_ITEMS_YEARLY: BillingItem[] = [
-  { id: "plan-creator-year", label: "Creator", kind: "subscription", interval: "year", credits: 3600, amount: 152, currency: "USD", priceLabel: "$152", aedLabel: "AED 558", sublabel: "3,600 credits up front — 4 months on us" },
-  { id: "plan-pro-year", label: "Pro", kind: "subscription", interval: "year", credits: 9600, amount: 312, currency: "USD", priceLabel: "$312", aedLabel: "AED 1,146", sublabel: "9,600 credits up front — 4 months on us", popular: true },
-  { id: "plan-agency-year", label: "Agency", kind: "subscription", interval: "year", credits: 18000, amount: 552, currency: "USD", priceLabel: "$552", aedLabel: "AED 2,027", sublabel: "18,000 credits up front — 4 months on us" },
+  { id: "plan-creator-year", label: "Creator", kind: "subscription", interval: "year", credits: 3600, amount: 152, currency: "USD", priceLabel: "$152", sublabel: "3,600 credits up front — 4 months on us" },
+  { id: "plan-pro-year", label: "Pro", kind: "subscription", interval: "year", credits: 9600, amount: 312, currency: "USD", priceLabel: "$312", sublabel: "9,600 credits up front — 4 months on us", popular: true },
+  { id: "plan-agency-year", label: "Agency", kind: "subscription", interval: "year", credits: 18000, amount: 552, currency: "USD", priceLabel: "$552", sublabel: "18,000 credits up front — 4 months on us" },
 ];
 
 export const BILLING_ITEMS: BillingItem[] = [...TOPUPS, ...PLAN_ITEMS, ...PLAN_ITEMS_YEARLY];
