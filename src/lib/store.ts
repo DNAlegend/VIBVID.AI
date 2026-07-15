@@ -56,6 +56,11 @@ interface StoreState {
   cloudUser: string | null;
   /** Opens the sign-in modal (rendered by the app shell) from anywhere. */
   authOpen: boolean;
+  /** Active subscription / studio access. null = still checking. false = locked
+   *  (unsubscribed): the app is browsable but paid actions open the paywall. */
+  subscribed: boolean | null;
+  /** Opens the "Subscribe to start creating" modal (rendered by the app shell). */
+  activateOpen: boolean;
   credits: number;
   videos: VideoJob[];
   assets: Asset[];
@@ -73,6 +78,11 @@ interface StoreState {
 
   setHasHydrated: (v: boolean) => void;
   setAuthOpen: (v: boolean) => void;
+  setSubscribed: (v: boolean | null) => void;
+  setActivateOpen: (v: boolean) => void;
+  /** True (and opens the paywall) when the account is locked — call before any
+   *  paid action so an unsubscribed user is prompted to subscribe first. */
+  blockIfLocked: () => boolean;
 
   // cloud session
   hydrateFromCloud: (userId: string) => Promise<void>;
@@ -310,6 +320,8 @@ export const useStore = create<StoreState>()(
       hasHydrated: false,
       cloudUser: null,
       authOpen: false,
+      subscribed: null,
+      activateOpen: false,
       credits: STARTING_CREDITS,
       videos: [],
       assets: [],
@@ -323,6 +335,18 @@ export const useStore = create<StoreState>()(
 
       setHasHydrated: (v) => set({ hasHydrated: v }),
       setAuthOpen: (v) => set({ authOpen: v }),
+      setSubscribed: (v) => set({ subscribed: v }),
+      setActivateOpen: (v) => set({ activateOpen: v }),
+      // Gate paid actions: a locked (unsubscribed) account gets the paywall
+      // instead. `null` (still checking) and `true` both allow — the server is
+      // the real backstop.
+      blockIfLocked: () => {
+        if (get().subscribed === false) {
+          set({ activateOpen: true });
+          return true;
+        }
+        return false;
+      },
 
       hydrateFromCloud: async (userId) => {
         setCloudUser(userId);
@@ -419,6 +443,8 @@ export const useStore = create<StoreState>()(
         }),
 
       generate: (p) => {
+        // Unsubscribed: browsing is free, generating isn't — open the paywall.
+        if (get().blockIfLocked()) return "";
         const model = getModel(p.modelId);
         const modality = p.modality ?? model.modality;
         const cost = priceFor(model, {

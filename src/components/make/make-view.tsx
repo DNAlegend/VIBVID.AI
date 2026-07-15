@@ -249,6 +249,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [tagQuery, setTagQuery] = useState<string | null>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const cloudUser = useStore((s) => s.cloudUser);
+  const subscribed = useStore((s) => s.subscribed);
   const setAuthOpen = useStore((s) => s.setAuthOpen);
   const resultRef = useRef<HTMLDivElement>(null);
   // Real backend configured but visitor not signed in → route them to auth
@@ -546,6 +547,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
   // `hydrated` also gates the brief window while a signed-in account's cloud
   // state is loading, so a spend can't race the authoritative balance.
   const canGenerate = hydrated && finalPrompt.trim().length > 0 && canAfford && aspectValid;
+  // Locked (unsubscribed): keep Generate clickable so it opens the paywall
+  // instead of sitting disabled behind a "not enough credits" message.
+  const locked = cloudConfigured && subscribed === false;
   const activeJob = videos.find((v) => v.id === activeJobId) ?? null;
   const rendering = activeJob?.status === "rendering";
 
@@ -573,6 +577,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
     }
     const brief = expandTags(prompt).trim();
     if (!brief || directing) return;
+    // Browsing is free; running the Director isn't — prompt subscribe if locked.
+    if (useStore.getState().blockIfLocked()) return;
     setDirecting(true);
     setDirectorError(null);
     try {
@@ -633,7 +639,12 @@ export function MakeView({ mode }: { mode?: Modality }) {
   }
 
   function onGenerate() {
-    if (!canGenerate || rendering) return;
+    if (rendering) return;
+    if (locked) {
+      useStore.getState().blockIfLocked(); // opens the subscribe paywall
+      return;
+    }
+    if (!canGenerate) return;
     startGenerate(finalPrompt);
   }
 
@@ -1142,10 +1153,19 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 <Sparkles size={18} /> Sign in to generate
               </Button>
             ) : (
-              <Button size="lg" className="w-full" disabled={!canGenerate || rendering} onClick={onGenerate}>
+              <Button
+                size="lg"
+                className="w-full"
+                disabled={rendering || (!locked && !canGenerate)}
+                onClick={onGenerate}
+              >
                 {rendering ? (
                   <>
                     <Loader2 size={18} className="animate-spin" /> Generating…
+                  </>
+                ) : locked ? (
+                  <>
+                    <Sparkles size={18} /> Subscribe to generate
                   </>
                 ) : (
                   <>
@@ -1154,7 +1174,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 )}
               </Button>
             )}
-            {!needsSignIn && hydrated && !canAfford && (
+            {!needsSignIn && !locked && hydrated && !canAfford && (
               <p className="mt-2 text-center text-xs text-danger">
                 Not enough credits — you need {cost - credits} more. Tap “Buy” in the top bar.
               </p>

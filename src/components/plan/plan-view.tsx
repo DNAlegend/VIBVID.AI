@@ -146,6 +146,8 @@ export function PlanView() {
   async function writePlan() {
     const goal = brief.trim();
     if (!goal || busy) return;
+    // Browsing is free; directing a production isn't — prompt subscribe if locked.
+    if (useStore.getState().blockIfLocked()) return;
     setBusy(true);
     setError(null);
     try {

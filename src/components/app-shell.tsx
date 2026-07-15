@@ -655,17 +655,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [autoBuy, setAutoBuy] = useState<BillingItem | null>(null);
   // True once Supabase has reported the initial session (gate vs app decision).
   const [authReady, setAuthReady] = useState(false);
-  // Has an active subscription? null = still checking. The studio's main area is
-  // locked (ActivateGate) until this is true. Seeded from a cached hint so a
-  // returning subscriber doesn't see a flash of the lock while we revalidate.
-  const [subscribed, setSubscribed] = useState<boolean | null>(() => {
-    if (typeof window === "undefined") return null;
+  // Studio access lives in the store so any view can open the paywall on a paid
+  // action. null = still checking; false = locked (browsable, generate prompts
+  // subscribe). Seeded from a cached hint so decisions are instant on load.
+  const subscribed = useStore((s) => s.subscribed);
+  const setSubscribed = useStore((s) => s.setSubscribed);
+  const activateOpen = useStore((s) => s.activateOpen);
+  const setActivateOpen = useStore((s) => s.setActivateOpen);
+  useEffect(() => {
     const c = localStorage.getItem(SUBSCRIBED_KEY);
-    return c === "1" ? true : c === "0" ? false : null;
-  });
+    if (c === "1" || c === "0") setSubscribed(c === "1");
+  }, [setSubscribed]);
 
-  // Ask the server whether this account has an active subscription, and cache
-  // the answer so the next load decides instantly.
+  // Ask the server whether this account may use the studio, and cache the
+  // answer so the next load decides instantly.
   const checkSubscription = useCallback(async () => {
     if (!supabase) return;
     const token = (await supabase.auth.getSession()).data.session?.access_token;
@@ -676,7 +679,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       const b = d?.billing;
       // Unlock on the same signal the server enforces (admin or credits), plus
       // an active subscription so a subscriber who's momentarily at 0 credits
-      // is never shown the lock. Credits only come from subscribing.
+      // is never gated. Credits only come from subscribing.
       const active =
         Boolean(d?.admin) ||
         (typeof d?.credits === "number" && d.credits > 0) ||
@@ -686,7 +689,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     } catch {
       /* leave the current (possibly cached) value in place */
     }
-  }, []);
+  }, [setSubscribed]);
 
   // ?buy=<itemId> — a plan chosen on the landing page. Carry it in as the
   // preselected plan; signed-in subscribers get the credits modal, everyone
@@ -844,9 +847,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div className="hidden text-sm text-faint md:block" />
             <div className="flex items-center gap-2">
-              {/* Credits + top-ups only once the studio is unlocked — a locked
-                  user's only purchase path is the ActivateGate (subscriptions). */}
-              {(!cloudConfigured || subscribed !== false) && <CreditWidget onBuy={() => setBuyOpen(true)} />}
+              {/* Locked users can browse; the Buy button routes them to subscribe
+                  rather than the top-up modal (top-ups are a subscriber add-on). */}
+              <CreditWidget onBuy={() => (subscribed === false ? setActivateOpen(true) : setBuyOpen(true))} />
               {cloudConfigured &&
                 (email ? (
                   <div className="flex items-center gap-1.5">
@@ -879,13 +882,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="px-4 pb-24 pt-6 sm:px-6 md:pb-10">
-          {cloudConfigured && email && subscribed === false ? (
-            <ActivateGate preselect={autoBuy} />
-          ) : (
-            children
-          )}
-        </main>
+        {/* The whole studio is browsable; paid actions (generate, Strategist,
+            Director) open the subscribe paywall for a locked account. */}
+        <main className="px-4 pb-24 pt-6 sm:px-6 md:pb-10">{children}</main>
       </div>
 
       {/* Bottom nav (mobile) */}
@@ -903,6 +902,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
+      <Modal open={activateOpen} onClose={() => setActivateOpen(false)} size="lg">
+        <ActivateGate preselect={autoBuy} />
+      </Modal>
 
       {purchaseNote && (
         <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
