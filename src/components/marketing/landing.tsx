@@ -141,25 +141,29 @@ const HERO_TIMELINE = SHOWCASE.slice(0, 4);
 function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* brand-red glow backdrop */}
+      {/* brand-color gradient mesh backdrop */}
       <div
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(900px 480px at 50% -12%, rgba(236,19,32,0.15), transparent 62%), radial-gradient(680px 380px at 88% 18%, rgba(255,90,44,0.10), transparent 55%)",
+            "radial-gradient(1100px 560px at 50% -12%, rgba(236,19,32,0.20), transparent 60%)," +
+            "radial-gradient(720px 440px at 10% 6%, rgba(255,120,60,0.12), transparent 55%)," +
+            "radial-gradient(760px 460px at 92% 16%, rgba(124,92,255,0.08), transparent 55%)",
         }}
       />
       {/* faint studio grid */}
       <div
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.5]"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.6]"
         style={{
-          maskImage: "radial-gradient(680px 360px at 50% 8%, #000, transparent 75%)",
-          WebkitMaskImage: "radial-gradient(680px 360px at 50% 8%, #000, transparent 75%)",
+          maskImage: "radial-gradient(760px 420px at 50% 6%, #000, transparent 78%)",
+          WebkitMaskImage: "radial-gradient(760px 420px at 50% 6%, #000, transparent 78%)",
           backgroundImage:
-            "linear-gradient(to right, rgba(16,16,20,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(16,16,20,0.05) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
+            "linear-gradient(to right, rgba(16,16,20,0.055) 1px, transparent 1px), linear-gradient(to bottom, rgba(16,16,20,0.055) 1px, transparent 1px)",
+          backgroundSize: "42px 42px",
         }}
       />
+      {/* soft fade into the page below */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-bg" />
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-16 text-center sm:px-6 sm:pt-24">
         <div className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent-soft px-3 py-1 text-[12px] font-semibold text-accent-2">
           <span className="relative flex h-1.5 w-1.5">
@@ -282,11 +286,21 @@ function FloatChip({ m }: { m: ShowcaseMedia }) {
 function ModelBand() {
   const items = ["Vib Production", "Vib Draft", "The Strategist", "The Director", "+ more soon"];
   return (
-    <section className="border-y border-line bg-surface-2/50">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-6 py-5">
+    <section className="border-y border-line bg-gradient-to-r from-surface-2/30 via-surface-2/70 to-surface-2/30">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-2 px-6 py-5">
         <span className="text-[12px] font-semibold uppercase tracking-wider text-faint">The VIBVID engine</span>
-        {items.map((i) => (
-          <span key={i} className="text-sm font-medium text-muted">{i}</span>
+        {items.map((label, i) => (
+          <span key={label} className="flex items-center gap-4">
+            <span className="h-1 w-1 rounded-full bg-line-2" />
+            <span
+              className={cn(
+                "text-sm font-medium",
+                i === items.length - 1 ? "text-faint" : "text-fg",
+              )}
+            >
+              {label}
+            </span>
+          </span>
         ))}
       </div>
     </section>
