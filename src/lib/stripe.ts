@@ -113,8 +113,12 @@ export function verifyStripeWebhook(rawBody: string, signature: string | null): 
 
 /**
  * Pull the subscription id + our metadata off an invoice. Stripe moved this
- * shape across API versions (top-level `subscription` vs `parent.…`), so we
- * check both and finally fall back to retrieving the subscription itself.
+ * shape across API versions — the webhook endpoint can deliver an older shape
+ * (top-level `subscription`) than the SDK we call with (`parent.…`) — so we
+ * check every known location for the subscription id, then always resolve the
+ * metadata by retrieving the subscription live (authoritative and
+ * version-independent). Reading live metadata is also correct after a plan
+ * switch: it reflects the current plan the next cycle should be credited for.
  */
 export async function invoiceSubscriptionInfo(
   invoice: Stripe.Invoice
@@ -123,9 +127,29 @@ export async function invoiceSubscriptionInfo(
     parent?: { subscription_details?: { metadata?: Record<string, string>; subscription?: string | { id: string } } };
     subscription_details?: { metadata?: Record<string, string> };
     subscription?: string | { id: string };
+    lines?: { data?: Array<{ subscription?: string | { id: string } | null; parent?: { subscription_item_details?: { subscription?: string | { id: string } } } }> };
   };
-  const subRef = inv.parent?.subscription_details?.subscription ?? inv.subscription;
-  const subId = typeof subRef === "string" ? subRef : subRef?.id ?? null;
+  const asId = (r: string | { id: string } | null | undefined): string | null =>
+    typeof r === "string" ? r : r?.id ?? null;
+
+  // Try every place the subscription id can live, across API versions.
+  const line = inv.lines?.data?.[0];
+  const subId =
+    asId(inv.parent?.subscription_details?.subscription) ??
+    asId(inv.subscription) ??
+    asId(line?.parent?.subscription_item_details?.subscription) ??
+    asId(line?.subscription);
+
+  // Prefer live subscription metadata (authoritative, version-independent).
+  if (subId) {
+    try {
+      const sub = await stripe().subscriptions.retrieve(subId);
+      const meta = (sub.metadata ?? {}) as Record<string, string>;
+      if (meta.item_id || meta.purchase_id) return { subscriptionId: subId, metadata: meta };
+    } catch {
+      /* fall through to the invoice snapshot */
+    }
+  }
   const direct = inv.parent?.subscription_details?.metadata ?? inv.subscription_details?.metadata;
   if (direct?.item_id || direct?.purchase_id) return { subscriptionId: subId, metadata: direct };
   if (subId) {
