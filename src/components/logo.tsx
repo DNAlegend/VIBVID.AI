@@ -38,21 +38,12 @@ export function LogoMark({
  * on a red pill with a play triangle, then a muted ".AI".
  */
 export function LogoWordmark({ className }: { className?: string }) {
+  // The brand wordmark image (public/logo-wordmark.png). Height scales with the
+  // font-size set via className (defaults to text-[19px]); width auto-fits.
   return (
-    <span
-      className={cn(
-        "font-display inline-flex items-center text-[19px] font-extrabold leading-none tracking-[-0.03em] text-fg",
-        className,
-      )}
-    >
-      <span>VIB</span>
-      <span className="ml-[0.12em] inline-flex items-center gap-[0.14em] rounded-[0.4em] bg-accent px-[0.3em] py-[0.14em] text-white">
-        VID
-        <svg viewBox="0 0 10 12" className="h-[0.62em] w-[0.52em]" aria-hidden>
-          <path d="M1 1 L9 6 L1 11 Z" fill="#ffffff" />
-        </svg>
-      </span>
-      <span className="ml-[0.14em] font-bold text-muted">.AI</span>
+    <span className={cn("inline-flex items-center text-[19px] leading-none", className)}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo-wordmark.png" alt="VIBVID.AI" className="h-[1.35em] w-auto" draggable={false} />
     </span>
   );
 }
