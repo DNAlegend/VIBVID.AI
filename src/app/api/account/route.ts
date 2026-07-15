@@ -7,7 +7,7 @@
 // Every call authenticates the caller and acts only on THEIR Stripe customer.
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin, userIdFromRequest } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getBillingCustomer } from "@/lib/billing-customer";
 import {
   stripeConfigured,
@@ -20,12 +20,24 @@ import {
 
 export const maxDuration = 20;
 
-async function authed(req: Request): Promise<{ userId: string; customerId: string | null } | null> {
+/** Allowlisted owner accounts — always treated as activated (see GET). */
+function adminEmails(): string[] {
+  return (process.env.ADMIN_EMAILS ?? "abuaisha.hussin@gmail.com")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+async function authed(
+  req: Request,
+): Promise<{ userId: string; email: string | null; customerId: string | null } | null> {
   if (!stripeConfigured() || !supabaseAdmin) return null;
-  const userId = await userIdFromRequest(req);
-  if (!userId) return null;
-  const bc = await getBillingCustomer(userId);
-  return { userId, customerId: bc?.customerId ?? null };
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user) return null;
+  const bc = await getBillingCustomer(data.user.id);
+  return { userId: data.user.id, email: data.user.email?.toLowerCase() ?? null, customerId: bc?.customerId ?? null };
 }
 
 export async function GET(req: Request) {
@@ -38,17 +50,19 @@ export async function GET(req: Request) {
     .eq("id", a.userId)
     .maybeSingle();
   const credits = profile?.credits ?? 0;
+  // Owners always have studio access without subscribing (the client unlocks on this).
+  const admin = Boolean(a.email && adminEmails().includes(a.email));
 
   if (!a.customerId) {
     // No purchases yet — nothing to manage, just show the balance.
-    return NextResponse.json({ credits, billing: null });
+    return NextResponse.json({ credits, admin, billing: null });
   }
   try {
     const billing = await getBillingOverview(a.customerId);
-    return NextResponse.json({ credits, billing });
+    return NextResponse.json({ credits, admin, billing });
   } catch (e) {
     console.error("[account] overview failed:", e instanceof Error ? e.message : e);
-    return NextResponse.json({ credits, billing: null });
+    return NextResponse.json({ credits, admin, billing: null });
   }
 }
 

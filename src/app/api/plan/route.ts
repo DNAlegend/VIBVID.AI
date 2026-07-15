@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { chatText, llmConfigured, llmEngine } from "@/lib/llm";
 import { allowRequest, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { hasStudioAccess, ACTIVATE_MESSAGE } from "@/lib/access";
 
 export const maxDuration = 300;
 
@@ -103,6 +104,11 @@ export async function POST(req: Request) {
   });
   const { data: userData } = await sb.auth.getUser();
   if (!userData?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Paid-only: an unsubscribed account can sign in but can't spend our tokens.
+  if (!(await hasStudioAccess(sb, userData.user.id, userData.user.email))) {
+    return NextResponse.json({ error: ACTIVATE_MESSAGE }, { status: 402 });
+  }
 
   // The Strategist is the most expensive unmetered call in the app — cap it.
   if (!(await allowRequest(sb, "plan", 10))) {

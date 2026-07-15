@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, Lightbulb, LogOut, Loader2, Mail, Plus, Coins, Scissors, UserCircle, UserRound, Sparkles } from "lucide-react";
@@ -102,8 +102,8 @@ function CreditWidget({ onBuy }: { onBuy: () => void }) {
   );
 }
 
-/** localStorage key remembering a guest buyer's email across a redirect checkout. */
-const CHECKOUT_EMAIL_KEY = "vibvid-checkout-email";
+/** localStorage key caching whether the account has an active subscription. */
+const SUBSCRIBED_KEY = "vibvid-subscribed";
 
 /**
  * Ask the server to start an on-site Stripe checkout. Pass a `token` for a
@@ -312,43 +312,19 @@ function BuyCreditsModal({
 }
 
 /**
- * Full-screen gate shown to visitors who aren't signed in: pick a plan
- * (email → payment → confirm). No free tier — nothing behind the gate is
- * usable until they've paid or signed in to an existing account.
+ * Signed-out gate: email → one-time code → in. No payment here — new and
+ * returning users sign in the same way and land inside the studio, which stays
+ * locked (ActivateGate) until they subscribe.
  */
-function PaywallGate({
-  preselect,
-  confirmEmail,
-  onSignInInstead,
-  onStartOver,
-}: {
-  /** Plan carried over from the landing page (?buy=…). */
-  preselect: BillingItem | null;
-  /** Guest just paid — show the "confirm your email" step instead of plans. */
-  confirmEmail: string | null;
-  onSignInInstead: (resume: BillingItem | null) => void;
-  onStartOver: () => void;
-}) {
-  // Two-step flow: collect the email first, then let them pick a plan.
-  const [step, setStep] = useState<"email" | "plan">("email");
+function SignUpGate() {
+  const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
-  // Only subscription items may preselect a plan here — a top-up ?buy= link
-  // resumes through BuyCreditsModal after sign-in instead.
-  const planPreselect = preselect?.kind === "subscription" ? preselect : null;
-  const [selectedId, setSelectedId] = useState(
-    planPreselect?.id.replace(/-year$/, "") ?? PLAN_ITEMS.find((p) => p.popular)?.id ?? PLAN_ITEMS[0].id,
-  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resent, setResent] = useState(false);
-  // Set once checkout starts: Stripe's embedded form renders in-page.
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  // Billing cycle for the plan picker — annual is 8× the monthly price ("4 months on us").
-  const [cycle, setCycle] = useState<"month" | "year">(planPreselect?.interval === "year" ? "year" : "month");
-  // The 6-digit code typed on the confirm step.
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [resent, setResent] = useState(false);
   // Captcha (active only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is configured).
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = useState(0);
@@ -357,64 +333,45 @@ function PaywallGate({
     setCaptchaToken(null);
     setCaptchaReset((k) => k + 1);
   }
-
-  useEffect(() => {
-    if (!planPreselect) return;
-    // Normalize a yearly preselect to its monthly base + the annual cycle.
-    setSelectedId(planPreselect.id.replace(/-year$/, ""));
-    if (planPreselect.interval === "year") setCycle("year");
-  }, [planPreselect]);
-
-  // The monthly plan the picker tracks, and the actual billed item per cycle.
-  const baseMonthly = PLAN_ITEMS.find((p) => p.id === selectedId)
-    ?? PLAN_ITEMS.find((p) => p.popular)
-    ?? PLAN_ITEMS[0];
-  const paid = (cycle === "year" ? planVariant(baseMonthly.id, "year") : null) ?? baseMonthly;
   const emailValid = /^\S+@\S+\.\S+$/.test(email.trim());
-  // Confirm step: reached via full-page return (?purchase=success).
-  const confirmingEmail = confirmEmail;
 
-  // Step 1 → Step 2: validate the email, then reveal the plans.
-  function toPlanStep() {
+  async function sendCode() {
+    if (busy || !supabase) return;
     setError(null);
     if (!emailValid) {
       setError("Enter a valid email to continue.");
       return;
     }
-    setStep("plan");
-  }
-
-  async function go() {
-    if (busy) return;
-    setError(null);
-    if (!emailValid) {
-      setError("Enter your email — you’ll go straight to payment.");
+    if (!captchaReady) {
+      setError("Complete the quick check first.");
       return;
     }
     setBusy(true);
     try {
-      const start = await requestCheckout(paid, { email: email.trim() });
-      if (!start) {
-        setError("Payments aren’t configured on this server yet — try again later.");
-        return;
-      }
-      // Remember who's paying so the return handler (?purchase=success) can send
-      // the account-confirmation code after Stripe returns them to the app.
-      localStorage.setItem(CHECKOUT_EMAIL_KEY, email.trim().toLowerCase());
-      // Mount Stripe's embedded form in-page — no redirect off vibvid.ai.
-      setClientSecret(start.clientSecret);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Checkout failed");
+      const e = email.trim().toLowerCase();
+      const { error: err } = await supabase.auth.signInWithOtp({
+        email: e,
+        options: {
+          shouldCreateUser: true, // new email → account created on verify
+          emailRedirectTo: `${window.location.origin}/app`,
+          ...(captchaToken ? { captchaToken } : {}),
+        },
+      });
+      if (err) throw err;
+      setResent(false);
+      setStep("code");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn’t send your code.");
     } finally {
+      consumeCaptcha();
       setBusy(false);
     }
   }
 
   async function resend() {
-    if (!supabase || !confirmingEmail) return;
-    if (!captchaReady) return;
+    if (!supabase || !emailValid || !captchaReady) return;
     await supabase.auth.signInWithOtp({
-      email: confirmingEmail,
+      email: email.trim().toLowerCase(),
       options: {
         shouldCreateUser: true,
         emailRedirectTo: `${window.location.origin}/app`,
@@ -425,17 +382,17 @@ function PaywallGate({
     setResent(true);
   }
 
-  // Type the 6-digit code from the email; success flips the session and the
-  // gate unmounts by itself (AppShell listens to onAuthStateChange).
+  // Verify the code; success flips the session and the gate unmounts by itself
+  // (AppShell listens to onAuthStateChange).
   async function verifyCode() {
-    if (!supabase || !confirmingEmail || verifying) return;
+    if (!supabase || verifying) return;
     const token = otpCode.trim();
     if (!/^\d{6,8}$/.test(token)) return;
     setVerifying(true);
     setOtpError(null);
     try {
       const { data: vData, error: vErr } = await supabase.auth.verifyOtp({
-        email: confirmingEmail,
+        email: email.trim().toLowerCase(),
         token,
         type: "email",
       });
@@ -443,10 +400,7 @@ function PaywallGate({
       // Record ToS/Privacy acceptance (the consent line is shown on the form).
       const uid = vData?.user?.id;
       if (uid) {
-        void supabase
-          .from("profiles")
-          .update({ accepted_terms_at: new Date().toISOString() })
-          .eq("id", uid);
+        void supabase.from("profiles").update({ accepted_terms_at: new Date().toISOString() }).eq("id", uid);
       }
     } catch (e) {
       const raw = e instanceof Error ? e.message : "";
@@ -460,96 +414,9 @@ function PaywallGate({
     }
   }
 
-  // Payment step: Stripe's embedded form, in-page. On completion Stripe returns
-  // the buyer to /app?purchase=success and the confirm-code screen takes over.
-  if (clientSecret) {
-    return (
-      <div className="flex min-h-screen items-start justify-center px-4 py-10">
-        <div className="w-full max-w-lg">
-          <div className="mb-5 flex justify-center">
-            <LogoWordmark className="text-2xl" />
-          </div>
-          <CheckoutPanel clientSecret={clientSecret} onBack={() => setClientSecret(null)} />
-        </div>
-      </div>
-    );
-  }
-
-  if (confirmingEmail) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
-            <Mail size={26} />
-          </span>
-          <h1 className="font-display mt-5 text-2xl font-bold tracking-tight">Enter your code</h1>
-          <p className="mt-3 text-[15px] leading-relaxed text-muted">
-            Payment received.{" "}
-            {captchaEnabled ? (
-              <>
-                Complete the quick check below and press “Send the code” — we’ll email a sign-in
-                code to <span className="font-semibold text-fg">{confirmingEmail}</span>.
-              </>
-            ) : (
-              <>
-                We emailed a sign-in code to{" "}
-                <span className="font-semibold text-fg">{confirmingEmail}</span>. Type it below — or
-                tap the link in the same email.
-              </>
-            )}
-            <span className="mt-2 block text-[13px] text-faint">
-              If your credits don’t appear after signing in, email support@vibvid.ai — include the
-              receipt Stripe sent you.
-            </span>
-          </p>
-          <div className="mx-auto mt-6 max-w-[240px]">
-            <TextInput
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="123456"
-              maxLength={8}
-              autoFocus
-              value={otpCode}
-              className="text-center font-mono !text-2xl tracking-[0.35em]"
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
-              onKeyDown={(e) => e.key === "Enter" && verifyCode()}
-            />
-          </div>
-          {otpError && <p className="mt-3 text-sm text-danger">{otpError}</p>}
-          <div className="mt-5 flex flex-col items-center gap-3">
-            <Button onClick={verifyCode} disabled={verifying || !/^\d{6,8}$/.test(otpCode.trim())}>
-              {verifying ? <Loader2 size={16} className="animate-spin" /> : <>Verify &amp; open the studio</>}
-            </Button>
-            {!resent && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
-            <Button variant="outline" size="sm" onClick={resend} disabled={resent || !captchaReady}>
-              <Mail size={14} />{" "}
-              {resent
-                ? "Code sent — check your inbox"
-                : captchaEnabled
-                  ? "Send the code"
-                  : "Resend the code"}
-            </Button>
-            <button
-              className="text-[13px] font-medium text-accent-2 hover:underline"
-              onClick={() => {
-                setOtpCode("");
-                setOtpError(null);
-                onStartOver();
-              }}
-            >
-              Wrong email? Start over
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Step 1 — email. Step 2 — plan selection.
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-md">
         <div className="flex justify-center">
           <LogoWordmark className="text-2xl" />
         </div>
@@ -559,8 +426,8 @@ function PaywallGate({
             <div className="mt-5 text-center">
               <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Let’s get started</h1>
               <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-                Enter your email to create your account — you’ll pick a plan next.
-                Pay monthly or annually. Cancel anytime.
+                Enter your email and we’ll send a one-time code to sign you in. You’ll pick a plan
+                once you’re inside.
               </p>
             </div>
 
@@ -573,23 +440,20 @@ function PaywallGate({
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && toPlanStep()}
+                onKeyDown={(e) => e.key === "Enter" && sendCode()}
               />
             </div>
 
-            <Button className="mt-4 w-full gap-2" size="lg" onClick={toPlanStep}>
-              Continue <ArrowRight size={17} />
+            {captchaEnabled && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
+            <Button className="mt-4 w-full gap-2" size="lg" onClick={sendCode} disabled={busy || !captchaReady}>
+              {busy ? <Loader2 size={17} className="animate-spin" /> : <>Continue <ArrowRight size={17} /></>}
             </Button>
             {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
 
-            <p className="mt-5 text-center text-[13px] text-muted">
-              Already have an account?{" "}
-              <button
-                className="font-medium text-accent-2 hover:underline"
-                onClick={() => onSignInInstead(preselect)}
-              >
-                Sign in
-              </button>
+            <p className="mt-4 text-center text-[12px] text-faint">
+              By continuing you agree to the{" "}
+              <Link href="/terms" className="underline hover:text-fg">Terms of Service</Link> and{" "}
+              <Link href="/privacy" className="underline hover:text-fg">Privacy Policy</Link>.
             </p>
           </>
         ) : (
@@ -598,6 +462,7 @@ function PaywallGate({
               <button
                 onClick={() => {
                   setError(null);
+                  setOtpError(null);
                   setStep("email");
                 }}
                 className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-2 bg-surface px-3 py-1 text-[13px] font-medium text-muted transition-colors hover:text-fg"
@@ -608,100 +473,171 @@ function PaywallGate({
               </button>
             </div>
 
-            <div className="mt-3 text-center">
-              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Pick your plan</h1>
+            <div className="mt-4 text-center">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
+                <Mail size={26} />
+              </span>
+              <h1 className="font-display mt-4 text-2xl font-bold tracking-tight">Enter your code</h1>
               <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-                Pick a plan and go straight to payment. Pay for the year and get 4 months on us. Cancel anytime.
+                We emailed a sign-in code to <span className="font-semibold text-fg">{email}</span>. Type it
+                below, or tap the link in the same email.
               </p>
             </div>
 
-            <div className="mt-5 flex justify-center">
-              <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12.5px] font-medium">
-                <button
-                  onClick={() => setCycle("month")}
-                  className={cn(
-                    "rounded-full px-3.5 py-1.5 transition-colors",
-                    cycle === "month" ? "bg-accent text-white" : "text-muted hover:text-fg",
-                  )}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setCycle("year")}
-                  className={cn(
-                    "rounded-full px-3.5 py-1.5 transition-colors",
-                    cycle === "year" ? "bg-accent text-white" : "text-muted hover:text-fg",
-                  )}
-                >
-                  Annual · 4 months on us
-                </button>
-              </div>
+            <div className="mx-auto mt-6 max-w-[240px]">
+              <TextInput
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                maxLength={8}
+                autoFocus
+                value={otpCode}
+                className="text-center font-mono !text-2xl tracking-[0.35em]"
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                onKeyDown={(e) => e.key === "Enter" && verifyCode()}
+              />
             </div>
-
-            <div className="mt-4 space-y-3">
-              {PLAN_ITEMS.map((base) => {
-                const p = (cycle === "year" ? planVariant(base.id, "year") : null) ?? base;
-                const active = selectedId === base.id;
-                return (
-                  <button
-                    key={base.id}
-                    onClick={() => setSelectedId(base.id)}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
-                      active ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
-                    )}
-                  >
-                    <span className="flex items-center gap-3">
-                      <span
-                        className={cn(
-                          "flex h-4 w-4 items-center justify-center rounded-full border",
-                          active ? "border-accent" : "border-line-2",
-                        )}
-                      >
-                        {active && <span className="h-2 w-2 rounded-full bg-accent" />}
-                      </span>
-                      <span>
-                        <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
-                          {p.label}
-                          {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
-                        </span>
-                        <span className="block text-[12.5px] text-faint">
-                          {cycle === "year"
-                            ? p.sublabel
-                            : `${p.credits.toLocaleString()} credits / mo · ${p.sublabel}`}
-                        </span>
-                      </span>
-                    </span>
-                    <span className="text-lg font-bold text-fg">
-                      {p.priceLabel}
-                      <span className="text-xs font-normal text-faint">{cycle === "year" ? "/yr" : "/mo"}</span>
-                    </span>
-                  </button>
-                );
-              })}
+            {otpError && <p className="mt-3 text-center text-sm text-danger">{otpError}</p>}
+            <div className="mt-5 flex flex-col items-center gap-3">
+              <Button onClick={verifyCode} disabled={verifying || !/^\d{6,8}$/.test(otpCode.trim())}>
+                {verifying ? <Loader2 size={16} className="animate-spin" /> : <>Verify &amp; continue</>}
+              </Button>
+              {captchaEnabled && !resent && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
+              <Button variant="outline" size="sm" onClick={resend} disabled={resent || !captchaReady}>
+                <Mail size={14} /> {resent ? "Code sent — check your inbox" : "Resend the code"}
+              </Button>
             </div>
-
-            <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
-              {busy ? (
-                <Loader2 size={17} className="animate-spin" />
-              ) : (
-                <>Continue to payment — {paid.priceLabel}{cycle === "year" ? "/yr" : "/mo"}</>
-              )}
-            </Button>
-            {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
-            <p className="mt-3 text-center text-[12px] text-faint">
-              By continuing you agree to the{" "}
-              <Link href="/terms" className="underline hover:text-fg">Terms of Service</Link> and{" "}
-              <Link href="/privacy" className="underline hover:text-fg">Privacy Policy</Link>.
-            </p>
-
-            <p className="mt-5 text-center text-[12px] text-faint">
-              Secure checkout by Stripe · charged in US dollars · renews{" "}
-              {cycle === "year" ? "yearly" : "monthly"} · cancel anytime.
-            </p>
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Shown in the studio's main area to a signed-in user without an active
+ * subscription. The rest of the app (nav, account) is visible, but generation
+ * is locked until they subscribe to one of the three plans. Payment is in-page
+ * (embedded checkout); on completion Stripe returns them to /app?purchase=success
+ * and the app re-checks their subscription and unlocks.
+ */
+function ActivateGate({ preselect }: { preselect: BillingItem | null }) {
+  const planPreselect = preselect?.kind === "subscription" ? preselect : null;
+  const [selectedId, setSelectedId] = useState(
+    planPreselect?.id.replace(/-year$/, "") ?? PLAN_ITEMS.find((p) => p.popular)?.id ?? PLAN_ITEMS[0].id,
+  );
+  const [cycle, setCycle] = useState<"month" | "year">(planPreselect?.interval === "year" ? "year" : "month");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+
+  const baseMonthly = PLAN_ITEMS.find((p) => p.id === selectedId) ?? PLAN_ITEMS.find((p) => p.popular) ?? PLAN_ITEMS[0];
+  const paid = (cycle === "year" ? planVariant(baseMonthly.id, "year") : null) ?? baseMonthly;
+
+  async function go() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+      if (!token) {
+        setError("Your session expired — refresh the page and sign in again.");
+        return;
+      }
+      const start = await requestCheckout(paid, { token });
+      if (!start) {
+        setError("Payments aren’t configured on this server yet — try again later.");
+        return;
+      }
+      setClientSecret(start.clientSecret);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Checkout failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (clientSecret) {
+    return (
+      <div className="mx-auto max-w-lg py-4">
+        <CheckoutPanel clientSecret={clientSecret} onBack={() => setClientSecret(null)} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-lg py-4">
+      <div className="text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
+          <Sparkles size={22} />
+        </span>
+        <h1 className="font-display mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Activate your studio</h1>
+        <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
+          Choose a plan to unlock generation. Pay for the year and get 4 months on us. Cancel anytime.
+        </p>
+      </div>
+
+      <div className="mt-5 flex justify-center">
+        <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12.5px] font-medium">
+          <button
+            onClick={() => setCycle("month")}
+            className={cn("rounded-full px-3.5 py-1.5 transition-colors", cycle === "month" ? "bg-accent text-white" : "text-muted hover:text-fg")}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setCycle("year")}
+            className={cn("rounded-full px-3.5 py-1.5 transition-colors", cycle === "year" ? "bg-accent text-white" : "text-muted hover:text-fg")}
+          >
+            Annual · 4 months on us
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {PLAN_ITEMS.map((base) => {
+          const p = (cycle === "year" ? planVariant(base.id, "year") : null) ?? base;
+          const active = selectedId === base.id;
+          return (
+            <button
+              key={base.id}
+              onClick={() => setSelectedId(base.id)}
+              className={cn(
+                "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
+                active ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
+              )}
+            >
+              <span className="flex items-center gap-3">
+                <span className={cn("flex h-4 w-4 items-center justify-center rounded-full border", active ? "border-accent" : "border-line-2")}>
+                  {active && <span className="h-2 w-2 rounded-full bg-accent" />}
+                </span>
+                <span>
+                  <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
+                    {p.label}
+                    {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
+                  </span>
+                  <span className="block text-[12.5px] text-faint">
+                    {cycle === "year" ? p.sublabel : `${p.credits.toLocaleString()} credits / mo · ${p.sublabel}`}
+                  </span>
+                </span>
+              </span>
+              <span className="text-lg font-bold text-fg">
+                {p.priceLabel}
+                <span className="text-xs font-normal text-faint">{cycle === "year" ? "/yr" : "/mo"}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
+        {busy ? <Loader2 size={17} className="animate-spin" /> : <>Subscribe — {paid.priceLabel}{cycle === "year" ? "/yr" : "/mo"}</>}
+      </Button>
+      {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
+      <p className="mt-4 text-center text-[12px] text-faint">
+        Secure checkout by Stripe · charged in US dollars · renews {cycle === "year" ? "yearly" : "monthly"} · cancel anytime.
+      </p>
     </div>
   );
 }
@@ -717,15 +653,44 @@ export function AppShell({ children }: { children: ReactNode }) {
   const lastUser = useRef<string | null>(null);
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
   const [autoBuy, setAutoBuy] = useState<BillingItem | null>(null);
-  const pendingBuy = useRef<BillingItem | null>(null);
   // True once Supabase has reported the initial session (gate vs app decision).
   const [authReady, setAuthReady] = useState(false);
-  // Guest who just paid — the gate shows the "confirm your email" step.
-  const [guestConfirmEmail, setGuestConfirmEmail] = useState<string | null>(null);
+  // Has an active subscription? null = still checking. The studio's main area is
+  // locked (ActivateGate) until this is true. Seeded from a cached hint so a
+  // returning subscriber doesn't see a flash of the lock while we revalidate.
+  const [subscribed, setSubscribed] = useState<boolean | null>(() => {
+    if (typeof window === "undefined") return null;
+    const c = localStorage.getItem(SUBSCRIBED_KEY);
+    return c === "1" ? true : c === "0" ? false : null;
+  });
 
-  // ?buy=<itemId> — a plan chosen on the landing page. Signed in: open the
-  // credits modal and start checkout immediately. Signed out: preselect it on
-  // the paywall gate (email → payment → confirmation).
+  // Ask the server whether this account has an active subscription, and cache
+  // the answer so the next load decides instantly.
+  const checkSubscription = useCallback(async () => {
+    if (!supabase) return;
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    if (!token) return;
+    try {
+      const res = await fetch("/api/account", { headers: { Authorization: `Bearer ${token}` } });
+      const d = res.ok ? await res.json() : null;
+      const b = d?.billing;
+      // Unlock on the same signal the server enforces (admin or credits), plus
+      // an active subscription so a subscriber who's momentarily at 0 credits
+      // is never shown the lock. Credits only come from subscribing.
+      const active =
+        Boolean(d?.admin) ||
+        (typeof d?.credits === "number" && d.credits > 0) ||
+        Boolean(b && b.plan && ["active", "trialing", "past_due"].includes(b.status));
+      setSubscribed(active);
+      localStorage.setItem(SUBSCRIBED_KEY, active ? "1" : "0");
+    } catch {
+      /* leave the current (possibly cached) value in place */
+    }
+  }, []);
+
+  // ?buy=<itemId> — a plan chosen on the landing page. Carry it in as the
+  // preselected plan; signed-in subscribers get the credits modal, everyone
+  // else lands on the ActivateGate with it preselected.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -734,83 +699,67 @@ export function AppShell({ children }: { children: ReactNode }) {
     params.delete("buy");
     const qs = params.toString();
     window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
-    if (!supabase) {
-      setBuyOpen(true); // demo mode — just show the options
-      return;
-    }
-    void supabase.auth.getSession().then(({ data }) => {
-      setAutoBuy(item);
-      if (data.session) setBuyOpen(true);
-      // signed out → the gate picks up `autoBuy` as its preselected plan
-    });
+    setAutoBuy(item);
+    if (!supabase) setBuyOpen(true); // demo mode — just show the options
   }, []);
 
-  // Returning from a redirect checkout. Signed in: the webhook adds credits
-  // async, so poll the cloud a few times for them to land. Guest checkout:
-  // their account already exists (created at checkout) and holds the credits —
-  // email them a confirmation link that signs them in and confirms the account.
+  // Subscribers who arrive with ?buy= get the credits modal (top-up / switch).
+  useEffect(() => {
+    if (subscribed && autoBuy) setBuyOpen(true);
+  }, [subscribed, autoBuy]);
+
+  // Returning in-page from Stripe's embedded checkout (?purchase=success). The
+  // webhook grants credits and activates the subscription async, so poll the
+  // cloud a few times for the balance to land and re-check the subscription so
+  // the studio unlocks.
   useEffect(() => {
     if (typeof window === "undefined" || !supabase) return;
     const status = new URLSearchParams(window.location.search).get("purchase");
     if (!status) return;
     window.history.replaceState({}, "", window.location.pathname);
     if (status === "failed") {
-      localStorage.removeItem(CHECKOUT_EMAIL_KEY);
       setPurchaseNote("Payment didn’t go through — no charge was made.");
       const t = setTimeout(() => setPurchaseNote(null), 6000);
       return () => clearTimeout(t);
     }
     let poll: ReturnType<typeof setInterval> | null = null;
     void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        localStorage.removeItem(CHECKOUT_EMAIL_KEY);
-        setPurchaseNote("Payment received — adding your credits…");
-        // Only claim success when the balance actually increased — the webhook
-        // grants credits async and can fail; never tell a customer "all set"
-        // on faith.
-        const before = useStore.getState().credits;
-        let n = 0;
-        poll = setInterval(async () => {
-          const uid = (await supabase!.auth.getSession()).data.session?.user?.id;
-          if (uid) await hydrateFromCloud(uid);
-          const now = useStore.getState().credits;
-          if (now > before) {
-            if (poll) clearInterval(poll);
-            setPurchaseNote("Credits added — you’re all set.");
-            setTimeout(() => setPurchaseNote(null), 4000);
-            return;
-          }
-          if (++n >= 7) {
-            if (poll) clearInterval(poll);
-            setPurchaseNote(
-              "Payment received — your credits are still processing. If they don’t appear in a few minutes, email support@vibvid.ai.",
-            );
-            setTimeout(() => setPurchaseNote(null), 20000);
-          }
-        }, 3000);
-        return;
-      }
-      const guestEmail = localStorage.getItem(CHECKOUT_EMAIL_KEY);
-      if (guestEmail) {
-        localStorage.removeItem(CHECKOUT_EMAIL_KEY);
-        // With captcha enforced, a token-less send would be rejected — the
-        // confirm step's captcha-gated send button becomes the send path.
-        if (!captchaEnabled) {
-          void supabase!.auth.signInWithOtp({
-            email: guestEmail,
-            options: { emailRedirectTo: `${window.location.origin}/app` },
-          });
-        }
-        setGuestConfirmEmail(guestEmail); // gate shows the confirm-email step
-      } else {
+      if (!data.session) {
         setPurchaseNote("Payment received — sign in to see your credits.");
         setTimeout(() => setPurchaseNote(null), 15000);
+        return;
       }
+      setPurchaseNote("Payment received — activating your studio…");
+      void checkSubscription();
+      // Only claim success when the balance actually increased — the webhook
+      // grants credits async and can fail; never tell a customer "all set" on faith.
+      const before = useStore.getState().credits;
+      let n = 0;
+      poll = setInterval(async () => {
+        const uid = (await supabase!.auth.getSession()).data.session?.user?.id;
+        if (uid) await hydrateFromCloud(uid);
+        const now = useStore.getState().credits;
+        if (now > before) {
+          if (poll) clearInterval(poll);
+          void checkSubscription();
+          setPurchaseNote("You’re all set — your studio is active.");
+          setTimeout(() => setPurchaseNote(null), 4000);
+          return;
+        }
+        if (++n >= 7) {
+          if (poll) clearInterval(poll);
+          void checkSubscription();
+          setPurchaseNote(
+            "Payment received — your credits are still processing. If they don’t appear in a few minutes, email support@vibvid.ai.",
+          );
+          setTimeout(() => setPurchaseNote(null), 20000);
+        }
+      }, 3000);
     });
     return () => {
       if (poll) clearInterval(poll);
     };
-  }, [hydrateFromCloud]);
+  }, [hydrateFromCloud, checkSubscription]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -824,23 +773,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (lastUser.current !== session.user.id) {
           lastUser.current = session.user.id;
           void hydrateFromCloud(session.user.id);
-        }
-        // They picked a plan while signed out — resume checkout now.
-        if (pendingBuy.current) {
-          setAutoBuy(pendingBuy.current);
-          pendingBuy.current = null;
-          setBuyOpen(true);
+          void checkSubscription();
         }
       } else {
         setEmail(null);
         if (event === "SIGNED_OUT") {
           lastUser.current = null;
+          setSubscribed(null);
+          localStorage.removeItem(SUBSCRIBED_KEY);
           signOutToLocal();
         }
       }
     });
     return () => subscription.unsubscribe();
-  }, [hydrateFromCloud, signOutToLocal, setAuthOpen]);
+  }, [hydrateFromCloud, signOutToLocal, setAuthOpen, checkSubscription]);
 
   // Payment-first: when the cloud is live, nobody uses the studio anonymously.
   // Wait for the initial session check, then gate signed-out visitors.
@@ -854,16 +800,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (cloudConfigured && !email) {
     return (
       <div className="min-h-screen">
-        <PaywallGate
-          preselect={autoBuy}
-          confirmEmail={guestConfirmEmail}
-          onStartOver={() => setGuestConfirmEmail(null)}
-          onSignInInstead={(resume) => {
-            pendingBuy.current = resume;
-            setAuthOpen(true);
-          }}
-        />
-        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+        <SignUpGate />
         {purchaseNote && (
           <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
             <span className="flex items-center gap-2">
@@ -907,7 +844,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div className="hidden text-sm text-faint md:block" />
             <div className="flex items-center gap-2">
-              <CreditWidget onBuy={() => setBuyOpen(true)} />
+              {/* Credits + top-ups only once the studio is unlocked — a locked
+                  user's only purchase path is the ActivateGate (subscriptions). */}
+              {(!cloudConfigured || subscribed !== false) && <CreditWidget onBuy={() => setBuyOpen(true)} />}
               {cloudConfigured &&
                 (email ? (
                   <div className="flex items-center gap-1.5">
@@ -940,7 +879,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="px-4 pb-24 pt-6 sm:px-6 md:pb-10">{children}</main>
+        <main className="px-4 pb-24 pt-6 sm:px-6 md:pb-10">
+          {cloudConfigured && email && subscribed === false ? (
+            <ActivateGate preselect={autoBuy} />
+          ) : (
+            children
+          )}
+        </main>
       </div>
 
       {/* Bottom nav (mobile) */}
