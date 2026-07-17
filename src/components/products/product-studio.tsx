@@ -14,6 +14,7 @@ import {
   Coins,
   ImagePlus,
   Loader2,
+  Plus,
   Package,
   Sparkles,
   Trash2,
@@ -48,6 +49,8 @@ interface StagedFile {
 
 export function ProductStudio() {
   const router = useRouter();
+  /** Gallery first — the creation wizard opens on "Add new". */
+  const [creating, setCreating] = useState(false);
   const assets = useStore((s) => s.assets);
   const videos = useStore((s) => s.videos);
   const credits = useStore((s) => s.credits);
@@ -232,8 +235,22 @@ export function ProductStudio() {
         </p>
       </header>
 
+      {/* Gallery first — the wizard hides behind "Add new". */}
+      {!creating && (
+        <div className="mb-5">
+          <Button size="lg" onClick={() => setCreating(true)}>
+            <Plus size={17} /> Add new product
+          </Button>
+        </div>
+      )}
+      {!creating && products.length === 0 && (
+        <Card className="flex min-h-[200px] items-center justify-center p-8 text-center text-sm text-muted">
+          No products yet — tap “Add new product” to make your first.
+        </Card>
+      )}
+
       {/* ------------------------- Saved products ------------------------- */}
-      {products.length > 0 && (
+      {!creating && products.length > 0 && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((c) => {
             const views = c.parts?.filter((p) => p.kind === "image").length ?? 0;
@@ -273,6 +290,14 @@ export function ProductStudio() {
         </div>
       )}
 
+      {creating && (
+        <>
+          <button
+            onClick={() => setCreating(false)}
+            className="mb-4 text-[13px] font-medium text-muted transition-colors hover:text-fg"
+          >
+            ← All products
+          </button>
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,400px)_1fr]">
         {/* ------------------------------ Form ------------------------------ */}
         <Card className="h-fit p-5">
@@ -463,6 +488,8 @@ export function ProductStudio() {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   Copy,
   LayoutGrid,
   Loader2,
+  Plus,
   Package,
   PenLine,
   Sparkles,
@@ -49,6 +50,8 @@ function productPhotoUrls(p: Asset): string[] {
 
 export function StoryboardStudio() {
   const router = useRouter();
+  /** Gallery first — the creation wizard opens on "Add new". */
+  const [creating, setCreating] = useState(false);
   const assets = useStore((s) => s.assets);
   const videos = useStore((s) => s.videos);
   const credits = useStore((s) => s.credits);
@@ -232,8 +235,22 @@ export function StoryboardStudio() {
         </p>
       </header>
 
+      {/* Gallery first — the wizard hides behind "Add new". */}
+      {!creating && (
+        <div className="mb-5">
+          <Button size="lg" onClick={() => setCreating(true)}>
+            <Plus size={17} /> Add new storyboard
+          </Button>
+        </div>
+      )}
+      {!creating && boards.length === 0 && (
+        <Card className="flex min-h-[200px] items-center justify-center p-8 text-center text-sm text-muted">
+          No storyboards yet — tap “Add new storyboard” to make your first.
+        </Card>
+      )}
+
       {/* ------------------------- Saved storyboards ------------------------- */}
-      {boards.length > 0 && (
+      {!creating && boards.length > 0 && (
         <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {boards.map((b) => {
             const dur = storyboardDurationSec(b);
@@ -311,6 +328,14 @@ export function StoryboardStudio() {
         </div>
       )}
 
+      {creating && (
+        <>
+          <button
+            onClick={() => setCreating(false)}
+            className="mb-4 text-[13px] font-medium text-muted transition-colors hover:text-fg"
+          >
+            ← All storyboards
+          </button>
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,400px)_1fr]">
         {/* ------------------------------ Brief ------------------------------ */}
         <Card className="h-fit p-5">
@@ -550,6 +575,8 @@ export function StoryboardStudio() {
           )}
         </div>
       </div>
+        </>
+      )}
 
     </div>
   );
