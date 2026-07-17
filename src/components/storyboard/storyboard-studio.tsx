@@ -127,7 +127,7 @@ export function StoryboardStudio() {
   /** Fallback sheet prompt when the creator wrote/edited the flow by hand. */
   const composedImagePrompt =
     imagePrompt.trim() ||
-    `A professional film storyboard sheet: a ${PANEL_OPTIONS[panels].grid} grid of ${panels} numbered panels on a clean white background with thin gutters, a small panel number in the corner of each cell. The panels tell this story in order, one beat per panel, the same protagonist identical in every panel — same face, hair and wardrobe: ${flow.trim()} Rendered as ${STYLES[style].suffix}.`;
+    `A professional film storyboard sheet: a ${PANEL_OPTIONS[panels].grid} grid of ${panels} panels on a clean white background with thin gutters; each cell carries exactly ONE small grey numeral in its bottom-left corner, numbered in reading order, and no other text anywhere. The panels tell this story in order, one beat per panel, the same protagonist identical in every panel — same face, hair and wardrobe: ${flow.trim()} Rendered as ${STYLES[style].suffix}.`;
 
   function onGenerate() {
     if (rendering) return;
