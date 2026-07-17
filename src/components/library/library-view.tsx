@@ -12,6 +12,7 @@ import {
   Bookmark,
   Repeat2,
   Check,
+  Copy,
   Lightbulb,
   AlertTriangle,
 } from "lucide-react";
@@ -63,8 +64,8 @@ export function LibraryView() {
                 }.`}
           </p>
         </div>
-        <Button onClick={() => (window.location.href = "/app/make")} className="hidden sm:inline-flex">
-          <Sparkles size={16} /> Make
+        <Button onClick={() => (window.location.href = "/app")} className="hidden sm:inline-flex">
+          <Sparkles size={16} /> Open the Studio
         </Button>
       </header>
 
@@ -72,10 +73,10 @@ export function LibraryView() {
         <EmptyState
           icon={<Film size={24} />}
           title="Nothing here yet"
-          description="Generate from Make and your videos land here — ready to play, download, remix and reuse."
+          description="Generate in the Studio and your videos land here — each one keeping the prompt and media it was produced from."
           action={
-            <Button onClick={() => (window.location.href = "/app/make")}>
-              <Sparkles size={16} /> Make something
+            <Button onClick={() => (window.location.href = "/app")}>
+              <Sparkles size={16} /> Open the Studio
             </Button>
           }
         />
@@ -198,7 +199,7 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
               router.push("/app/make");
             }}
           >
-            <Repeat2 size={14} /> Edit in Make
+            <Repeat2 size={14} /> Edit in Studio
           </Button>
           <Button
             size="sm"
@@ -232,12 +233,24 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
   const setDraftDirection = useStore((s) => s.setDraftDirection);
   const setDraftElements = useStore((s) => s.setDraftElements);
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const byId = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, a])), [assets]);
   if (!video) return null;
 
   const model = getModel(video.modelId);
   const sources = (video.elements ?? []).map((id) => byId[id]).filter(Boolean) as Asset[];
+  // Reference media the job carries directly (frames, product photos…) that
+  // isn't already represented by a library asset above.
+  const sourceUrls = new Set(sources.flatMap((a) => [a.url, a.posterUrl].filter(Boolean) as string[]));
+  const extraImages = [
+    ...new Set(
+      [video.firstFrameUrl, video.lastFrameUrl, ...(video.refImageUrls ?? [])].filter(
+        (u): u is string => !!u && !sourceUrls.has(u),
+      ),
+    ),
+  ];
+  const extraVideos = (video.refVideoUrls ?? []).filter((u) => !sourceUrls.has(u));
   // Provenance: the plan idea this video was made from.
   const fromPlan = video.planId ? plans.find((p) => p.id === video.planId) : null;
   const fromIdea = fromPlan?.ideas.find((i) => i.id === video.ideaId) ?? null;
@@ -254,7 +267,6 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
     <Modal open={!!video} onClose={onClose} size="lg" title="Video">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video src={video.videoUrl} poster={video.posterUrl} controls autoPlay playsInline className="w-full rounded-xl bg-black" />
-      <p className="mt-4 text-sm text-fg">{video.prompt}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Badge tone="accent">
           {model.glyph} {model.name}
@@ -282,19 +294,77 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
         </button>
       )}
 
-      {sources.length > 0 && (
-        <div className="mt-4 rounded-xl border border-line bg-surface-2 p-3">
-          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">Made from</div>
-          <div className="flex flex-wrap gap-2">
-            {sources.map((a) => (
-              <span key={a.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface py-1 pl-1 pr-2.5 text-[12px] text-fg">
-                <AssetThumb a={a} className="h-5 w-5 rounded-full" />
-                {a.name}
-              </span>
-            ))}
-          </div>
+      {/* The production record: everything this video was made from — the
+          prompt and every picture/video that steered it — stays attached. */}
+      <div className="mt-4 rounded-xl border border-line bg-surface-2 p-3.5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-faint">
+            How it was made
+          </span>
+          <button
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(video.prompt);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1800);
+              } catch {
+                /* clipboard unavailable — the prompt is visible to select */
+              }
+            }}
+            className="flex items-center gap-1 text-[11.5px] font-medium text-muted hover:text-fg"
+          >
+            {copied ? (
+              <>
+                <Check size={12} className="text-teal" /> Copied
+              </>
+            ) : (
+              <>
+                <Copy size={12} /> Copy prompt
+              </>
+            )}
+          </button>
         </div>
-      )}
+        <p className="max-h-44 overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted">
+          {video.prompt}
+        </p>
+
+        {(sources.length > 0 || extraImages.length > 0 || extraVideos.length > 0) && (
+          <>
+            <div className="mb-1.5 mt-3 text-[11px] font-medium uppercase tracking-wide text-faint">
+              Pictures &amp; media used
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {sources.map((a) => (
+                <span key={a.id} className="overflow-hidden rounded-lg border border-line bg-surface">
+                  <AssetThumb a={a} className="aspect-video w-full" />
+                  <span className="block truncate px-1.5 py-1 text-[10.5px] text-muted" title={a.name}>
+                    {a.class === "storyboard" ? "Storyboard · " : ""}
+                    {a.name}
+                  </span>
+                </span>
+              ))}
+              {extraImages.map((u, i) => (
+                <span key={u} className="overflow-hidden rounded-lg border border-line bg-surface">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt={`Reference image ${i + 1}`} className="aspect-video w-full object-cover" />
+                  <span className="block truncate px-1.5 py-1 text-[10.5px] text-muted">
+                    Reference image {i + 1}
+                  </span>
+                </span>
+              ))}
+              {extraVideos.map((u, i) => (
+                <span key={u} className="overflow-hidden rounded-lg border border-line bg-surface">
+                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                  <video src={u} muted playsInline preload="metadata" className="aspect-video w-full object-cover" />
+                  <span className="block truncate px-1.5 py-1 text-[10.5px] text-muted">
+                    Reference video {i + 1}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
         <Button variant="primary" size="sm" onClick={remix}>

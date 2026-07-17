@@ -264,7 +264,7 @@ export function ProductStudio() {
                   <div className="truncate text-[13.5px] font-semibold">{c.name}</div>
                   <div className="mt-1 text-[11px] text-faint">{views} views</div>
                   <Button size="sm" variant="soft" className="mt-2 w-full" onClick={() => useInMake(c)}>
-                    <Sparkles size={13} /> Use in Make
+                    <Sparkles size={13} /> Use in Studio
                   </Button>
                 </div>
               </Card>

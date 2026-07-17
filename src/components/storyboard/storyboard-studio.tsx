@@ -6,7 +6,7 @@
 // prompts — the SEEDANCE PROMPT (scene by scene, time ranges summing to the
 // length) and a board IMAGE prompt that renders all nine key frames as a
 // single 3×3 sheet on Seedream, steered by the product's reference photos.
-// A finished board saves itself automatically, and "Use in Make" feeds the
+// A finished board saves itself automatically, and "Use in Studio" feeds the
 // sheet in as a reference with the prompt and length preloaded. Boards are
 // private: each creator sees only their own sheets and prompts.
 
@@ -302,7 +302,7 @@ export function StoryboardStudio() {
                     </>
                   )}
                   <Button size="sm" variant="soft" className="mt-2 w-full" onClick={() => useInMake(b)}>
-                    <Sparkles size={13} /> Use in Make
+                    <Sparkles size={13} /> Use in Studio
                   </Button>
                 </div>
               </Card>
@@ -544,7 +544,7 @@ export function StoryboardStudio() {
                 onClick={() => savedBoard && useInMake(savedBoard)}
                 disabled={!savedBoard}
               >
-                Use in Make <ArrowRight size={15} />
+                Use in Studio <ArrowRight size={15} />
               </Button>
             </Card>
           )}

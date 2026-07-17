@@ -842,7 +842,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
   return (
     <div className="mx-auto max-w-2xl">
       {/* The header is the page title; the model is picked in the format bar below. */}
-      <h1 className="mb-4 text-center text-xl font-bold tracking-tight">Make</h1>
+      <h1 className="mb-4 text-center text-xl font-bold tracking-tight">Studio</h1>
 
       <Card className="overflow-hidden">
         <div className="p-5">

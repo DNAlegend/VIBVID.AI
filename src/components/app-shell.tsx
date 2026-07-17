@@ -15,30 +15,33 @@ import { CheckoutPanel } from "@/components/checkout/checkout-panel";
 import { AccountModal } from "@/components/account/account-modal";
 import { LogoWordmark } from "@/components/logo";
 
-// The nav splits into the production pipeline and the library of what you own.
+// The nav reads top to bottom as the workflow: the Studio (where the magic
+// happens), the Library (everything you create from — storyboards, characters,
+// products, assets), and the produced videos at the bottom.
 // `short` is the label used on the compact mobile bar (6 items must fit).
 const NAV_GROUPS: { label: string; items: { href: string; label: string; short?: string; icon: typeof Clapperboard }[] }[] = [
   {
-    label: "Production",
-    items: [
-      { href: "/app", label: "Make", icon: Clapperboard },
-      { href: "/app/storyboard", label: "Storyboard", short: "Board", icon: LayoutGrid },
-      { href: "/app/videos", label: "My Videos", short: "Videos", icon: Film },
-    ],
+    label: "Studio",
+    items: [{ href: "/app", label: "Studio", icon: Clapperboard }],
   },
   {
     label: "Library",
     items: [
+      { href: "/app/storyboard", label: "Storyboard", short: "Board", icon: LayoutGrid },
       { href: "/app/characters", label: "Characters", short: "Cast", icon: UserRound },
       { href: "/app/products", label: "Products", short: "Product", icon: Package },
       { href: "/app/assets", label: "Assets", icon: FolderOpen },
     ],
   },
+  {
+    label: "Results",
+    items: [{ href: "/app/videos", label: "My Videos", short: "Videos", icon: Film }],
+  },
 ];
 // Flat list for the mobile bar (can't show group headers) — one source of truth.
 const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
-/** Make is the index route — it also owns /app/make; the rest match by prefix. */
+/** The Studio is the index route — it also owns /app/make; the rest match by prefix. */
 const isActive = (href: string, pathname: string) =>
   href === "/app"
     ? pathname === "/app" || pathname.startsWith("/app/make")

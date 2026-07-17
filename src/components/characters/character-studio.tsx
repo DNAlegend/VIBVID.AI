@@ -300,7 +300,7 @@ export function CharacterStudio() {
                     )}
                   </div>
                   <Button size="sm" variant="soft" className="mt-2 w-full" onClick={() => useInMake(c)}>
-                    <Sparkles size={13} /> Use in Make
+                    <Sparkles size={13} /> Use in Studio
                   </Button>
                 </div>
               </Card>
