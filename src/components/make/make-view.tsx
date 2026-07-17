@@ -769,6 +769,109 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
       <Card className="overflow-hidden">
         <div className="p-5">
+          {/* Look & length */}
+          <div className="mb-3.5">
+            <h2 className="text-[15px] font-bold tracking-tight text-fg">Model &amp; format</h2>
+            <p className="mt-0.5 text-[12.5px] text-muted">The exact model, quality, aspect and length</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            {/* Draft vs Production — the model IS the price class */}
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Model</span>
+              {listModels({ modality: "video", enabledOnly: true }).map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setModelId(m.id)}
+                  title={m.blurb}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    modelId === m.id
+                      ? "border-accent bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-line-2",
+                  )}
+                >
+                  {m.glyph} {m.name}
+                </button>
+              ))}
+            </div>
+            {/* Quality is part of the price — the rate is on each chip.
+                flex-wrap: with 4 resolutions (Production) this row is wider than
+                a phone screen, and without wrapping the 4K chip gets clipped. */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Quality</span>
+              {(model.resolutions ?? [model.arkResolution ?? "720p"]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setResolution(r)}
+                  title={`${videoRate(model, r)} credits / second`}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    resolution === r
+                      ? "border-accent bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-line-2",
+                  )}
+                >
+                  {r}
+                  <span className={cn("ml-1 text-[10px]", resolution === r ? "text-accent-2" : "text-faint")}>
+                    {videoRate(model, r)}c/s
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
+              {(
+                [
+                  // A little frame you can read at a glance: wide, tall, square.
+                  { r: "16:9", label: "Wide", frame: "h-[11px] w-[19px]" },
+                  { r: "9:16", label: "Tall", frame: "h-[19px] w-[11px]" },
+                  { r: "1:1", label: "Square", frame: "h-[15px] w-[15px]" },
+                ] as const
+              ).map(({ r, label, frame }) => (
+                <button
+                  key={r}
+                  onClick={() => setAspectRatio(r)}
+                  title={`${label} · ${r}`}
+                  className={cn(
+                    "flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[12px] font-medium transition-colors",
+                    aspectRatio === r
+                      ? "border-accent bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-line-2",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-[3px] border-[1.5px]",
+                      frame,
+                      aspectRatio === r ? "border-accent-2 bg-accent/15" : "border-faint",
+                    )}
+                  />
+                  {r}
+                </button>
+              ))}
+            </div>
+            {modality === "video" && (
+              <div className="flex items-center gap-1.5">
+                <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDurationSec(d)}
+                    className={cn(
+                      "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                      durationSec === d
+                        ? "border-accent bg-accent-soft text-fg"
+                        : "border-line text-muted hover:border-line-2",
+                    )}
+                  >
+                    {d}s
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <SectionTitle title="Describe" sub="What's the shot?" />
           <div>
           {/* Provenance: this session is producing a shot from the production. */}
           {planIdea && (
@@ -1228,104 +1331,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
             )}
           </div>
 
-          {/* Look & length */}
-          <SectionTitle title="Look & length" sub="Quality, aspect and length" />
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            {/* Draft vs Production — the model IS the price class */}
-            <div className="flex items-center gap-1.5">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Model</span>
-              {listModels({ modality: "video", enabledOnly: true }).map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setModelId(m.id)}
-                  title={m.blurb}
-                  className={cn(
-                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
-                    modelId === m.id
-                      ? "border-accent bg-accent-soft text-fg"
-                      : "border-line text-muted hover:border-line-2",
-                  )}
-                >
-                  {m.glyph} {m.name.replace(/^Vib /, "")}
-                </button>
-              ))}
-            </div>
-            {/* Quality is part of the price — the rate is on each chip.
-                flex-wrap: with 4 resolutions (Production) this row is wider than
-                a phone screen, and without wrapping the 4K chip gets clipped. */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Quality</span>
-              {(model.resolutions ?? [model.arkResolution ?? "720p"]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setResolution(r)}
-                  title={`${videoRate(model, r)} credits / second`}
-                  className={cn(
-                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
-                    resolution === r
-                      ? "border-accent bg-accent-soft text-fg"
-                      : "border-line text-muted hover:border-line-2",
-                  )}
-                >
-                  {r}
-                  <span className={cn("ml-1 text-[10px]", resolution === r ? "text-accent-2" : "text-faint")}>
-                    {videoRate(model, r)}c/s
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
-              {(
-                [
-                  // A little frame you can read at a glance: wide, tall, square.
-                  { r: "16:9", label: "Wide", frame: "h-[11px] w-[19px]" },
-                  { r: "9:16", label: "Tall", frame: "h-[19px] w-[11px]" },
-                  { r: "1:1", label: "Square", frame: "h-[15px] w-[15px]" },
-                ] as const
-              ).map(({ r, label, frame }) => (
-                <button
-                  key={r}
-                  onClick={() => setAspectRatio(r)}
-                  title={`${label} · ${r}`}
-                  className={cn(
-                    "flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[12px] font-medium transition-colors",
-                    aspectRatio === r
-                      ? "border-accent bg-accent-soft text-fg"
-                      : "border-line text-muted hover:border-line-2",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-[3px] border-[1.5px]",
-                      frame,
-                      aspectRatio === r ? "border-accent-2 bg-accent/15" : "border-faint",
-                    )}
-                  />
-                  {r}
-                </button>
-              ))}
-            </div>
-            {modality === "video" && (
-              <div className="flex items-center gap-1.5">
-                <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
-                {DURATIONS.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setDurationSec(d)}
-                    className={cn(
-                      "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
-                      durationSec === d
-                        ? "border-accent bg-accent-soft text-fg"
-                        : "border-line text-muted hover:border-line-2",
-                    )}
-                  >
-                    {d}s
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* Generate */}
           <div className="mt-6 border-t border-line pt-5">

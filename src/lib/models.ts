@@ -49,8 +49,8 @@ export interface ModelProvider {
 export const MODELS: ModelProvider[] = [
   {
     id: "seedance-2-pro",
-    name: "Vib Production",
-    vendor: "VIBVID",
+    name: "Seedance 2.0 Pro",
+    vendor: "ByteDance",
     modality: "video",
     capabilities: ["text-to-video", "image-to-video"],
     blurb: "The detailed production model — cinematic motion, native audio, up to native 4K.",
@@ -72,8 +72,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedance-2-mini",
-    name: "Vib Draft",
-    vendor: "VIBVID",
+    name: "Seedance 2.0 Mini",
+    vendor: "ByteDance",
     modality: "video",
     capabilities: ["text-to-video", "image-to-video"],
     blurb: "The draft model — fast, cheap takes to explore ideas before a Production render.",
@@ -93,8 +93,8 @@ export const MODELS: ModelProvider[] = [
   {
     // Legacy tier — hidden from pickers; old generations still resolve its badge.
     id: "seedance-2-lite",
-    name: "Vib Fast",
-    vendor: "VIBVID",
+    name: "Seedance 2.0 Fast",
+    vendor: "ByteDance",
     modality: "video",
     capabilities: ["text-to-video", "image-to-video"],
     blurb: "Faster, cheaper drafts at 720p.",
@@ -109,8 +109,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedream-3",
-    name: "Vib Image",
-    vendor: "VIBVID",
+    name: "Seedream 4.0",
+    vendor: "ByteDance",
     modality: "image",
     capabilities: ["text-to-image"],
     blurb: "The proven workhorse — high-fidelity images with rich detail.",
@@ -124,8 +124,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedream-45",
-    name: "Vib Image Plus",
-    vendor: "VIBVID",
+    name: "Seedream 4.5",
+    vendor: "ByteDance",
     modality: "image",
     capabilities: ["text-to-image", "image-to-image"],
     blurb: "Sharper composition and better text rendering than 4.0.",
@@ -138,8 +138,8 @@ export const MODELS: ModelProvider[] = [
   },
   {
     id: "seedream-5",
-    name: "Vib Image Pro",
-    vendor: "VIBVID",
+    name: "Seedream 5.0",
+    vendor: "ByteDance",
     modality: "image",
     capabilities: ["text-to-image", "image-to-image"],
     blurb: "The flagship — best realism, lighting and fine detail, up to 2K.",
