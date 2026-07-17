@@ -23,8 +23,10 @@ import {
   UserRound,
   Mic,
   Image as ImageIcon,
+  LayoutGrid,
   Pencil,
   Rows3,
+  ScrollText,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
@@ -316,6 +318,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [prompt, setPrompt] = useState("");
   const [picks, setPicks] = useState<Picks>({});
   const [board, setBoard] = useState<Board>(EMPTY_BOARD);
+  /** The attached storyboard (asset id) — its sheet + story prompt ride with the shot. */
+  const [storyboardId, setStoryboardId] = useState<string | null>(null);
   const [boardPickZone, setBoardPickZone] = useState<BoardZone | null>(null);
   const [dragZone, setDragZone] = useState<BoardZone | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialPurpose.aspectRatio);
@@ -398,6 +402,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
         });
         setPicks((p) => ({ ...seed, ...p }));
       } else {
+        // A handed-over storyboard attaches as THE storyboard, not a plain image.
+        const sb = ids.map((id) => byId[id]).find((a) => a?.class === "storyboard");
+        if (sb) setStoryboardId(sb.id);
         // Video: media assets become references, audio/motion become influences.
         setBoard((b) => {
           const next = {
@@ -493,6 +500,39 @@ export function MakeView({ mode }: { mode?: Modality }) {
     () => assets.filter((a) => a.class === "character" && (a.parts?.length ?? 0) > 0),
     [assets],
   );
+
+  // Saved storyboards — the whole video boarded as one sheet + its story prompt.
+  const storyboards = useMemo(() => assets.filter((a) => a.class === "storyboard"), [assets]);
+  const activeStoryboard = storyboardId ? byId[storyboardId] ?? null : null;
+
+  /**
+   * Attach a storyboard to the shot (one at a time): its sheet becomes an
+   * image reference and, if the script box is empty, its story-flow prompt
+   * becomes the script. finalPrompt additionally guarantees the flow rides
+   * with the generation even when the creator rewrites the box.
+   */
+  function attachStoryboard(sb: Asset) {
+    const on = storyboardId === sb.id;
+    setBoard((b) => {
+      // Swapping boards replaces the previous sheet in the image slots.
+      const refs = b.refs.filter((id) => id !== sb.id && id !== storyboardId);
+      return {
+        ...b,
+        // Attaching uses reference mode — clear any exact-frame selection.
+        firstFrame: on ? b.firstFrame : null,
+        lastFrame: on ? b.lastFrame : null,
+        refs: !on && refs.length < REF_IMAGE_LIMIT ? [...refs, sb.id] : refs,
+      };
+    });
+    setStoryboardId(on ? null : sb.id);
+    if (!on && !prompt.trim() && sb.promptFragment) setPrompt(sb.promptFragment);
+    else if (on && sb.promptFragment && prompt.trim() === sb.promptFragment.trim()) setPrompt("");
+  }
+
+  // The sheet can also leave via its Images slot's ✕ — detach the storyboard too.
+  useEffect(() => {
+    if (storyboardId && !board.refs.includes(storyboardId)) setStoryboardId(null);
+  }, [board.refs, storyboardId]);
   const voiceForCharacter = (c: Asset) =>
     assets.find((a) => a.categoryId === c.categoryId && a.kind === "audio") ?? null;
 
@@ -533,7 +573,10 @@ export function MakeView({ mode }: { mode?: Modality }) {
     ...refImageAssets.map((a, i) => ({
       tag: `I${i + 1}`,
       asset: a,
-      expand: `image ${i + 1} (${a.name})`,
+      expand:
+        a.id === storyboardId
+          ? `image ${i + 1} — the storyboard sheet showing every shot of this video in order`
+          : `image ${i + 1} (${a.name})`,
     })),
     ...refVideoAssets.map((a, i) => ({
       tag: `V${i + 1}`,
@@ -618,11 +661,26 @@ export function MakeView({ mode }: { mode?: Modality }) {
   // language is woven in at the end.
   const expandedPrompt = expandTags(prompt);
   const finalPrompt = useMemo(() => {
-    const composed = composeFromAssets(pickedAssets, expandedPrompt);
+    // The storyboard isn't a slot pick (no "the subject" scaffold) — its flow
+    // is woven in below instead.
+    let composed = composeFromAssets(
+      pickedAssets.filter((a) => a.class !== "storyboard"),
+      expandedPrompt,
+    );
+    // An attached storyboard's story prompt ALWAYS rides with the generation:
+    // if the script no longer contains it (the creator rewrote or cleared the
+    // box), weave it back in alongside the sheet reference.
+    const flow = activeStoryboard?.promptFragment?.trim();
+    if (flow) {
+      const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ");
+      if (!norm(composed).includes(norm(flow).slice(0, 80))) {
+        composed = `${composed ? `${composed}\n\n` : ""}Follow the attached storyboard sheet panel by panel — it boards every shot of this video in order: ${flow}`;
+      }
+    }
     if (!composed || !purpose.styleSuffix) return composed;
     return `${composed} — ${purpose.styleSuffix}`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickedAssets, expandedPrompt, purpose.styleSuffix]);
+  }, [pickedAssets, expandedPrompt, purpose.styleSuffix, activeStoryboard]);
   const cost = priceFor(model, {
     durationSec,
     count: 1,
@@ -818,6 +876,27 @@ export function MakeView({ mode }: { mode?: Modality }) {
             </div>
           )}
 
+          {/* Provenance: this shot is generated from an attached storyboard. */}
+          {activeStoryboard && (
+            <div className="mb-3 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <LayoutGrid size={14} className="shrink-0 text-accent-2" />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">
+                  <span className="font-bold">Storyboard</span> —{" "}
+                  <span className="font-semibold">{activeStoryboard.name}</span>: the sheet rides as an image
+                  reference and its story prompt is included in the script.
+                </span>
+                <button
+                  onClick={() => attachStoryboard(activeStoryboard)}
+                  className="shrink-0 text-[12px] font-medium text-faint hover:text-fg"
+                  title="Detach the storyboard"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Script — organized beat view when it has a timeline; textarea to edit. */}
           {(() => {
             const segs = planSegments(prompt);
@@ -983,6 +1062,71 @@ export function MakeView({ mode }: { mode?: Modality }) {
           <div>
             {modality === "video" ? (
               <div className="space-y-3.5">
+                {/* Storyboard — the whole video boarded as one sheet; its story
+                    prompt is guaranteed to ride with the generation. */}
+                <div>
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent text-white">
+                      <LayoutGrid size={12} />
+                    </span>
+                    <span className="text-[12px] font-semibold text-fg">Storyboard</span>
+                    <Link href="/app/storyboard" className="ml-auto text-[11px] font-medium text-accent-2 hover:underline">
+                      {storyboards.length ? "Manage" : "Create one"}
+                    </Link>
+                  </div>
+                  {storyboards.length === 0 ? (
+                    <Link
+                      href="/app/storyboard"
+                      className="flex items-center gap-2 rounded-xl border border-dashed border-line-2 px-3 py-2 text-[12.5px] text-muted transition-colors hover:border-accent/50 hover:text-fg"
+                    >
+                      <LayoutGrid size={14} className="text-accent-2" /> Board the video first — one image of every
+                      shot, plus its story prompt
+                    </Link>
+                  ) : (
+                    <>
+                      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                        {storyboards.map((sb) => {
+                          const on = storyboardId === sb.id;
+                          return (
+                            <button
+                              key={sb.id}
+                              onClick={() => attachStoryboard(sb)}
+                              title={on ? `Detach ${sb.name}` : `Shoot from ${sb.name}`}
+                              className={cn(
+                                "flex shrink-0 items-center gap-2 rounded-xl border py-1.5 pl-1.5 pr-3 text-[12px] font-medium transition-colors",
+                                on ? "border-accent bg-accent-soft text-fg" : "border-line text-muted hover:border-line-2",
+                              )}
+                            >
+                              <span className="relative h-8 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+                                <AssetThumb a={sb} className="h-full w-full" />
+                                {on && (
+                                  <span className="absolute inset-0 flex items-center justify-center bg-accent/70 text-white">
+                                    <Check size={13} />
+                                  </span>
+                                )}
+                              </span>
+                              <span className="flex flex-col items-start leading-tight">
+                                {sb.name}
+                                {sb.promptFragment && (
+                                  <span className="flex items-center gap-0.5 text-[10px] text-teal">
+                                    <ScrollText size={9} /> story prompt
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {activeStoryboard && (
+                        <p className="mt-1 text-[11px] leading-relaxed text-faint">
+                          The sheet steers the shot as an image reference, and its story prompt is included in the
+                          generation script automatically.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 {/* Characters — cast a saved character; fills image + voice slots */}
                 <div>
                   <div className="mb-1.5 flex items-center gap-1.5">
