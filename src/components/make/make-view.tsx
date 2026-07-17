@@ -61,8 +61,9 @@ type Picks = Partial<Record<AssetClass, string>>;
 
 /**
  * The three flavors of the engine — one card each, personality included.
- * Mini and Pro are real models; 4K is Pro with the resolution cranked, so
- * picking a card sets BOTH the model and the quality in one tap.
+ * Mini and Pro are real models; 4K is Pro with the resolution cranked.
+ * Picking a card sets the model and its default quality; each card owns
+ * the qualities it then lets you choose (4K is locked to 4K, full stop).
  */
 const MODEL_CHOICES = [
   {
@@ -72,6 +73,7 @@ const MODEL_CHOICES = [
     tagline: "Zippy little drafts — try ideas fast",
     modelId: "seedance-2-mini",
     resolution: "720p",
+    qualities: ["480p", "720p"],
   },
   {
     key: "pro",
@@ -80,6 +82,7 @@ const MODEL_CHOICES = [
     tagline: "The cinematic one — crisp 1080p",
     modelId: "seedance-2-pro",
     resolution: "1080p",
+    qualities: ["720p", "1080p"],
   },
   {
     key: "4k",
@@ -88,6 +91,7 @@ const MODEL_CHOICES = [
     tagline: "Every pore, every pixel — max detail",
     modelId: "seedance-2-pro",
     resolution: "4K",
+    qualities: ["4K"],
   },
 ] as const;
 
@@ -420,6 +424,11 @@ export function MakeView({ mode }: { mode?: Modality }) {
   ];
 
   const model = getModel(modelId);
+  // Which flavor card is active: Mini by model, 4K by resolution, else Pro.
+  const activeChoice =
+    MODEL_CHOICES.find((c) =>
+      modelId === "seedance-2-mini" ? c.key === "mini" : resolution === "4K" ? c.key === "4k" : c.key === "pro",
+    ) ?? MODEL_CHOICES[1];
 
   /** Public https URL Ark can fetch, or null (localhost paths can't steer). */
   const publicUrl = (a: Asset): string | null => {
@@ -803,11 +812,11 @@ export function MakeView({ mode }: { mode?: Modality }) {
             <h2 className="text-[15px] font-bold tracking-tight text-fg">Model &amp; format</h2>
             <p className="mt-0.5 text-[12.5px] text-muted">The exact model, quality, aspect and length</p>
           </div>
-          {/* One card per flavor — picking it sets model AND quality. */}
-          <div className="mb-4 grid grid-cols-3 gap-2">
+          {/* One card per flavor — picking it sets the model + its default quality. */}
+          <div className="mb-3 grid grid-cols-3 gap-2">
             {MODEL_CHOICES.map((c) => {
               const m = getModel(c.modelId);
-              const on = modelId === c.modelId && resolution === c.resolution;
+              const on = activeChoice.key === c.key;
               return (
                 <button
                   key={c.key}
@@ -832,13 +841,45 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       on ? "bg-accent text-white" : "bg-surface-2 text-faint",
                     )}
                   >
-                    {c.resolution} · {videoRate(m, c.resolution)} cr/s
+                    {on ? resolution : c.resolution} · {videoRate(m, on ? resolution : c.resolution)} cr/s
                   </span>
                 </button>
               );
             })}
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            {/* Quality lives inside the picked card's world: Mini and Pro each
+                offer their two; 4K is 4K — locked, nothing else to pick. */}
+            <div className="flex items-center gap-1.5">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Quality</span>
+              {activeChoice.qualities.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setResolution(r)}
+                  disabled={activeChoice.key === "4k"}
+                  title={
+                    activeChoice.key === "4k"
+                      ? "4K is the whole point of this one"
+                      : `${videoRate(model, r)} credits / second`
+                  }
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                    resolution === r
+                      ? "border-accent bg-accent-soft text-fg"
+                      : "border-line text-muted hover:border-line-2",
+                    activeChoice.key === "4k" && "cursor-default",
+                  )}
+                >
+                  {r}
+                  <span className={cn("ml-1 text-[10px]", resolution === r ? "text-accent-2" : "text-faint")}>
+                    {videoRate(model, r)}c/s
+                  </span>
+                </button>
+              ))}
+              {activeChoice.key === "4k" && (
+                <span className="text-[11px] text-faint">— locked in, as it should be</span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5">
               <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
               {(
