@@ -13,7 +13,6 @@ import {
   Bookmark,
   Check,
   ArrowRight,
-  ArrowLeft,
   ImagePlus,
   Undo2,
   Film,
@@ -60,46 +59,12 @@ import {
 
 type Picks = Partial<Record<AssetClass, string>>;
 
-/** The four steps of the guided make flow. */
-const STEP_META = [
-  { title: "Describe", sub: "What's the shot?" },
-  { title: "Cast & assets", sub: "Add characters, products and media" },
-  { title: "Look & length", sub: "Quality, aspect and length" },
-  { title: "Generate", sub: "Review and create your shot" },
-] as const;
-
-/** Compact progress header for the guided flow — reads on phone and desktop. */
-function StepHeader({ step, onJump }: { step: number; onJump: (n: number) => void }) {
+/** Section heading on the one-page Studio — a divider with title + hint. */
+function SectionTitle({ title, sub }: { title: string; sub: string }) {
   return (
-    <div className="mb-5">
-      <div className="flex items-center gap-1.5">
-        {STEP_META.map((s, i) => {
-          const n = i + 1;
-          const done = n < step;
-          const current = n === step;
-          return (
-            <button
-              key={n}
-              onClick={() => (n < step ? onJump(n) : undefined)}
-              disabled={n > step}
-              className={cn(
-                "flex h-1.5 flex-1 items-center rounded-full transition-colors",
-                current ? "bg-accent" : done ? "bg-accent/45" : "bg-line-2",
-                n < step && "cursor-pointer",
-              )}
-              aria-label={`Step ${n}: ${s.title}`}
-              title={s.title}
-            />
-          );
-        })}
-      </div>
-      <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent-2">
-          Step {step} of {STEP_META.length}
-        </span>
-        <h2 className="text-[17px] font-bold tracking-tight text-fg">{STEP_META[step - 1].title}</h2>
-      </div>
-      <p className="mt-0.5 text-[13px] text-muted">{STEP_META[step - 1].sub}</p>
+    <div className="mb-3.5 mt-6 border-t border-line pt-5">
+      <h2 className="text-[15px] font-bold tracking-tight text-fg">{title}</h2>
+      <p className="mt-0.5 text-[12.5px] text-muted">{sub}</p>
     </div>
   );
 }
@@ -337,8 +302,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [draftBackup, setDraftBackup] = useState<string | null>(null);
   /** Open state of the # mention picker: null = closed, else the partial tag. */
   const [tagQuery, setTagQuery] = useState<string | null>(null);
-  /** Guided flow: 1 Describe · 2 Cast & assets · 3 Look & length · 4 Generate. */
-  const [step, setStep] = useState(1);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const cloudUser = useStore((s) => s.cloudUser);
   const subscribed = useStore((s) => s.subscribed);
@@ -846,9 +809,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
       <Card className="overflow-hidden">
         <div className="p-5">
-          <StepHeader step={step} onJump={setStep} />
-
-          {step === 1 && (
           <div>
           {/* What are you making? Purpose presets configure format + slots. */}
           <PurposePicker current={purposeId} modality={modality} onPick={applyPurpose} />
@@ -1066,10 +1026,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
             </div>
           )}
           </div>
-          )}
 
-          {/* Step 2 — Cast & assets */}
-          {step === 2 && (
+          {/* Cast & assets */}
+          <SectionTitle title="Cast & assets" sub="Add characters, products and media" />
           <div>
             {modality === "video" ? (
               <div className="space-y-3.5">
@@ -1312,10 +1271,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
             )}
           </div>
 
-          )}
-
-          {/* Step 3 — Look & length */}
-          {step === 3 && (
+          {/* Look & length */}
+          <SectionTitle title="Look & length" sub="Quality, aspect and length" />
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {/* Draft vs Production — the model IS the price class */}
             <div className="flex items-center gap-1.5">
@@ -1412,30 +1369,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
               </div>
             )}
           </div>
-          )}
 
-          {/* Step 4 — Generate */}
-          {step === 4 && (
-          <div>
-            <div className="mb-4 space-y-2.5">
-              <div className="rounded-xl border border-line bg-surface-2 p-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-faint">Your shot</div>
-                <p className="mt-1 line-clamp-3 text-[13px] leading-relaxed text-fg">
-                  {finalPrompt.trim() || "Add a description in step 1."}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                <Badge tone="neutral">{model.name.replace(/^Vib /, "")}</Badge>
-                <Badge tone="neutral">{resolution}</Badge>
-                <Badge tone="neutral">{aspectRatio}</Badge>
-                {modality === "video" && <Badge tone="neutral">{durationSec}s</Badge>}
-                {taggedMedia.length > 0 && (
-                  <Badge tone="accent">
-                    {taggedMedia.length} asset{taggedMedia.length > 1 ? "s" : ""}
-                  </Badge>
-                )}
-              </div>
-            </div>
+          {/* Generate */}
+          <div className="mt-6 border-t border-line pt-5">
             <div className="mb-3 flex items-center justify-between text-sm">
               <span className="text-muted">Estimated cost</span>
               <span className="flex items-center gap-1.5 font-semibold">
@@ -1477,27 +1413,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
               <p className="mt-2 text-center text-xs text-faint">
                 Sign in to render with the real VIBVID engine.
               </p>
-            )}
-          </div>
-          )}
-
-          {/* Step navigation */}
-          <div className="mt-6 flex items-center justify-between gap-3 border-t border-line pt-4">
-            {step > 1 ? (
-              <Button variant="ghost" onClick={() => setStep(step - 1)} className="gap-1.5">
-                <ArrowLeft size={16} /> Back
-              </Button>
-            ) : (
-              <span />
-            )}
-            {step < 4 && (
-              <Button
-                onClick={() => setStep(step + 1)}
-                disabled={step === 1 && !prompt.trim()}
-                className="gap-1.5"
-              >
-                Next <ArrowRight size={16} />
-              </Button>
             )}
           </div>
         </div>
