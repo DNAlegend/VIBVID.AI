@@ -66,16 +66,16 @@ export const USE_CASES: UseCase[] = [
         body: "Upload photos to Products and get a reference sheet — so the serum in every ad is your serum, not a lookalike.",
       },
       {
-        title: "Brief the Strategist",
-        body: "Give it the product and the angle — it writes the ad beat by beat, hook to call-to-action.",
+        title: "Board it",
+        body: "Give the Storyboard the product and the angle — it writes the ad scene by scene, hook to call-to-action, and draws it as one sheet.",
       },
       {
         title: "Generate variations",
         body: "Change the hook, the setting, the energy — each render is a new creative to test, in 9:16 vertical.",
       },
       {
-        title: "Cut and export",
-        body: "Stitch the winners on the Post timeline and export 1080p with native audio, ready for Meta or TikTok.",
+        title: "Download the winners",
+        body: "Every render lands in My Videos in 1080p with native audio — download and post straight to Meta or TikTok.",
       },
     ],
     extraPrompts: [
@@ -121,7 +121,7 @@ export const USE_CASES: UseCase[] = [
       },
       {
         title: "Describe the moment",
-        body: "The feature, the reveal, the benefit — or let the Strategist write a multi-shot launch film from one brief.",
+        body: "The feature, the reveal, the benefit — or let the Storyboard write a multi-scene launch film from one brief.",
       },
       {
         title: "Draft, then produce",
@@ -143,7 +143,7 @@ export const USE_CASES: UseCase[] = [
     faqs: [
       {
         q: "Can it record my app's UI?",
-        a: "No — VIBVID generates original scenes and b-roll, not screen recordings. Upload your own screen captures to Assets and cut them together with generated scenes on the Post timeline.",
+        a: "No — VIBVID generates original scenes and b-roll, not screen recordings. Upload your own screen captures to Assets, and cut them together with your generated scenes in any video editor.",
       },
       {
         q: "What formats can I export?",
@@ -166,8 +166,8 @@ export const USE_CASES: UseCase[] = [
     heroDemoId: "training-safety",
     steps: [
       {
-        title: "Brief the Strategist",
-        body: "Give it the procedure — it storyboards the module scene by scene, timed and scripted.",
+        title: "Board the module",
+        body: "Give the Storyboard the procedure — it writes the module scene by scene, timed and scripted.",
       },
       {
         title: "Cast a consistent employee",
@@ -178,8 +178,8 @@ export const USE_CASES: UseCase[] = [
         body: "New equipment, new steps? Regenerate the affected scenes — no crew, no reshoot, no scheduling.",
       },
       {
-        title: "Assemble in Post",
-        body: "Stitch scenes into modules on the timeline and export one finished video per lesson.",
+        title: "Download by lesson",
+        body: "Each scene lands in My Videos ready to download — drop them into your LMS or cut modules together in any editor.",
       },
     ],
     extraPrompts: [
@@ -220,16 +220,16 @@ export const USE_CASES: UseCase[] = [
     heroDemoId: "course-solar",
     steps: [
       {
-        title: "Plan the lesson's visuals",
-        body: "Give the Strategist your lesson outline — it plans a visual for every concept that needs one.",
+        title: "Board the lesson's visuals",
+        body: "Give the Storyboard your lesson outline — it boards a visual for every concept that needs one.",
       },
       {
         title: "Visualize anything",
         body: "The solar system forming, a medieval market, a cell dividing — if you can describe it, you can show it.",
       },
       {
-        title: "Cut into your course",
-        body: "Export scenes individually or stitch a full intro in Post, then drop them into your course platform.",
+        title: "Drop into your course",
+        body: "Download scenes individually from My Videos and drop them straight into your course platform.",
       },
     ],
     extraPrompts: [
@@ -321,7 +321,7 @@ export const USE_CASES: UseCase[] = [
       },
       {
         title: "Mix with your recordings",
-        body: "Upload real screen captures to Assets and cut them together with generated scenes in Post.",
+        body: "Upload real screen captures to Assets and cut them together with your generated scenes in any editor.",
       },
       {
         title: "Refresh every release",
@@ -343,7 +343,7 @@ export const USE_CASES: UseCase[] = [
     faqs: [
       {
         q: "Can it capture my product's actual screens?",
-        a: "No — generated scenes are original footage, not screen recordings. Upload your own captures to Assets and combine them with generated b-roll on the Post timeline.",
+        a: "No — generated scenes are original footage, not screen recordings. Upload your own captures to Assets and combine them with generated b-roll in your editor.",
       },
     ],
   },

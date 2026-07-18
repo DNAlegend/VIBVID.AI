@@ -449,10 +449,13 @@ export const useStore = create<StoreState>()(
         if (get().blockIfLocked()) return "";
         const model = getModel(p.modelId);
         const modality = p.modality ?? model.modality;
+        // Resolution is part of the price — omitting it here made the charge
+        // disagree with the estimate the user accepted (4K billed as 1080p).
         const cost = priceFor(model, {
           durationSec: p.durationSec,
           count: 1,
           hasRefs: hasRefs(p),
+          resolution: p.resolution,
         });
         const id = uid("vid");
         const job: VideoJob = {

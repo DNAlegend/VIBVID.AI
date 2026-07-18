@@ -218,10 +218,12 @@ function SlotSquare({
         </span>
         <button
           onClick={onRemove}
-          className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white transition-colors hover:bg-black/80"
+          // p-1.5 + 12px glyph ≈ a 24px+ hit area — tappable on phones (the
+          // old 15px target was nearly impossible to hit with a thumb).
+          className="absolute right-0 top-0 rounded-bl-lg rounded-tr-[inherit] bg-black/60 p-1.5 text-white transition-colors hover:bg-black/80"
           aria-label={'Remove ' + tag}
         >
-          <X size={10} />
+          <X size={12} />
         </button>
       </div>
     );
@@ -584,7 +586,15 @@ export function MakeView({ mode }: { mode?: Modality }) {
     else if (a.kind === "video" && zone !== "influences") zone = "refVideos";
     if (zone === "firstFrame" || zone === "lastFrame") {
       if (a.kind !== "image") return;
-      // Frames mode excludes reference media (API contract).
+      // Frames mode excludes reference media (API contract) — but never wipe
+      // someone's picks silently: ask before clearing them.
+      const losing = board.refs.length + board.refVideos.length;
+      if (losing > 0) {
+        const ok = confirm(
+          `Exact start/end frames can't be combined with reference media — remove your ${losing} reference${losing > 1 ? "s" : ""}${storyboardId ? " (this detaches the storyboard)" : ""} and switch?`,
+        );
+        if (!ok) return;
+      }
       setBoard((b) => ({ ...b, [zone]: assetId, refs: [], refVideos: [] }));
     } else if (zone === "refs") {
       if (a.kind !== "image") return;
@@ -797,6 +807,12 @@ export function MakeView({ mode }: { mode?: Modality }) {
       if (!res.ok || !data.prompt) throw new Error(data.error ?? "Couldn’t rewrite the prompt");
       setDraftBackup(prompt);
       setPrompt(data.prompt);
+      // Same gate as the Generate button — a retry must never spend credits
+      // the account doesn't have.
+      if (!canAfford) {
+        setDirectorError("Prompt rewritten — but you don’t have enough credits to regenerate. Top up and try again.");
+        return;
+      }
       startGenerate(data.prompt);
     } catch (e) {
       setDirectorError(e instanceof Error ? e.message : "Couldn’t rewrite the prompt");
@@ -844,7 +860,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     <span className="block min-h-[2.6em] text-[11px] leading-snug text-muted">{c.tagline}</span>
                     <span
                       className={cn(
-                        "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                        "mt-1.5 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold",
                         on ? "bg-accent text-white" : "bg-surface-2 text-faint",
                       )}
                     >
@@ -1231,14 +1247,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
                   ✕
                 </button>
               </div>
-              <div className="mt-1.5 flex items-center gap-3 pl-6">
-                <Link
-                  href="/app"
-                  className="text-[12px] font-semibold text-accent-2 hover:underline"
-                >
-                  ← Back to the plan to fix it
-                </Link>
-              </div>
             </div>
           )}
 
@@ -1328,13 +1336,21 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     reference here.
                   </p>
                 ) : (
-                  taggedMedia
-                    .filter(
+                  (() => {
+                    const matches = taggedMedia.filter(
                       (t) =>
                         t.tag.toLowerCase().startsWith(tagQuery.toLowerCase()) ||
                         t.asset.name.toLowerCase().includes(tagQuery.toLowerCase()),
-                    )
-                    .map((t) => (
+                    );
+                    if (matches.length === 0) {
+                      return (
+                        <p className="px-2 py-2 text-[12.5px] text-faint">
+                          No tag matches “#{tagQuery}” — your media below is tagged{" "}
+                          {taggedMedia.map((t) => `#${t.tag}`).join(", ")}.
+                        </p>
+                      );
+                    }
+                    return matches.map((t) => (
                       <button
                         key={t.tag}
                         onMouseDown={(e) => {
@@ -1356,10 +1372,11 @@ export function MakeView({ mode }: { mode?: Modality }) {
                           {t.tag}
                         </span>
                         <AssetThumb a={t.asset} className="h-7 w-7 shrink-0 rounded-md" />
-                        <span className="truncate text-[13px] text-fg">{t.asset.name}</span>
-                        <span className="ml-auto shrink-0 text-[11px] text-faint">{t.expand}</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] text-fg">{t.asset.name}</span>
+                        <span className="hidden max-w-[40%] shrink-0 truncate text-[11px] text-faint sm:block">{t.expand}</span>
                       </button>
-                    ))
+                    ));
+                  })()
                 )}
               </div>
             )}
@@ -1461,7 +1478,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
           {activeJob.status === "failed" && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {classifyGenError(activeJob.error).kind === "policy" && (
-                <Button size="sm" disabled={rewriting || rendering} onClick={onRewriteRetry}>
+                <Button size="sm" disabled={rewriting || rendering || (!locked && !canAfford)} onClick={onRewriteRetry}>
                   {rewriting ? (
                     <>
                       <Loader2 size={15} className="animate-spin" /> Rewriting…

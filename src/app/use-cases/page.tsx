@@ -20,8 +20,8 @@ export default function UseCasesPage() {
             </h1>
             <p className="mt-4 text-[17px] leading-relaxed text-muted">
               One studio, six jobs. Original scenes with consistent characters and your real
-              products — planned by the Strategist, produced in 1080p, cut in Post. Pick your
-              use case and see the exact workflow.
+              products — boarded by the Storyboard, generated in up to native 4K with audio.
+              Pick your use case and see the exact workflow.
             </p>
           </div>
           <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

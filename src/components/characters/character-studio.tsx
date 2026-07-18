@@ -26,6 +26,7 @@ import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
 import { getModel, priceFor } from "@/lib/models";
 import { uploadDataUrl, uploadFile } from "@/lib/cloud";
+import { clearPendingSheet, getPendingSheet, setPendingSheet } from "@/lib/pending-sheet";
 import type { Asset, AssetPart } from "@/lib/types";
 import { cn, uid } from "@/lib/utils";
 import { Badge, Button, Card, Modal, Progress, Segmented, TextInput } from "@/components/ui";
@@ -174,7 +175,10 @@ export function CharacterStudio() {
           r.onerror = rej;
           r.readAsDataURL(file);
         });
-        const url = await uploadDataUrl(uid("charup"), dataUrl);
+        // Cloud → Storage URL; demo (no cloud) → keep the data URL locally
+        // instead of failing with a misleading "try again".
+        let url = await uploadDataUrl(uid("charup"), dataUrl);
+        if (!url && !cloudConfigured) url = dataUrl;
         if (!url) {
           setUploadError("Upload failed — try again.");
           continue;
@@ -253,19 +257,24 @@ export function CharacterStudio() {
       return;
     }
     if (!canGenerate) return;
-    setJobId(
-      generate({
-        prompt: sheetPrompt(base, STYLES[style].suffix),
-        tier: "standard",
-        durationSec: 5,
-        aspectRatio: "16:9",
-        audio: false,
-        modelId: model.id,
-        modality: "image",
-        direction: description.trim() || name.trim(),
-        refImageUrls: photos.length ? photos.map((p) => p.url) : undefined,
-      }),
-    );
+    const id = generate({
+      prompt: sheetPrompt(base, STYLES[style].suffix),
+      tier: "standard",
+      durationSec: 5,
+      aspectRatio: "16:9",
+      audio: false,
+      modelId: model.id,
+      modality: "image",
+      direction: description.trim() || name.trim(),
+      refImageUrls: photos.length ? photos.map((p) => p.url) : undefined,
+    });
+    setJobId(id);
+    // Safety net: if they navigate away mid-render, the next visit restores
+    // this state and the auto-save still lands the paid sheet.
+    setPendingSheet("character", {
+      jobId: id,
+      data: { editingId, name, description, biology, wardrobe, style, photos, voice },
+    });
   }
 
   /**
@@ -357,8 +366,43 @@ export function CharacterStudio() {
     savedJobs.current.add(job.id);
     setSheet(job.posterUrl);
     persistCharacter({ sheetUrl: job.posterUrl });
+    clearPendingSheet("character");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.status, job?.posterUrl]);
+
+  // Restore an in-flight (or finished-but-unsaved) render from a previous
+  // visit, so navigating away mid-render never loses the paid sheet.
+  useEffect(() => {
+    if (!hydrated || jobId) return;
+    const pending = getPendingSheet<{
+      editingId: string | null;
+      name: string;
+      description: string;
+      biology: string;
+      wardrobe: string;
+      style: StyleKey;
+      photos: StagedFile[];
+      voice: StagedFile | null;
+    }>("character");
+    if (!pending) return;
+    const pendingJob = useStore.getState().videos.find((v) => v.id === pending.jobId);
+    if (!pendingJob || pendingJob.status === "failed") {
+      clearPendingSheet("character");
+      return;
+    }
+    const d = pending.data;
+    setEditingId(d.editingId);
+    setName(d.name);
+    setDescription(d.description);
+    setBiology(d.biology);
+    setWardrobe(d.wardrobe);
+    setStyle(d.style);
+    setPhotos(d.photos ?? []);
+    setVoice(d.voice ?? null);
+    setJobId(pending.jobId);
+    setCreating(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   /** Stage a voice and, on a saved character, persist it immediately. */
   function applyVoice(v: StagedFile | null) {
@@ -469,7 +513,7 @@ export function CharacterStudio() {
                         removeAsset(c.id);
                       }
                     }}
-                    className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white opacity-0 transition-opacity hover:bg-black/75 group-hover:opacity-100"
+                    className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white transition-opacity hover:bg-black/75 sm:opacity-0 sm:group-hover:opacity-100"
                     aria-label="Delete character"
                   >
                     <Trash2 size={13} />

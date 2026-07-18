@@ -36,7 +36,7 @@ export const HERO: ShowcaseMedia = {
   ...resolve("hero-video", generated["hero-neon-city"] ?? "/art/hero-neon-city.svg"),
   poster: generated["hero-neon-city"] ?? "/art/hero-neon-city.svg",
   label: "Neon samurai in rain-soaked Tokyo",
-  tag: "Vib Production",
+  tag: "Seedance 2.0 Pro",
 };
 
 /** The prompt shown typed into the hero's mock studio bar. */

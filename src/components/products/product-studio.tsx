@@ -2,14 +2,16 @@
 
 // Products — add a product once from photos or a description, get a clean
 // multi-angle product sheet, and feature it in any shot. A product is a
-// composite asset plus its parts, so "Use in Make" fills image slots with its
-// sheet and reference photos — keeping the exact same product across every scene.
+// composite asset plus its parts, so "Use in Studio" fills image slots with
+// its sheet and reference photos — keeping the exact same product across
+// every scene. A finished sheet saves the product automatically; clicking a
+// saved product opens it in full with everything entered to produce it,
+// editable, with one-tap regeneration.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  Bookmark,
   Check,
   Coins,
   ImagePlus,
@@ -24,9 +26,10 @@ import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
 import { getModel, priceFor } from "@/lib/models";
 import { uploadDataUrl } from "@/lib/cloud";
+import { clearPendingSheet, getPendingSheet, setPendingSheet } from "@/lib/pending-sheet";
 import type { Asset, AssetPart } from "@/lib/types";
 import { uid } from "@/lib/utils";
-import { Badge, Button, Card, Progress, Segmented, TextInput } from "@/components/ui";
+import { Badge, Button, Card, Modal, Progress, Segmented, TextInput } from "@/components/ui";
 
 type StyleKey = "studio" | "photoreal" | "lifestyle" | "premium";
 
@@ -47,6 +50,33 @@ interface StagedFile {
   name: string;
 }
 
+/** What was entered to produce the sheet — stored on the product, editable later. */
+interface Recipe {
+  description: string;
+  details: string;
+  setting: string;
+  style: StyleKey;
+}
+
+const RECIPE_LABEL = "Recipe";
+
+/** Read the stored inputs back off a saved product. */
+function recipeOf(a: Asset): Recipe | null {
+  const part = a.parts?.find((p) => p.label === RECIPE_LABEL);
+  if (!part) return null;
+  try {
+    const r = JSON.parse(part.url) as Partial<Recipe>;
+    return {
+      description: r.description ?? "",
+      details: r.details ?? "",
+      setting: r.setting ?? "",
+      style: (r.style as StyleKey) ?? "studio",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function ProductStudio() {
   const router = useRouter();
   /** Gallery first — the creation wizard opens on "Add new". */
@@ -59,6 +89,7 @@ export function ProductStudio() {
   const addAsset = useStore((s) => s.addAsset);
   const addCategory = useStore((s) => s.addCategory);
   const removeAsset = useStore((s) => s.removeAsset);
+  const updateAsset = useStore((s) => s.updateAsset);
   const setDraftElements = useStore((s) => s.setDraftElements);
   const cloudUser = useStore((s) => s.cloudUser);
   const subscribed = useStore((s) => s.subscribed);
@@ -73,7 +104,14 @@ export function ProductStudio() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  /** The saved product being viewed/edited (null while making a new one). */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /** The product's current sheet URL (existing or freshly rendered). */
+  const [sheet, setSheet] = useState<string | null>(null);
+  /** Job ids already auto-saved — a render persists exactly once. */
+  const savedJobs = useRef<Set<string>>(new Set());
+  /** Full-screen view of the sheet. */
+  const [fullOpen, setFullOpen] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
 
   const products = useMemo(
@@ -93,7 +131,6 @@ export function ProductStudio() {
 
   const job = jobId ? videos.find((v) => v.id === jobId) ?? null : null;
   const rendering = job?.status === "rendering";
-  const sheetUrl = job?.status === "succeeded" ? job.posterUrl : undefined;
 
   const base = [
     photos.length
@@ -126,7 +163,10 @@ export function ProductStudio() {
           r.onerror = rej;
           r.readAsDataURL(file);
         });
-        const url = await uploadDataUrl(uid("produp"), dataUrl);
+        // Cloud → Storage URL; demo (no cloud) → keep the data URL locally
+        // instead of failing with a misleading "try again".
+        let url = await uploadDataUrl(uid("produp"), dataUrl);
+        if (!url && !cloudConfigured) url = dataUrl;
         if (!url) {
           setUploadError("Upload failed — try again.");
           continue;
@@ -145,50 +185,41 @@ export function ProductStudio() {
       return;
     }
     if (!canGenerate) return;
-    setSaved(false);
-    setJobId(
-      generate({
-        prompt: sheetPrompt(base, STYLES[style].suffix),
-        tier: "standard",
-        durationSec: 5,
-        aspectRatio: "1:1",
-        audio: false,
-        modelId: model.id,
-        modality: "image",
-        direction: description.trim() || name.trim(),
-        refImageUrls: photos.length ? photos.map((p) => p.url) : undefined,
-      }),
-    );
+    const id = generate({
+      prompt: sheetPrompt(base, STYLES[style].suffix),
+      tier: "standard",
+      durationSec: 5,
+      aspectRatio: "1:1",
+      audio: false,
+      modelId: model.id,
+      modality: "image",
+      direction: description.trim() || name.trim(),
+      refImageUrls: photos.length ? photos.map((p) => p.url) : undefined,
+    });
+    setJobId(id);
+    // Safety net: if they navigate away mid-render, the next visit restores
+    // this state and the auto-save still lands the paid sheet.
+    setPendingSheet("product", {
+      jobId: id,
+      data: { editingId, name, description, details, setting, style, photos },
+    });
   }
 
-  /** Product = a collection of real assets + one composite card that bundles them. */
-  function onSave() {
+  /**
+   * Persist the product from the current form state — automatically after a
+   * render, and via "Save details" for text edits. A product = a collection
+   * of real assets + one composite that bundles them (parts include the
+   * Recipe: everything entered to produce the sheet).
+   */
+  function persistProduct(overrides?: { sheetUrl?: string | null }) {
+    const theSheet = overrides?.sheetUrl !== undefined ? overrides.sheetUrl : sheet;
     const prodName = name.trim() || "New Product";
-    const col = addCategory(`${prodName} — product`);
-
-    photos.forEach((p, i) => {
-      addAsset({
-        name: `${prodName} — photo ${i + 1}`,
-        kind: "image",
-        url: p.url,
-        posterUrl: p.url,
-        categoryId: col.id,
-        source: "upload",
-        promptFragment: `${prodName}'s reference photo`,
-      });
-    });
-    if (sheetUrl) {
-      addAsset({
-        name: `${prodName} — product sheet`,
-        kind: "image",
-        url: sheetUrl,
-        posterUrl: sheetUrl,
-        categoryId: col.id,
-        source: "generation",
-        promptFragment: `${prodName}'s product sheet — every angle of it`,
-      });
-    }
-
+    const recipePart: AssetPart = {
+      role: "reference",
+      kind: "prompt",
+      url: JSON.stringify({ description, details, setting, style } satisfies Recipe),
+      label: RECIPE_LABEL,
+    };
     const parts: AssetPart[] = [
       ...photos.map((p, i) => ({
         role: "reference" as const,
@@ -197,26 +228,127 @@ export function ProductStudio() {
         posterUrl: p.url,
         label: `Photo ${i + 1}`,
       })),
-      ...(sheetUrl
-        ? [{ role: "primary" as const, kind: "image" as const, url: sheetUrl, posterUrl: sheetUrl, label: "Product sheet" }]
+      ...(theSheet
+        ? [{ role: "primary" as const, kind: "image" as const, url: theSheet, posterUrl: theSheet, label: "Product sheet" }]
         : []),
+      recipePart,
     ];
-    const hero = sheetUrl ?? photos[0]?.url;
-    addAsset({
+    const hero = theSheet ?? photos[0]?.url ?? "";
+    const promptFragment = `${prodName}${description.trim() ? `, ${description.trim().split(/[,.\n]/)[0].toLowerCase()}` : ""}`;
+
+    if (editingId) {
+      const existing = assets.find((a) => a.id === editingId);
+      if (!existing) return;
+      updateAsset(editingId, { name: prodName, url: hero, posterUrl: hero, parts, promptFragment });
+      const colId = existing.categoryId;
+      if (colId) {
+        const sheetAsset = assets.find((a) => a.categoryId === colId && a.kind === "image" && / product sheet$/.test(a.name));
+        if (theSheet && sheetAsset && sheetAsset.url !== theSheet) {
+          updateAsset(sheetAsset.id, { url: theSheet, posterUrl: theSheet });
+        } else if (theSheet && !sheetAsset) {
+          addAsset({ name: `${prodName} — product sheet`, kind: "image", url: theSheet, posterUrl: theSheet, categoryId: colId, source: "generation", promptFragment: `${prodName}'s product sheet — every angle of it` });
+        }
+      }
+      return;
+    }
+
+    const col = addCategory(`${prodName} — product`);
+    photos.forEach((p, i) => {
+      addAsset({ name: `${prodName} — photo ${i + 1}`, kind: "image", url: p.url, posterUrl: p.url, categoryId: col.id, source: "upload", promptFragment: `${prodName}'s reference photo` });
+    });
+    if (theSheet) {
+      addAsset({ name: `${prodName} — product sheet`, kind: "image", url: theSheet, posterUrl: theSheet, categoryId: col.id, source: "generation", promptFragment: `${prodName}'s product sheet — every angle of it` });
+    }
+    const composite = addAsset({
       name: prodName,
       kind: "image",
-      url: hero ?? "",
-      posterUrl: hero,
+      url: hero,
+      posterUrl: hero || undefined,
       categoryId: col.id,
       source: "generation",
       class: "product",
-      promptFragment: `${prodName}${description.trim() ? `, ${description.trim().split(/[,.\n]/)[0].toLowerCase()}` : ""}`,
+      promptFragment,
       parts,
     } as Omit<Asset, "id" | "createdAt">);
-    setSaved(true);
+    setEditingId(composite.id);
   }
 
-  /** Feature it: its sheet & photos fill image slots in Make. */
+  // A finished sheet saves the product automatically — nothing to click.
+  useEffect(() => {
+    if (!job || job.status !== "succeeded" || !job.posterUrl) return;
+    if (savedJobs.current.has(job.id)) return;
+    savedJobs.current.add(job.id);
+    setSheet(job.posterUrl);
+    persistProduct({ sheetUrl: job.posterUrl });
+    clearPendingSheet("product");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.status, job?.posterUrl]);
+
+  // Restore an in-flight (or finished-but-unsaved) render from a previous
+  // visit, so navigating away mid-render never loses the paid sheet.
+  useEffect(() => {
+    if (!hydrated || jobId) return;
+    const pending = getPendingSheet<{
+      editingId: string | null;
+      name: string;
+      description: string;
+      details: string;
+      setting: string;
+      style: StyleKey;
+      photos: StagedFile[];
+    }>("product");
+    if (!pending) return;
+    const pendingJob = useStore.getState().videos.find((v) => v.id === pending.jobId);
+    if (!pendingJob || pendingJob.status === "failed") {
+      clearPendingSheet("product");
+      return;
+    }
+    const d = pending.data;
+    setEditingId(d.editingId);
+    setName(d.name);
+    setDescription(d.description);
+    setDetails(d.details);
+    setSetting(d.setting);
+    setStyle(d.style);
+    setPhotos(d.photos ?? []);
+    setJobId(pending.jobId);
+    setCreating(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  /** Blank slate for "Add new product" — never reopen with last time's data. */
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setDetails("");
+    setSetting("");
+    setStyle("studio");
+    setPhotos([]);
+    setJobId(null);
+    setSheet(null);
+    setUploadError(null);
+  }
+
+  /** Open a saved product in full: sheet, recipe — edit & regenerate. */
+  function openProduct(c: Asset) {
+    const recipe = recipeOf(c);
+    setEditingId(c.id);
+    setName(c.name);
+    setDescription(recipe?.description ?? "");
+    setDetails(recipe?.details ?? "");
+    setSetting(recipe?.setting ?? "");
+    setStyle(recipe?.style ?? "studio");
+    const photoParts = (c.parts ?? []).filter((p) => p.role === "reference" && p.kind === "image");
+    setPhotos(photoParts.map((p, i) => ({ url: p.url, name: `Photo ${i + 1}` })));
+    const sheetPart = c.parts?.find((p) => p.role === "primary");
+    setSheet(sheetPart?.url ?? c.posterUrl ?? null);
+    setJobId(null);
+    setUploadError(null);
+    setCreating(true);
+  }
+
+  /** Feature it: its sheet & photos fill image slots in the Studio. */
   function useInMake(product: Asset) {
     const ids = assets
       .filter((a) => a.categoryId === product.categoryId && a.id !== product.id)
@@ -231,14 +363,20 @@ export function ProductStudio() {
         <h1 className="text-2xl font-bold tracking-tight">Products</h1>
         <p className="mt-1 text-sm text-muted">
           Add a product from photos or a description — get a clean multi-angle product sheet, then
-          feature the exact same product in any video.
+          feature the exact same product in any video. Sheets save themselves.
         </p>
       </header>
 
       {/* Gallery first — the wizard hides behind "Add new". */}
       {!creating && (
         <div className="mb-5">
-          <Button size="lg" onClick={() => setCreating(true)}>
+          <Button
+            size="lg"
+            onClick={() => {
+              resetForm();
+              setCreating(true);
+            }}
+          >
             <Plus size={17} /> Add new product
           </Button>
         </div>
@@ -257,21 +395,23 @@ export function ProductStudio() {
             return (
               <Card key={c.id} className="group overflow-hidden">
                 <div className="relative aspect-square bg-surface-2">
-                  {c.posterUrl || c.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.posterUrl ?? c.url} alt={c.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-faint">
-                      <Package size={26} />
-                    </div>
-                  )}
+                  <button onClick={() => openProduct(c)} className="block h-full w-full" title={`Open ${c.name}`}>
+                    {c.posterUrl || c.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.posterUrl ?? c.url} alt={c.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-faint">
+                        <Package size={26} />
+                      </div>
+                    )}
+                  </button>
                   <button
                     onClick={() => {
                       if (confirm(`Delete ${c.name}? Its sheet assets stay in your library.`)) {
                         removeAsset(c.id);
                       }
                     }}
-                    className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white opacity-0 transition-opacity hover:bg-black/75 group-hover:opacity-100"
+                    className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white transition-opacity hover:bg-black/75 sm:opacity-0 sm:group-hover:opacity-100"
                     aria-label="Delete product"
                   >
                     <Trash2 size={13} />
@@ -302,7 +442,7 @@ export function ProductStudio() {
         {/* ------------------------------ Form ------------------------------ */}
         <Card className="h-fit p-5">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-2">
-            <Package size={14} /> New product
+            <Package size={14} /> {editingId ? "Edit product" : "New product"}
           </div>
 
           <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint">Name</label>
@@ -319,10 +459,10 @@ export function ProductStudio() {
                 <img src={p.url} alt={p.name} className="h-14 w-14 rounded-xl border border-line object-cover" />
                 <button
                   onClick={() => setPhotos((arr) => arr.filter((_, j) => j !== i))}
-                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-bg"
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-fg text-bg"
                   aria-label="Remove photo"
                 >
-                  <X size={10} />
+                  <X size={11} />
                 </button>
               </span>
             ))}
@@ -419,11 +559,20 @@ export function ProductStudio() {
                 <>
                   <Sparkles size={17} /> Subscribe to generate
                 </>
+              ) : sheet ? (
+                <>
+                  <Sparkles size={17} /> Regenerate product sheet
+                </>
               ) : (
                 <>
                   <Sparkles size={17} /> Generate product sheet
                 </>
               )}
+            </Button>
+          )}
+          {editingId && !rendering && (
+            <Button variant="soft" className="mt-2 w-full" onClick={() => persistProduct()}>
+              <Check size={16} /> Save details
             </Button>
           )}
           {hydrated && !needsSignIn && !locked && !canAfford && (
@@ -435,35 +584,38 @@ export function ProductStudio() {
 
         {/* ----------------------------- The sheet ---------------------------- */}
         <div className="space-y-4">
-          {!job ? (
+          {!job && !sheet ? (
             <Card className="flex min-h-[320px] flex-col items-center justify-center p-8 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
                 <Package size={22} />
               </span>
               <p className="mt-3 max-w-sm text-sm text-muted">
                 Your product sheet appears here — one image with every angle of it: front,
-                three-quarter, side and back, detail close-ups, and a hero shot.
+                three-quarter, side and back, detail close-ups, and a hero shot. It saves itself
+                the moment it renders.
               </p>
             </Card>
           ) : (
             <Card className="overflow-hidden">
               <div className="relative aspect-square w-full bg-surface-2">
-                {job.status === "rendering" ? (
+                {rendering ? (
                   <div className="shimmer flex h-full flex-col items-center justify-center">
                     <Loader2 size={20} className="animate-spin text-accent-2" />
                     <div className="mt-3 w-32">
-                      <Progress value={job.progress} />
+                      <Progress value={job!.progress} />
                     </div>
                   </div>
-                ) : sheetUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={sheetUrl} alt="Product sheet" className="h-full w-full object-cover" />
-                ) : (
+                ) : job?.status === "failed" ? (
                   <div className="flex h-full items-center justify-center p-4 text-center text-xs text-danger">
                     {job.error ?? "Failed"}
                   </div>
-                )}
-                <span className="absolute left-2 top-2">
+                ) : sheet ? (
+                  <button onClick={() => setFullOpen(true)} className="block h-full w-full" title="View full size">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={sheet} alt="Product sheet" className="h-full w-full object-cover" />
+                  </button>
+                ) : null}
+                <span className="pointer-events-none absolute left-2 top-2">
                   <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
                     Product sheet
                   </Badge>
@@ -472,30 +624,37 @@ export function ProductStudio() {
             </Card>
           )}
 
-          {!!sheetUrl && !rendering && (
+          {!!sheet && !rendering && (
             <Card className="flex flex-wrap items-center gap-2 p-4">
-              <Button onClick={onSave} disabled={saved}>
-                {saved ? (
-                  <>
-                    <Check size={16} className="text-teal" /> Saved to Products
-                  </>
-                ) : (
-                  <>
-                    <Bookmark size={16} /> Save product
-                  </>
-                )}
+              <span className="flex items-center gap-1.5 text-[13px] font-medium text-teal">
+                <Check size={15} /> Saved automatically
+              </span>
+              <span className="text-[12px] text-faint">— tap the sheet to see it full size</span>
+              <Button
+                size="sm"
+                className="ml-auto"
+                onClick={() => {
+                  const c = assets.find((a) => a.id === editingId);
+                  if (c) useInMake(c);
+                }}
+                disabled={!editingId}
+              >
+                Use in Studio <ArrowRight size={15} />
               </Button>
-              {saved && (
-                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-                  See your products <ArrowRight size={15} />
-                </Button>
-              )}
             </Card>
           )}
         </div>
       </div>
         </>
       )}
+
+      {/* The sheet, full size. */}
+      <Modal open={fullOpen} onClose={() => setFullOpen(false)} size="lg" title={name.trim() || "Product sheet"}>
+        {sheet && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={sheet} alt="Product sheet — full size" className="w-full rounded-xl" />
+        )}
+      </Modal>
     </div>
   );
 }

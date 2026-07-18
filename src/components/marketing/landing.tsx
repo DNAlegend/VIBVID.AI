@@ -7,10 +7,9 @@ import {
   ChevronDown,
   Wand2,
   Layers,
+  LayoutGrid,
   Clapperboard,
-  Lightbulb,
   UserRound,
-  Scissors,
   Film,
   Download,
   Play,
@@ -178,9 +177,9 @@ function Hero() {
           <br className="hidden sm:block" /> <span className="gradient-text">Finished video productions.</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-relaxed text-muted">
-          Brief the Strategist and it writes your shot list. Cast consistent characters,
-          generate every scene, then cut them into one finished video — draft cheaply, produce
-          in full 1080p with native audio. One studio, from idea to export.
+          Storyboard the whole video from one idea, cast consistent characters, and generate
+          every scene with native audio — draft cheaply, produce in 1080p or native 4K. One
+          studio, from idea to finished footage.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <CTA href="/subscribe">
@@ -215,10 +214,10 @@ function Hero() {
                 <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
               </span>
               <span className="ml-2 flex items-center gap-1.5 text-[12px] font-medium text-muted">
-                <Clapperboard size={13} className="text-accent-2" /> VIBVID Studio — Post
+                <Clapperboard size={13} className="text-accent-2" /> VIBVID Studio
               </span>
               <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-semibold text-white">
-                <Download size={12} /> Export cut
+                <Download size={12} /> Download
               </span>
             </div>
             {/* the finished scene, playing */}
@@ -235,7 +234,7 @@ function Hero() {
             <div className="border-t border-line bg-surface-2/50 px-3 py-3 sm:px-4">
               <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-faint">
                 <span className="inline-flex items-center gap-1.5">
-                  <Film size={12} className="text-accent-2" /> 4 scenes stitched into one cut
+                  <Film size={12} className="text-accent-2" /> 4 scenes from one storyboard
                 </span>
                 <span>0:18</span>
               </div>
@@ -285,7 +284,7 @@ function FloatChip({ m }: { m: ShowcaseMedia }) {
 }
 
 function ModelBand() {
-  const items = ["Vib Production", "Vib Draft", "The Strategist", "The Director", "+ more soon"];
+  const items = ["Seedance 2.0 Pro", "Seedance 2.0 Mini", "Seedream 4.5", "The Storyboard Artist", "+ more soon"];
   return (
     <section className="border-y border-line bg-gradient-to-r from-surface-2/30 via-surface-2/70 to-surface-2/30">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-2 px-6 py-5">
@@ -310,9 +309,9 @@ function ModelBand() {
 
 const FEATURES = [
   {
-    icon: Lightbulb,
-    title: "Plan it",
-    body: "Tell the Strategist your goal — “a launch video that goes viral for my brand” — and get a shot-by-shot blueprint, timed to the second and ready to shoot.",
+    icon: LayoutGrid,
+    title: "Board it",
+    body: "Give the Storyboard your product and the idea — it writes the commercial scene by scene, sized to your video length, and draws all nine key frames as one sheet.",
   },
   {
     icon: UserRound,
@@ -322,12 +321,12 @@ const FEATURES = [
   {
     icon: Clapperboard,
     title: "Shoot it",
-    body: "Generate each scene with your characters, products and references. Draft for pennies to iterate, then produce in full 1080p with native audio.",
+    body: "Generate each scene with your characters, products and references. Draft for pennies to iterate, then produce in 1080p or native 4K with audio.",
   },
   {
-    icon: Scissors,
-    title: "Cut it",
-    body: "Line your shots up on the timeline, play them as one piece, regenerate any scene, then export the whole thing as a single finished video.",
+    icon: Film,
+    title: "Own it",
+    body: "Every video lands in My Videos with its full production record — the prompt and every reference that made it — ready to download, remix and publish.",
   },
 ];
 
@@ -336,7 +335,7 @@ function Features() {
     <section id="features" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
       <div className="mx-auto max-w-2xl text-center">
         <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">One studio, the whole production</h2>
-        <p className="mt-3 text-[17px] text-muted">From brief to a finished, exportable video — plan, cast, shoot and cut in one place.</p>
+        <p className="mt-3 text-[17px] text-muted">From idea to finished video — board it, cast it, and generate it all in one place.</p>
       </div>
       <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map((f) => (
@@ -354,10 +353,10 @@ function Features() {
 }
 
 const STEPS = [
-  { n: "1", icon: Lightbulb, title: "Plan", body: "Brief the Strategist and pick a length — it writes the whole video, beat by beat. Send it to Make when it reads right." },
+  { n: "1", icon: LayoutGrid, title: "Board", body: "Give the Storyboard your product and idea, pick a length — it writes the whole commercial scene by scene and draws it as one nine-panel sheet." },
   { n: "2", icon: Layers, title: "Cast & collect", body: "Create characters, and drop your product shots, clips, sound and scripts into Assets — the raw material of every shot." },
-  { n: "3", icon: Wand2, title: "Make", body: "Add references, pick Draft or Production quality, and generate each scene. Everything lands in My Videos, ready to review." },
-  { n: "4", icon: Scissors, title: "Cut & export", body: "Stitch your shots on the timeline in Post, regenerate any scene, then download one finished video ready to publish." },
+  { n: "3", icon: Wand2, title: "Generate", body: "Attach the board and your cast in the Studio, pick Mini, Pro or 4K, clean the prompt up for Seedance, and generate. Every video lands in My Videos." },
+  { n: "4", icon: Download, title: "Publish", body: "Download your scenes — each keeps its full production record, so you can remix or reproduce any of them in one tap — and post them anywhere." },
 ];
 
 function Steps() {
@@ -564,9 +563,9 @@ function CharacterConsistency() {
           <div className="mt-4 rounded-2xl border border-line bg-surface-2/60 p-4 text-[13px] leading-relaxed text-muted">
             <span className="font-semibold text-fg">How it works: </span>
             open <span className="font-medium text-fg">Characters</span>, create {c.name} from a selfie or
-            a description, then cast them into any shot in <span className="font-medium text-fg">Make</span>.
-            Reuse the same character across unlimited videos — perfect for a recurring host, mascot, or
-            series lead.
+            a description, then cast them into any shot in the{" "}
+            <span className="font-medium text-fg">Studio</span>. Reuse the same character across
+            unlimited videos — perfect for a recurring host, mascot, or series lead.
           </div>
         </div>
       </div>
@@ -576,7 +575,7 @@ function CharacterConsistency() {
 
 const LONGFORM_STEPS = [
   { icon: Clapperboard, label: "Scene", body: "One 4–15s shot with native audio." },
-  { icon: Film, label: "Episode", body: "Stitch scenes on the Post timeline into a full episode." },
+  { icon: Film, label: "Episode", body: "Generate scene after scene from one storyboard — same cast, same world." },
   { icon: Tv, label: "Season", body: "Chain episodes with the same cast and world." },
 ];
 
@@ -590,8 +589,8 @@ function LongForm() {
             Not just a clip — a whole season
           </h2>
           <p className="mt-3 text-[17px] text-muted">
-            Scenes ladder up into episodes, and episodes into a season or a feature. Plan the arc,
-            reuse your cast, and assemble everything into long-form video — all in one studio.
+            Scenes ladder up into episodes, and episodes into a season or a feature. Board the arc,
+            reuse your cast, and generate every scene to match — then cut them together in any editor.
           </p>
         </div>
 
@@ -646,9 +645,9 @@ function LongForm() {
           </div>
           <div className="mt-5 flex flex-col items-start justify-between gap-3 border-t border-line pt-5 sm:flex-row sm:items-center">
             <p className="max-w-xl text-[13px] leading-relaxed text-muted">
-              <span className="font-semibold text-fg">Make a full movie the same way</span> — plan the
-              acts in Plan, generate every scene in Make with a consistent cast, then assemble the whole
-              runtime in Post and export one continuous film.
+              <span className="font-semibold text-fg">Make a full movie the same way</span> — board the
+              acts as storyboards, generate every scene in the Studio with a consistent cast, then cut
+              the whole runtime together into one continuous film.
             </p>
             <CTA href="/subscribe" size="md" className="shrink-0">
               <Clapperboard size={16} /> Start your season
@@ -776,9 +775,9 @@ const PLANS: Plan[] = [
     popular: false,
     perks: [
       "300 credits / month",
+      "All models — drafts to native 4K",
       "No watermark",
       "Commercial usage rights",
-      "Full HD 1080p export",
       "Top up credits any time",
     ],
     cta: "Get Creator",
@@ -796,8 +795,8 @@ const PLANS: Plan[] = [
     perks: [
       "800 credits / month",
       "Everything in Creator",
-      "Native 4K export",
-      "Faster generation",
+      "Room for 10–15s productions",
+      "Annual: 9,600 credits up front",
     ],
     cta: "Get Pro",
     itemId: "plan-pro",
@@ -814,8 +813,8 @@ const PLANS: Plan[] = [
     perks: [
       "1,500 credits / month",
       "Everything in Pro",
-      "Multiple brand workspaces",
-      "Team access",
+      "Volume for daily content output",
+      "Annual: 18,000 credits up front",
     ],
     cta: "Get Agency",
     itemId: "plan-agency",
@@ -927,7 +926,7 @@ export function Pricing() {
 const FAQS = [
   {
     q: "What can I actually make?",
-    a: "Full productions, not just single clips. The Strategist plans a multi-scene video, you generate each shot (4–15s, native audio) with our own VIBVID engine, then stitch them into one finished cut in Post — vertical UGC ads, product films, fashion, brand spots. Draft quality for fast iteration, up to full 1080p Production for the final export.",
+    a: "Full productions, not just single clips. The Storyboard writes your commercial scene by scene and boards it as one nine-panel sheet, then you generate each scene (4–15s, native audio) in the Studio — vertical UGC ads, product films, fashion, brand spots. Mini for fast drafts, 2.0 Pro in 1080p, or native 4K when it counts.",
   },
   {
     q: "How do my assets change the output?",
@@ -951,7 +950,7 @@ const FAQS = [
   },
   {
     q: "Can I keep the same character across videos?",
-    a: "Yes — that's what Characters is for. Create one from a selfie or a description and you get a single reference sheet with every angle of them, plus an optional voice. Cast them in Make and the engine keeps their identity consistent from video to video.",
+    a: "Yes — that's what Characters is for. Create one from a selfie or a description and you get a single reference sheet with every angle of them, plus an optional voice. Cast them in the Studio and the engine keeps their identity consistent from video to video.",
   },
   {
     q: "Can I create videos of real people?",
@@ -959,7 +958,7 @@ const FAQS = [
   },
   {
     q: "Can I make a full episode, season or movie?",
-    a: "Yes. Each generation is a scene (4–15s); stitch scenes on the Post timeline into an episode, then chain episodes — reusing the same cast and world — into a season or a feature-length film. Plan the arc in Plan, generate every shot in Make, assemble the whole runtime in Post, and export it as one continuous video. There's no cap on length beyond your credits.",
+    a: "Yes. Each generation is a scene (4–15s). Board the arc as storyboards, keep the same cast and world across every scene, and generate them one after another in the Studio — then cut the scenes together into episodes, seasons or a feature in any video editor. There's no cap on length beyond your credits.",
   },
   {
     q: "Can I make training or presenter-style videos?",
@@ -1066,8 +1065,8 @@ export function Footer() {
           <div className="max-w-sm">
             <Brand />
             <p className="mt-4 text-[13.5px] leading-relaxed text-faint">
-              The AI video studio. Brief the Strategist, cast consistent characters, generate every
-              scene, and cut them into one finished 1080p video — from idea to export, all in one place.
+              The AI video studio. Storyboard the video, cast consistent characters, and generate
+              every scene in up to native 4K with audio — from idea to finished footage, one place.
             </p>
             <div className="mt-5 flex flex-col gap-2.5">
               <a

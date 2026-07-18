@@ -20,16 +20,23 @@ const NAV_LINKS = [
 export function MobileNav({ appHref }: { appHref: string }) {
   const [open, setOpen] = useState(false);
 
-  // Close on Escape, and lock body scroll while the sheet is open.
+  // Close on Escape, and lock body scroll while the sheet is open. Also close
+  // when the viewport widens past the desktop breakpoint — the CSS hides the
+  // sheet there, and without this the invisible menu kept the page
+  // scroll-locked.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onWiden = (e: MediaQueryListEvent) => e.matches && setOpen(false);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKey);
+    mq.addEventListener("change", onWiden);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      mq.removeEventListener("change", onWiden);
     };
   }, [open]);
 

@@ -331,7 +331,7 @@ export async function getBillingOverview(customerId: string): Promise<BillingOve
 }
 
 /** The live (manageable) subscription for a customer, or null. */
-async function liveSubscription(customerId: string): Promise<Stripe.Subscription | null> {
+export async function liveSubscription(customerId: string): Promise<Stripe.Subscription | null> {
   const subs = await stripe().subscriptions.list({ customer: customerId, status: "all", limit: 3 });
   return subs.data.find((x) => ["active", "trialing", "past_due", "unpaid"].includes(x.status)) ?? null;
 }

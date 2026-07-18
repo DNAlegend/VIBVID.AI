@@ -265,6 +265,11 @@ function SubscribeFlowInner() {
               {busy ? <Loader2 size={17} className="animate-spin" /> : <>Next — payment <ArrowRight size={17} /></>}
             </Button>
             {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
+            <p className="mt-4 text-center text-[12px] text-faint">
+              By continuing you agree to the{" "}
+              <Link href="/terms" className="underline hover:text-fg">Terms of Service</Link> and{" "}
+              <Link href="/privacy" className="underline hover:text-fg">Privacy Policy</Link>.
+            </p>
             <button
               onClick={() => setStep("plan")}
               className="mx-auto mt-4 block text-[12.5px] font-medium text-muted transition-colors hover:text-fg"
@@ -302,7 +307,8 @@ function SubscribeFlowInner() {
               <span className="font-semibold text-fg">{email.trim()}</span> is already registered.
               Log in with a one-time code and subscribe right inside your studio.
             </p>
-            <Link href="/app">
+            {/* Carry the chosen plan through login so the paywall preselects it. */}
+            <Link href={`/app?buy=${paid.id}`}>
               <Button size="lg" className="mt-5 w-full">
                 Log in to subscribe <ArrowRight size={17} />
               </Button>

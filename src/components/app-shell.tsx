@@ -94,13 +94,14 @@ function CreditWidget({ onBuy }: { onBuy: () => void }) {
   const credits = useStore((s) => s.credits);
   const hydrated = useStore((s) => s.hasHydrated);
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-1.5">
+    <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+      <div className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-2.5 py-1.5 sm:px-3">
         <Coins size={15} className="text-warn" />
         <span className="text-sm font-semibold tabular-nums">
           {hydrated ? credits.toLocaleString() : "—"}
         </span>
-        <span className="text-xs text-faint">credits</span>
+        {/* the word is decoration — the coin says it; drop it on phones */}
+        <span className="hidden text-xs text-faint sm:inline">credits</span>
       </div>
       <Button size="sm" variant="soft" onClick={onBuy} className="gap-1.5">
         <Plus size={15} /> Buy
@@ -211,8 +212,12 @@ function BuyCreditsModal({
 
   // A plan picked on the landing page (?buy=) starts checkout on open — the
   // user already chose it there, so don't make them click it a second time.
+  // EXCEPT a subscription for someone already subscribed: that would open a
+  // payment form for a duplicate plan — let them read the options instead
+  // (clicking a plan surfaces the "switch from Account & billing" message).
   useEffect(() => {
     if (!open || !autostart || autostarted.current === autostart.id) return;
+    if (autostart.kind === "subscription") return;
     autostarted.current = autostart.id;
     void buy(autostart);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -377,7 +382,8 @@ function SignUpGate() {
 
   async function resend() {
     if (!supabase || !emailValid || !captchaReady) return;
-    await supabase.auth.signInWithOtp({
+    setOtpError(null);
+    const { error: err } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: {
         shouldCreateUser: true,
@@ -386,7 +392,14 @@ function SignUpGate() {
       },
     });
     consumeCaptcha();
+    if (err) {
+      // Tell the truth — a swallowed failure here strands the user.
+      setOtpError(err.message || "Couldn't resend the code — try again.");
+      return;
+    }
     setResent(true);
+    // Re-arm after a short cooldown so a lost email isn't a dead end.
+    setTimeout(() => setResent(false), 30000);
   }
 
   // Verify the code; success flips the session and the gate unmounts by itself
@@ -515,7 +528,7 @@ function SignUpGate() {
               <Button onClick={verifyCode} disabled={verifying || !/^\d{6}$/.test(otpCode.trim())}>
                 {verifying ? <Loader2 size={16} className="animate-spin" /> : <>Verify &amp; continue</>}
               </Button>
-              {captchaEnabled && !resent && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
+              {captchaEnabled && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
               <Button variant="outline" size="sm" onClick={resend} disabled={resent || !captchaReady}>
                 <Mail size={14} /> {resent ? "Code sent — check your inbox" : "Resend the code"}
               </Button>
@@ -777,11 +790,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (now > before) {
           if (poll) clearInterval(poll);
           void checkSubscription();
+          setActivating(false);
           setPurchaseNote("You’re all set — your studio is active.");
           setTimeout(() => setPurchaseNote(null), 4000);
           return;
         }
-        if (++n >= 7) {
+        // A paid buyer must never be dropped back onto the plans wall just
+        // because the webhook is slow — poll for a full minute before easing
+        // off with an honest "still processing" note.
+        if (++n >= 20) {
           if (poll) clearInterval(poll);
           void checkSubscription();
           setActivating(false);
@@ -928,13 +945,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Brand />
             </div>
             <div className="hidden text-sm text-faint md:block" />
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
               {/* Locked users can browse; the Buy button routes them to subscribe
                   rather than the top-up modal (top-ups are a subscriber add-on). */}
               <CreditWidget onBuy={() => (subscribed === false ? setActivateOpen(true) : setBuyOpen(true))} />
               {cloudConfigured &&
                 (email ? (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
                     <span className="hidden max-w-[150px] truncate text-xs text-muted lg:block">{email}</span>
                     <Button
                       size="sm"

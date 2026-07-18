@@ -794,7 +794,7 @@ function AssetActions({
               “{asset.promptFragment}”
             </p>
           )}
-          <ActionItem icon={<Sparkles size={16} />} label="Use in Make" onClick={() => { onUse(); onClose(); }} />
+          <ActionItem icon={<Sparkles size={16} />} label="Use in Studio" onClick={() => { onUse(); onClose(); }} />
           <ActionItem icon={<FolderPlus size={16} />} label="Add to collection" onClick={onCollect} />
           <ActionItem icon={<Pencil size={16} />} label="Rename" onClick={() => setMode("rename")} />
           <ActionItem

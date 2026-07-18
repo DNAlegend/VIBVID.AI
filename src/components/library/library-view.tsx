@@ -39,14 +39,17 @@ export function LibraryView() {
   const open = videos.find((v) => v.id === openId) ?? null;
   const done = videos.filter((v) => v.status === "succeeded").length;
   const failed = videos.filter((v) => v.status === "failed").length;
+  const rendering = videos.filter((v) => v.status === "rendering").length;
 
-  // Deep link from Plan ("View video"): /app/videos?open=<jobId>
+  // Deep link: /app/videos?open=<jobId> — only open finished videos (a
+  // rendering/failed job in the player modal is just a black box).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = new URLSearchParams(window.location.search).get("open");
     if (!id) return;
     window.history.replaceState({}, "", window.location.pathname);
-    setOpenId(id);
+    const v = useStore.getState().videos.find((x) => x.id === id);
+    if (v?.status === "succeeded") setOpenId(id);
   }, []);
 
   if (!hydrated) return <GridSkeleton />;
@@ -60,8 +63,8 @@ export function LibraryView() {
             {videos.length === 0
               ? "Every video you generate is collected and managed here."
               : `${done} ${done === 1 ? "video" : "videos"} generated${
-                  failed > 0 ? ` · ${failed} failed` : ""
-                }.`}
+                  rendering > 0 ? ` · ${rendering} rendering…` : ""
+                }${failed > 0 ? ` · ${failed} failed` : ""}.`}
           </p>
         </div>
         <Button onClick={() => (window.location.href = "/app")} className="hidden sm:inline-flex">
@@ -205,7 +208,11 @@ function ContentCard({ video, onOpen }: { video: VideoJob; onOpen: () => void })
             size="sm"
             variant="ghost"
             className="text-danger"
-            onClick={() => removeVideo(video.id)}
+            onClick={() => {
+              if (confirm("Remove this failed render? Its credits were already refunded.")) {
+                removeVideo(video.id);
+              }
+            }}
           >
             <Trash2 size={14} /> Remove
           </Button>
@@ -234,8 +241,19 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
   const setDraftElements = useStore((s) => s.setDraftElements);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const byId = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, a])), [assets]);
+
+  // A fresh video in the modal starts with fresh action states — otherwise
+  // "Saved" from the previous video blocks saving this one.
+  const videoId = video?.id;
+  useEffect(() => {
+    setSaved(false);
+    setCopied(false);
+    setDownloading(false);
+  }, [videoId]);
+
   if (!video) return null;
 
   const model = getModel(video.modelId);
@@ -278,20 +296,16 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
         <span className="text-xs text-faint">{timeAgo(video.createdAt)}</span>
       </div>
 
+      {/* Legacy provenance: productions made in the old Plan surface. Plain
+          info — the Plan page no longer exists, so nothing to navigate to. */}
       {fromPlan && (
-        <button
-          onClick={() => {
-            onClose();
-            router.push("/app");
-          }}
-          className="mt-4 flex w-full items-center gap-2 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2.5 text-left transition-colors hover:border-accent/50"
-        >
+        <div className="mt-4 flex w-full items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2.5">
           <Lightbulb size={14} className="shrink-0 text-accent-2" />
           <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
-            From plan: <span className="font-semibold">{fromIdea?.title ?? "idea"}</span>
+            From production: <span className="font-semibold">{fromIdea?.title ?? "idea"}</span>
             <span className="text-muted"> · “{fromPlan.brief}”</span>
           </span>
-        </button>
+        </div>
       )}
 
       {/* The production record: everything this video was made from — the
@@ -311,7 +325,9 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
                 /* clipboard unavailable — the prompt is visible to select */
               }
             }}
-            className="flex items-center gap-1 text-[11.5px] font-medium text-muted hover:text-fg"
+            // Negative margin keeps the layout tight while the padded box
+            // gives the tap a real ~36px target on phones.
+            className="-m-2 flex items-center gap-1 p-2 text-[11.5px] font-medium text-muted hover:text-fg"
           >
             {copied ? (
               <>
@@ -373,15 +389,16 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
         <Button
           variant="soft"
           size="sm"
+          disabled={saved}
           onClick={() => {
+            // Once per open — repeated clicks were minting duplicate assets.
             saveVideoToAssets(video.id);
             setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
           }}
         >
           {saved ? (
             <>
-              <Check size={15} className="text-teal" /> Saved
+              <Check size={15} className="text-teal" /> Saved to Assets
             </>
           ) : (
             <>
@@ -389,16 +406,38 @@ function ContentModal({ video, onClose }: { video: VideoJob | null; onClose: () 
             </>
           )}
         </Button>
-        <a href={video.videoUrl ?? video.posterUrl} target="_blank" rel="noreferrer">
-          <Button variant="outline" size="sm">
-            <Download size={15} /> Download
-          </Button>
-        </a>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={downloading}
+          onClick={async () => {
+            // A real download — the plain link just opened the video in a tab
+            // (cross-origin URLs ignore the `download` attribute).
+            const url = video.videoUrl ?? video.posterUrl;
+            if (!url) return;
+            setDownloading(true);
+            try {
+              const blob = await (await fetch(url)).blob();
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = `vibvid-${video.id}.${video.videoUrl ? "mp4" : "png"}`;
+              a.click();
+              URL.revokeObjectURL(a.href);
+            } catch {
+              window.open(url, "_blank", "noreferrer");
+            } finally {
+              setDownloading(false);
+            }
+          }}
+        >
+          {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Download
+        </Button>
         <Button
           variant="danger"
           size="sm"
           className="ml-auto"
           onClick={() => {
+            if (!confirm("Delete this video permanently? This can't be undone.")) return;
             removeVideo(video.id);
             onClose();
           }}

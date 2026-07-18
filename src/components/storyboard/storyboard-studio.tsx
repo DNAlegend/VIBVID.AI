@@ -31,6 +31,7 @@ import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { getModel, priceFor } from "@/lib/models";
 import { storyboardDurationSec } from "@/lib/storyboard";
+import { clearPendingSheet, getPendingSheet, setPendingSheet } from "@/lib/pending-sheet";
 import type { Asset } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge, Button, Card, Progress, Segmented } from "@/components/ui";
@@ -160,19 +161,24 @@ export function StoryboardStudio() {
     if (!flow.trim() || !canAfford) return;
     setSavedAssetId(null);
     const refs = product ? productPhotoUrls(product) : [];
-    setJobId(
-      generate({
-        prompt: composedImagePrompt,
-        tier: "standard",
-        durationSec: 5,
-        aspectRatio: "1:1",
-        audio: false,
-        modelId: model.id,
-        modality: "image",
-        direction: title.trim() || brief.trim(),
-        refImageUrls: refs.length ? refs : undefined,
-      }),
-    );
+    const id = generate({
+      prompt: composedImagePrompt,
+      tier: "standard",
+      durationSec: 5,
+      aspectRatio: "1:1",
+      audio: false,
+      modelId: model.id,
+      modality: "image",
+      direction: title.trim() || brief.trim(),
+      refImageUrls: refs.length ? refs : undefined,
+    });
+    setJobId(id);
+    // Safety net: if they navigate away mid-render, the next visit restores
+    // this state and the auto-save still lands the paid board.
+    setPendingSheet("storyboard", {
+      jobId: id,
+      data: { productId, brief, durationSec, title, flow, imagePrompt },
+    });
   }
 
   // A finished board saves itself: one storyboard asset carrying the sheet,
@@ -200,8 +206,39 @@ export function StoryboardStudio() {
       ],
     } as Omit<Asset, "id" | "createdAt">);
     setSavedAssetId(asset.id);
+    clearPendingSheet("storyboard");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.status, job?.posterUrl]);
+
+  // Restore an in-flight (or finished-but-unsaved) render from a previous
+  // visit, so navigating away mid-render never loses the paid board.
+  useEffect(() => {
+    if (!hydrated || jobId) return;
+    const pending = getPendingSheet<{
+      productId: string | null;
+      brief: string;
+      durationSec: number;
+      title: string;
+      flow: string;
+      imagePrompt: string;
+    }>("storyboard");
+    if (!pending) return;
+    const pendingJob = useStore.getState().videos.find((v) => v.id === pending.jobId);
+    if (!pendingJob || pendingJob.status === "failed") {
+      clearPendingSheet("storyboard");
+      return;
+    }
+    const d = pending.data;
+    setProductId(d.productId);
+    setBrief(d.brief);
+    setDurationSec(d.durationSec);
+    setTitle(d.title);
+    setFlow(d.flow);
+    setImagePrompt(d.imagePrompt);
+    setJobId(pending.jobId);
+    setCreating(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   /** Shoot it: the sheet becomes a reference, the prompt the script, the length the clip. */
   function useInMake(board: Asset) {
@@ -231,7 +268,7 @@ export function StoryboardStudio() {
         <p className="mt-1 text-sm text-muted">
           Board a product commercial as one image — nine key frames in a grid — plus the detailed
           Seedance prompt that shoots it, sized to your video length. Boards save themselves and
-          feed straight into Make.
+          feed straight into the Studio.
         </p>
       </header>
 
@@ -276,7 +313,7 @@ export function StoryboardStudio() {
                     onClick={() => {
                       if (confirm(`Delete the "${b.name}" storyboard?`)) removeAsset(b.id);
                     }}
-                    className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white opacity-0 transition-opacity hover:bg-black/75 group-hover:opacity-100"
+                    className="absolute right-2 top-2 rounded-lg bg-black/55 p-1.5 text-white transition-opacity hover:bg-black/75 sm:opacity-0 sm:group-hover:opacity-100"
                     aria-label="Delete storyboard"
                   >
                     <Trash2 size={13} />

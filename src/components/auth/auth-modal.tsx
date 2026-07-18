@@ -183,6 +183,9 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
               </>
             )}
           </Button>
+          {/* Resend needs a fresh captcha token — without this widget the
+              code step was a dead end whenever Turnstile is enabled. */}
+          {captchaEnabled && <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />}
           <div className="mt-3 flex items-center justify-between text-[13px] text-muted">
             <button
               className="font-medium text-accent-2 hover:underline"
@@ -195,8 +198,8 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
               Change email
             </button>
             <button
-              className={cn("font-medium", cooldown > 0 ? "text-faint" : "text-accent-2 hover:underline")}
-              disabled={cooldown > 0 || busy}
+              className={cn("font-medium", cooldown > 0 || !captchaReady ? "text-faint" : "text-accent-2 hover:underline")}
+              disabled={cooldown > 0 || busy || !captchaReady}
               onClick={sendCode}
             >
               {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}

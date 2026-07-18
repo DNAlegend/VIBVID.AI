@@ -13,7 +13,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin, userIdFromRequest, guestUserForEmail } from "@/lib/supabase-admin";
 import { getBillingCustomer, saveBillingCustomer } from "@/lib/billing-customer";
 import { billingItem } from "@/lib/billing";
-import { stripeConfigured, createEmbeddedCheckout, ensureStripeCustomer } from "@/lib/stripe";
+import { stripeConfigured, createEmbeddedCheckout, ensureStripeCustomer, liveSubscription } from "@/lib/stripe";
 
 export const maxDuration = 20;
 
@@ -100,6 +100,27 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("[checkout] customer setup failed:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Could not start checkout" }, { status: 502 });
+  }
+
+  // One live subscription per account: buying a second plan would silently
+  // double-bill (Stripe happily stacks subscriptions on one customer). Plan
+  // changes go through the Account page's Switch plan, which updates the
+  // existing subscription in place.
+  if (item.kind === "subscription") {
+    try {
+      const current = await liveSubscription(customerId);
+      if (current) {
+        return NextResponse.json(
+          {
+            error: "You already have an active plan — switch it from Account & billing instead.",
+            code: "already_subscribed",
+          },
+          { status: 409 },
+        );
+      }
+    } catch {
+      /* Stripe lookup hiccup — let checkout proceed rather than block a sale. */
+    }
   }
 
   // Capture Meta's match-quality signals now, while we still have the raw

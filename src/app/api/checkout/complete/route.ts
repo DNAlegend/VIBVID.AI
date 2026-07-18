@@ -62,6 +62,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ signIn: true, email: user.email });
   }
 
+  // The subscribe form shows the ToS/Privacy consent line before payment —
+  // record the acceptance on the account it created (same as OTP signup does).
+  await supabaseAdmin
+    .from("profiles")
+    .update({ accepted_terms_at: new Date().toISOString() })
+    .eq("id", userId)
+    .is("accepted_terms_at", null);
+
   // Burn the one-time flag BEFORE handing out the token.
   const { error: flagErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     user_metadata: { ...user.user_metadata, guest_activated: true },
