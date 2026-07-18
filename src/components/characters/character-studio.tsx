@@ -6,11 +6,10 @@
 // parts, so "Use in Make" fills image slots with their sheets/photos and a
 // sound slot with their voice.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  Bookmark,
   Check,
   Coins,
   ImagePlus,
@@ -29,7 +28,7 @@ import { getModel, priceFor } from "@/lib/models";
 import { uploadDataUrl, uploadFile } from "@/lib/cloud";
 import type { Asset, AssetPart } from "@/lib/types";
 import { cn, uid } from "@/lib/utils";
-import { Badge, Button, Card, Progress, Segmented, TextInput } from "@/components/ui";
+import { Badge, Button, Card, Modal, Progress, Segmented, TextInput } from "@/components/ui";
 
 type StyleKey = "photoreal" | "cinematic" | "anime" | "3d";
 
@@ -55,6 +54,33 @@ interface StagedFile {
   name: string;
 }
 
+/** What was entered to produce the sheet — stored on the character, editable later. */
+interface Recipe {
+  description: string;
+  biology: string;
+  wardrobe: string;
+  style: StyleKey;
+}
+
+const RECIPE_LABEL = "Recipe";
+
+/** Read the stored inputs back off a saved character. */
+function recipeOf(a: Asset): Recipe | null {
+  const part = a.parts?.find((p) => p.label === RECIPE_LABEL);
+  if (!part) return null;
+  try {
+    const r = JSON.parse(part.url) as Partial<Recipe>;
+    return {
+      description: r.description ?? "",
+      biology: r.biology ?? "",
+      wardrobe: r.wardrobe ?? "",
+      style: (r.style as StyleKey) ?? "photoreal",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function CharacterStudio() {
   const router = useRouter();
   /** Gallery first — the creation wizard opens on "Add new". */
@@ -67,6 +93,7 @@ export function CharacterStudio() {
   const addAsset = useStore((s) => s.addAsset);
   const addCategory = useStore((s) => s.addCategory);
   const removeAsset = useStore((s) => s.removeAsset);
+  const updateAsset = useStore((s) => s.updateAsset);
   const setDraftElements = useStore((s) => s.setDraftElements);
   const cloudUser = useStore((s) => s.cloudUser);
   const subscribed = useStore((s) => s.subscribed);
@@ -82,7 +109,14 @@ export function CharacterStudio() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  /** The saved character being viewed/edited (null while making a new one). */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /** The character's current sheet URL (existing or freshly rendered). */
+  const [sheet, setSheet] = useState<string | null>(null);
+  /** Job ids already auto-saved — a render persists exactly once. */
+  const savedJobs = useRef<Set<string>>(new Set());
+  /** Full-screen view of the sheet. */
+  const [fullOpen, setFullOpen] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const voiceRef = useRef<HTMLInputElement>(null);
   // In-browser voice recording (MediaRecorder) — capped at 60 seconds.
@@ -108,7 +142,6 @@ export function CharacterStudio() {
 
   const job = jobId ? videos.find((v) => v.id === jobId) ?? null : null;
   const rendering = job?.status === "rendering";
-  const sheetUrl = job?.status === "succeeded" ? job.posterUrl : undefined;
 
   const base = [
     photos.length
@@ -148,7 +181,7 @@ export function CharacterStudio() {
         }
         const staged = { url, name: file.name.replace(/\.[^.]+$/, "") };
         if (kind === "photo") setPhotos([staged]);
-        else setVoice(staged);
+        else applyVoice(staged);
       }
     } finally {
       setUploading(false);
@@ -191,7 +224,7 @@ export function CharacterStudio() {
               r.readAsDataURL(blob);
             });
           }
-          setVoice({ url, name: "Recorded voice" });
+          applyVoice({ url, name: "Recorded voice" });
         } catch {
           setUploadError("Couldn't save the recording — try again.");
         } finally {
@@ -220,7 +253,6 @@ export function CharacterStudio() {
       return;
     }
     if (!canGenerate) return;
-    setSaved(false);
     setJobId(
       generate({
         prompt: sheetPrompt(base, STYLES[style].suffix),
@@ -236,44 +268,22 @@ export function CharacterStudio() {
     );
   }
 
-  /** Character = a collection of real assets + one composite card that bundles them. */
-  function onSave() {
+  /**
+   * Persist the character from the current form state — automatically after a
+   * render, and again whenever the voice or details change on a saved one.
+   * A character = a collection of real assets + one composite that bundles
+   * them (parts include the Recipe: everything entered to produce the sheet).
+   */
+  function persistCharacter(overrides?: { sheetUrl?: string | null; voice?: StagedFile | null }) {
+    const theSheet = overrides?.sheetUrl !== undefined ? overrides.sheetUrl : sheet;
+    const theVoice = overrides?.voice !== undefined ? overrides.voice : voice;
     const charName = name.trim() || "New Character";
-    const col = addCategory(`${charName} — character`);
-
-    photos.forEach((p, i) => {
-      addAsset({
-        name: `${charName} — photo ${i + 1}`,
-        kind: "image",
-        url: p.url,
-        posterUrl: p.url,
-        categoryId: col.id,
-        source: "upload",
-        promptFragment: `${charName}'s reference photo`,
-      });
-    });
-    if (sheetUrl) {
-      addAsset({
-        name: `${charName} — character sheet`,
-        kind: "image",
-        url: sheetUrl,
-        posterUrl: sheetUrl,
-        categoryId: col.id,
-        source: "generation",
-        promptFragment: `${charName}'s character sheet — every angle of them`,
-      });
-    }
-    if (voice) {
-      addAsset({
-        name: `${charName} — voice`,
-        kind: "audio",
-        url: voice.url,
-        categoryId: col.id,
-        source: "upload",
-        promptFragment: `${charName}'s voice`,
-      });
-    }
-
+    const recipePart: AssetPart = {
+      role: "reference",
+      kind: "prompt",
+      url: JSON.stringify({ description, biology, wardrobe, style } satisfies Recipe),
+      label: RECIPE_LABEL,
+    };
     const parts: AssetPart[] = [
       ...photos.map((p, i) => ({
         role: "face" as const,
@@ -282,32 +292,113 @@ export function CharacterStudio() {
         posterUrl: p.url,
         label: `Photo ${i + 1}`,
       })),
-      ...(sheetUrl
-        ? [
-            {
-              role: "primary" as const,
-              kind: "image" as const,
-              url: sheetUrl,
-              posterUrl: sheetUrl,
-              label: "Character sheet",
-            },
-          ]
+      ...(theSheet
+        ? [{ role: "primary" as const, kind: "image" as const, url: theSheet, posterUrl: theSheet, label: "Character sheet" }]
         : []),
-      ...(voice ? [{ role: "voice" as const, kind: "audio" as const, url: voice.url, label: "Voice" }] : []),
+      ...(theVoice ? [{ role: "voice" as const, kind: "audio" as const, url: theVoice.url, label: "Voice" }] : []),
+      recipePart,
     ];
-    const hero = sheetUrl ?? photos[0]?.url;
-    addAsset({
+    const hero = theSheet ?? photos[0]?.url ?? "";
+    const promptFragment = `${charName}${description.trim() ? `, ${description.trim().split(/[,.\n]/)[0].toLowerCase()}` : ""}`;
+
+    if (editingId) {
+      const existing = assets.find((a) => a.id === editingId);
+      if (!existing) return;
+      updateAsset(editingId, { name: charName, url: hero, posterUrl: hero, parts, promptFragment });
+      const colId = existing.categoryId;
+      if (colId) {
+        // Keep the collection in step: one sheet asset, one voice asset.
+        const sheetAsset = assets.find((a) => a.categoryId === colId && a.kind === "image" && / character sheet$/.test(a.name));
+        if (theSheet && sheetAsset && sheetAsset.url !== theSheet) {
+          updateAsset(sheetAsset.id, { url: theSheet, posterUrl: theSheet });
+        } else if (theSheet && !sheetAsset) {
+          addAsset({ name: `${charName} — character sheet`, kind: "image", url: theSheet, posterUrl: theSheet, categoryId: colId, source: "generation", promptFragment: `${charName}'s character sheet — every angle of them` });
+        }
+        const voiceAsset = assets.find((a) => a.categoryId === colId && a.kind === "audio");
+        if (theVoice && voiceAsset && voiceAsset.url !== theVoice.url) {
+          updateAsset(voiceAsset.id, { url: theVoice.url });
+        } else if (theVoice && !voiceAsset) {
+          addAsset({ name: `${charName} — voice`, kind: "audio", url: theVoice.url, categoryId: colId, source: "upload", promptFragment: `${charName}'s voice` });
+        } else if (!theVoice && voiceAsset) {
+          removeAsset(voiceAsset.id);
+        }
+      }
+      return;
+    }
+
+    const col = addCategory(`${charName} — character`);
+    photos.forEach((p, i) => {
+      addAsset({ name: `${charName} — photo ${i + 1}`, kind: "image", url: p.url, posterUrl: p.url, categoryId: col.id, source: "upload", promptFragment: `${charName}'s reference photo` });
+    });
+    if (theSheet) {
+      addAsset({ name: `${charName} — character sheet`, kind: "image", url: theSheet, posterUrl: theSheet, categoryId: col.id, source: "generation", promptFragment: `${charName}'s character sheet — every angle of them` });
+    }
+    if (theVoice) {
+      addAsset({ name: `${charName} — voice`, kind: "audio", url: theVoice.url, categoryId: col.id, source: "upload", promptFragment: `${charName}'s voice` });
+    }
+    const composite = addAsset({
       name: charName,
       kind: "image",
-      url: hero ?? "",
-      posterUrl: hero,
+      url: hero,
+      posterUrl: hero || undefined,
       categoryId: col.id,
       source: "generation",
       class: "character",
-      promptFragment: `${charName}${description.trim() ? `, ${description.trim().split(/[,.\n]/)[0].toLowerCase()}` : ""}`,
+      promptFragment,
       parts,
     } as Omit<Asset, "id" | "createdAt">);
-    setSaved(true);
+    setEditingId(composite.id);
+  }
+
+  // A finished sheet saves the character automatically — nothing to click.
+  useEffect(() => {
+    if (!job || job.status !== "succeeded" || !job.posterUrl) return;
+    if (savedJobs.current.has(job.id)) return;
+    savedJobs.current.add(job.id);
+    setSheet(job.posterUrl);
+    persistCharacter({ sheetUrl: job.posterUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.status, job?.posterUrl]);
+
+  /** Stage a voice and, on a saved character, persist it immediately. */
+  function applyVoice(v: StagedFile | null) {
+    setVoice(v);
+    if (editingId) persistCharacter({ voice: v });
+  }
+
+  /** Blank slate for "Add new character". */
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setBiology("");
+    setWardrobe("");
+    setStyle("photoreal");
+    setPhotos([]);
+    setVoice(null);
+    setJobId(null);
+    setSheet(null);
+    setUploadError(null);
+  }
+
+  /** Open a saved character in full: sheet, recipe, voice — edit & regenerate. */
+  function openCharacter(c: Asset) {
+    const recipe = recipeOf(c);
+    setEditingId(c.id);
+    setName(c.name);
+    setDescription(recipe?.description ?? "");
+    setBiology(recipe?.biology ?? "");
+    setWardrobe(recipe?.wardrobe ?? "");
+    setStyle(recipe?.style ?? "photoreal");
+    const photo = c.parts?.find((p) => p.role === "face");
+    setPhotos(photo ? [{ url: photo.url, name: "Photo" }] : []);
+    const v = c.parts?.find((p) => p.role === "voice");
+    setVoice(v ? { url: v.url, name: "Their voice" } : null);
+    const sheetPart = c.parts?.find((p) => p.role === "primary");
+    setSheet(sheetPart?.url ?? c.posterUrl ?? null);
+    setJobId(null);
+    setUploadError(null);
+    setCreating(true);
   }
 
   /** Cast them: their sheets & photos fill image slots, their voice a sound slot. */
@@ -332,7 +423,13 @@ export function CharacterStudio() {
       {/* Gallery first — the wizard hides behind "Add new". */}
       {!creating && (
         <div className="mb-5">
-          <Button size="lg" onClick={() => setCreating(true)}>
+          <Button
+            size="lg"
+            onClick={() => {
+              resetForm();
+              setCreating(true);
+            }}
+          >
             <Plus size={17} /> Add new character
           </Button>
         </div>
@@ -352,14 +449,20 @@ export function CharacterStudio() {
             return (
               <Card key={c.id} className="group overflow-hidden">
                 <div className="relative aspect-square bg-surface-2">
-                  {c.posterUrl || c.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.posterUrl ?? c.url} alt={c.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-faint">
-                      <UserRound size={26} />
-                    </div>
-                  )}
+                  <button
+                    onClick={() => openCharacter(c)}
+                    className="block h-full w-full"
+                    title={`Open ${c.name}`}
+                  >
+                    {c.posterUrl || c.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.posterUrl ?? c.url} alt={c.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-faint">
+                        <UserRound size={26} />
+                      </div>
+                    )}
+                  </button>
                   <button
                     onClick={() => {
                       if (confirm(`Delete ${c.name}? Their sheet assets stay in your library.`)) {
@@ -404,7 +507,7 @@ export function CharacterStudio() {
         {/* ------------------------------ Form ------------------------------ */}
         <Card className="h-fit p-5">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-2">
-            <UserRound size={14} /> New character
+            <UserRound size={14} /> {editingId ? "Edit character" : "New character"}
           </div>
 
           <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint">Name</label>
@@ -490,7 +593,7 @@ export function CharacterStudio() {
               <span className="flex items-center gap-2 text-[13px]">
                 <Mic size={14} className="text-teal" />
                 <span className="min-w-0 flex-1 truncate">{voice.name}</span>
-                <button onClick={() => setVoice(null)} className="text-faint hover:text-fg" aria-label="Remove voice">
+                <button onClick={() => applyVoice(null)} className="text-faint hover:text-fg" aria-label="Remove voice">
                   <X size={13} />
                 </button>
               </span>
@@ -574,11 +677,24 @@ export function CharacterStudio() {
                 <>
                   <Sparkles size={17} /> Subscribe to generate
                 </>
+              ) : sheet ? (
+                <>
+                  <Sparkles size={17} /> Regenerate character sheet
+                </>
               ) : (
                 <>
                   <Sparkles size={17} /> Generate character sheet
                 </>
               )}
+            </Button>
+          )}
+          {editingId && !rendering && (
+            <Button
+              variant="soft"
+              className="mt-2 w-full"
+              onClick={() => persistCharacter()}
+            >
+              <Check size={16} /> Save details
             </Button>
           )}
           {hydrated && !needsSignIn && !locked && !canAfford && (
@@ -590,7 +706,7 @@ export function CharacterStudio() {
 
         {/* ----------------------------- The sheet ---------------------------- */}
         <div className="space-y-4">
-          {!job ? (
+          {!job && !sheet ? (
             <Card className="flex min-h-[320px] flex-col items-center justify-center p-8 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
                 <UserRound size={22} />
@@ -598,28 +714,30 @@ export function CharacterStudio() {
               <p className="mt-3 max-w-sm text-sm text-muted">
                 Your character sheet appears here — one image, eight boxes: the face from four
                 directions on top, the full body from four directions below, so their shape,
-                width and height read at a glance.
+                width and height read at a glance. It saves itself the moment it renders.
               </p>
             </Card>
           ) : (
             <Card className="overflow-hidden">
               <div className="relative aspect-video w-full bg-surface-2">
-                {job.status === "rendering" ? (
+                {rendering ? (
                   <div className="shimmer flex h-full flex-col items-center justify-center">
                     <Loader2 size={20} className="animate-spin text-accent-2" />
                     <div className="mt-3 w-32">
-                      <Progress value={job.progress} />
+                      <Progress value={job!.progress} />
                     </div>
                   </div>
-                ) : sheetUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={sheetUrl} alt="Character sheet" className="h-full w-full object-cover" />
-                ) : (
+                ) : job?.status === "failed" ? (
                   <div className="flex h-full items-center justify-center p-4 text-center text-xs text-danger">
                     {job.error ?? "Failed"}
                   </div>
-                )}
-                <span className="absolute left-2 top-2">
+                ) : sheet ? (
+                  <button onClick={() => setFullOpen(true)} className="block h-full w-full" title="View full size">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={sheet} alt="Character sheet" className="h-full w-full object-cover" />
+                  </button>
+                ) : null}
+                <span className="pointer-events-none absolute left-2 top-2">
                   <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
                     Character sheet
                   </Badge>
@@ -628,30 +746,37 @@ export function CharacterStudio() {
             </Card>
           )}
 
-          {!!sheetUrl && !rendering && (
+          {!!sheet && !rendering && (
             <Card className="flex flex-wrap items-center gap-2 p-4">
-              <Button onClick={onSave} disabled={saved}>
-                {saved ? (
-                  <>
-                    <Check size={16} className="text-teal" /> Saved to Characters
-                  </>
-                ) : (
-                  <>
-                    <Bookmark size={16} /> Save character
-                  </>
-                )}
+              <span className="flex items-center gap-1.5 text-[13px] font-medium text-teal">
+                <Check size={15} /> Saved automatically
+              </span>
+              <span className="text-[12px] text-faint">— tap the sheet to see it full size</span>
+              <Button
+                size="sm"
+                className="ml-auto"
+                onClick={() => {
+                  const c = assets.find((a) => a.id === editingId);
+                  if (c) useInMake(c);
+                }}
+                disabled={!editingId}
+              >
+                Use in Studio <ArrowRight size={15} />
               </Button>
-              {saved && (
-                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-                  See your characters <ArrowRight size={15} />
-                </Button>
-              )}
             </Card>
           )}
         </div>
       </div>
         </>
       )}
+
+      {/* The sheet, full size. */}
+      <Modal open={fullOpen} onClose={() => setFullOpen(false)} size="lg" title={name.trim() || "Character sheet"}>
+        {sheet && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={sheet} alt="Character sheet — full size" className="w-full rounded-xl" />
+        )}
+      </Modal>
     </div>
   );
 }

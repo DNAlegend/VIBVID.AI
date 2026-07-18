@@ -286,6 +286,8 @@ export function updateAssetRow(id: string, patch: Partial<Asset>): void {
   if (patch.url !== undefined) row.url = patch.url;
   if (patch.posterUrl !== undefined) row.poster_url = patch.posterUrl;
   if (patch.categoryId !== undefined) row.category_id = patch.categoryId;
+  if (patch.parts !== undefined) row.parts = patch.parts;
+  if (patch.promptFragment !== undefined) row.prompt_fragment = patch.promptFragment;
   supabase!.from("assets").update(row).eq("id", id).eq("user_id", activeUserId!)
     .then(({ error }) => { if (error) warn("updateAssetRow", error); });
 }

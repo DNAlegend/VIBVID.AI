@@ -120,6 +120,8 @@ interface StoreState {
   addAsset: (a: Omit<Asset, "id" | "createdAt">) => Asset;
   saveVideoToAssets: (videoId: string, categoryId?: string | null) => Asset | null;
   removeAsset: (id: string) => void;
+  /** Merge a patch into an asset (name, urls, parts, promptFragment…). */
+  updateAsset: (id: string, patch: Partial<Asset>) => void;
   renameAsset: (id: string, name: string) => void;
   moveAsset: (id: string, categoryId: string | null) => void;
 
@@ -636,6 +638,13 @@ export const useStore = create<StoreState>()(
       removeAsset: (id) => {
         set((s) => ({ assets: s.assets.filter((a) => a.id !== id) }));
         deleteAssetRow(id);
+      },
+
+      updateAsset: (id, patch) => {
+        set((s) => ({
+          assets: s.assets.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+        }));
+        updateAssetRow(id, patch);
       },
 
       renameAsset: (id, name) => {
