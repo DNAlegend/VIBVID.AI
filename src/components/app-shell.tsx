@@ -694,7 +694,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       setSubscribed(active);
       localStorage.setItem(SUBSCRIBED_KEY, active ? "1" : "0");
     } catch {
-      /* leave the current (possibly cached) value in place */
+      // Keep a cached answer; but with none (new account, first load) fail
+      // CLOSED to the paywall rather than hang on the loading state — a
+      // refresh or the auth listener's re-check corrects a transient error.
+      if (useStore.getState().subscribed === null) setSubscribed(false);
     }
   }, [setSubscribed]);
 
@@ -824,6 +827,54 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen">
         <SignUpGate />
+        {purchaseNote && (
+          <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
+            <span className="flex items-center gap-2">
+              <Coins size={15} className="text-teal" /> {purchaseNote}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Payment-first paywall: signed in but we don't yet know if the account is
+  // active — wait (brief; a cached answer resolves it instantly) rather than
+  // flash either the app or the wall.
+  if (cloudConfigured && email && subscribed === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <LogoWordmark className="animate-pulse text-2xl" />
+      </div>
+    );
+  }
+
+  // Signed in but not subscribed → a hard paywall right after OTP. The whole
+  // app is behind it; picking a plan and paying flips `subscribed` (via the
+  // ?purchase=success re-check below) and this gate unmounts to reveal the app.
+  if (cloudConfigured && email && subscribed === false) {
+    return (
+      <div className="min-h-screen">
+        <header className="sticky top-0 z-20 border-b border-line bg-bg/80 backdrop-blur-md">
+          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+            <Brand />
+            <div className="flex items-center gap-2">
+              <span className="hidden max-w-[180px] truncate text-xs text-muted sm:block">{email}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => supabase?.auth.signOut()}
+                title="Sign out"
+                className="gap-1.5"
+              >
+                <LogOut size={15} /> Sign out
+              </Button>
+            </div>
+          </div>
+        </header>
+        <main className="px-4 py-10 sm:px-6">
+          <ActivateGate preselect={autoBuy} />
+        </main>
         {purchaseNote && (
           <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
             <span className="flex items-center gap-2">
