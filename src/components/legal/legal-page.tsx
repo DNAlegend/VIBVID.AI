@@ -9,13 +9,13 @@ import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { LogoWordmark } from "@/components/logo";
 
-/** The business behind VIBVID — presented under the brand, no separate entity named. */
+/** The business behind VIBVID: the brand is VIBVID.AI, the company is TAXNOW FZE. */
 export const COMPANY = {
   brand: "VIBVID.AI",
-  /** Public-facing name used across all legal copy. */
-  legalName: "VIBVID.AI™",
-  /** Governing-law jurisdiction (used for Terms; not an entity registration). */
-  jurisdiction: "the United Arab Emirates",
+  /** The legal entity named across all legal copy. */
+  legalName: "TAXNOW FZE",
+  /** Governing-law wording for the Terms — tied to the entity, no country named. */
+  jurisdiction: "the jurisdiction in which TAXNOW FZE is registered",
   supportEmail: "support@vibvid.ai",
   /** One real inbox — sales/business inquiries also route to support. */
   salesEmail: "support@vibvid.ai",

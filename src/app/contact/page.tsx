@@ -49,8 +49,8 @@ export default function ContactPage() {
         <p className="flex items-start gap-2.5">
           <Building2 size={17} className="mt-0.5 shrink-0 text-faint" />
           <span>
-            {COMPANY.brand} is a trading name operating under the brand{" "}
-            <strong>{COMPANY.legalName}</strong>. For any query, email{" "}
+            {COMPANY.brand} is a trading name of <strong>{COMPANY.legalName}</strong>. For any
+            query, email{" "}
             <a href={`mailto:${COMPANY.supportEmail}`} className="text-accent-2 underline hover:text-accent">
               {COMPANY.supportEmail}
             </a>
