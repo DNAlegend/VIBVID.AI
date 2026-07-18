@@ -1402,24 +1402,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
             )}
           </div>
           {directorError && <p className="mt-1.5 text-xs text-danger">{directorError}</p>}
-
-          {/* Blank page? The purpose's example prompts are one tap away. */}
-          {!prompt.trim() && purpose.ideas.length > 0 && (
-            <div className="mt-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-faint">Try one of these</span>
-              <div className="mt-1.5 flex flex-col gap-1.5">
-                {purpose.ideas.slice(0, 2).map((idea) => (
-                  <button
-                    key={idea}
-                    onClick={() => setPrompt(idea)}
-                    className="rounded-xl border border-dashed border-line-2 px-3 py-2 text-left text-[12.5px] leading-relaxed text-muted transition-colors hover:border-accent/50 hover:text-fg"
-                  >
-                    “{idea}”
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           </div>
 
           {/* Generate */}
