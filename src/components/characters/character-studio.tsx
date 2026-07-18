@@ -40,11 +40,13 @@ const STYLES: Record<StyleKey, { label: string; suffix: string }> = {
 };
 
 /**
- * ONE character = ONE sheet image: a single composition holding every view,
- * modeled on a classic model/character reference sheet.
+ * ONE character = ONE sheet image: a strict 2×4 grid of eight boxes.
+ * Top row — the face from four directions; bottom row — the full body from
+ * four directions, so the sheet describes both the face AND the character's
+ * shape, width and height.
  */
 const sheetPrompt = (base: string, style: string) =>
-  `Complete character reference sheet of ${base}, laid out as one clean composition on a pure white background. Top row: full-body turnaround in three views standing side by side — front view with arms slightly outstretched, side profile view, back view — identical outfit, hair and proportions in each. Bottom left: a neat grid of nine close-up head shots with varied expressions and head angles (neutral, happy, angry, surprised, sad, determined, left profile, right profile, looking up). Bottom right: one large waist-up portrait facing camera. The exact same face, hair and outfit in every view, fashion-catalog clarity, even studio lighting. ${style}`;
+  `Character reference sheet of ${base}, laid out as ONE clean composition on a pure white background: a strict grid of eight boxes in two rows of four with thin gutters, exactly ONE figure per box — never two figures in the same box. Top row, left to right — box 1: head-and-shoulders front view facing camera; box 2: head-and-shoulders left profile; box 3: head-and-shoulders right profile; box 4: the back of the head. Bottom row, left to right — box 5: full body standing, front view; box 6: full body, left side view; box 7: full body, right side view; box 8: full body, back view. The exact same face, hair, height, build, body width, proportions and outfit in every box, feet visible in the bottom row so the full height reads clearly. One single person per box, no text or labels, fashion-catalog clarity, even studio lighting. ${style}`;
 
 /** A locally staged upload (already in Storage) waiting to be saved as an asset. */
 interface StagedFile {
@@ -104,7 +106,7 @@ export function CharacterStudio() {
 
   const base = [
     photos.length
-      ? "the exact person shown in the reference photos — same face, same hair, same body"
+      ? "the exact person shown in the reference photo — same face, same hair, same body"
       : null,
     description.trim() || null,
     biology.trim() || null,
@@ -122,7 +124,7 @@ export function CharacterStudio() {
     setUploading(true);
     setUploadError(null);
     try {
-      for (const file of Array.from(files).slice(0, kind === "photo" ? 4 - photos.length : 1)) {
+      for (const file of Array.from(files).slice(0, 1)) {
         if (file.size > 8 * 1024 * 1024) {
           setUploadError("Files must be under 8 MB.");
           continue;
@@ -139,7 +141,7 @@ export function CharacterStudio() {
           continue;
         }
         const staged = { url, name: file.name.replace(/\.[^.]+$/, "") };
-        if (kind === "photo") setPhotos((p) => [...p, staged].slice(0, 4));
+        if (kind === "photo") setPhotos([staged]);
         else setVoice(staged);
       }
     } finally {
@@ -160,7 +162,7 @@ export function CharacterStudio() {
         prompt: sheetPrompt(base, STYLES[style].suffix),
         tier: "standard",
         durationSec: 5,
-        aspectRatio: "1:1",
+        aspectRatio: "16:9",
         audio: false,
         modelId: model.id,
         modality: "image",
@@ -258,7 +260,7 @@ export function CharacterStudio() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Characters</h1>
         <p className="mt-1 text-sm text-muted">
-          Create a character from photos or a description — get a full character sheet, give
+          Create a character from one photo or a description — get an 8-box reference sheet, give
           them a voice, and cast them in any video.
         </p>
       </header>
@@ -346,7 +348,7 @@ export function CharacterStudio() {
 
           {/* Photos — build the character from one or more pictures */}
           <label className="mb-1.5 mt-4 block text-xs font-medium uppercase tracking-wide text-faint">
-            Photos <span className="normal-case">(optional — 1 to 4 pictures of them)</span>
+            Photo <span className="normal-case">(optional — one clear picture of them)</span>
           </label>
           <div className="flex flex-wrap gap-2">
             {photos.map((p, i) => (
@@ -362,7 +364,7 @@ export function CharacterStudio() {
                 </button>
               </span>
             ))}
-            {photos.length < 4 && (
+            {photos.length < 1 && (
               <button
                 onClick={() => photoRef.current?.click()}
                 disabled={uploading}
@@ -376,7 +378,6 @@ export function CharacterStudio() {
               ref={photoRef}
               type="file"
               accept="image/*"
-              multiple
               className="hidden"
               onChange={(e) => {
                 void stageFiles(e.target.files, "photo");
@@ -503,13 +504,14 @@ export function CharacterStudio() {
                 <UserRound size={22} />
               </span>
               <p className="mt-3 max-w-sm text-sm text-muted">
-                Your character sheet appears here — one image with every angle of them:
-                full-body turnaround, head angles and expressions, and a portrait.
+                Your character sheet appears here — one image, eight boxes: the face from four
+                directions on top, the full body from four directions below, so their shape,
+                width and height read at a glance.
               </p>
             </Card>
           ) : (
             <Card className="overflow-hidden">
-              <div className="relative aspect-square w-full bg-surface-2">
+              <div className="relative aspect-video w-full bg-surface-2">
                 {job.status === "rendering" ? (
                   <div className="shimmer flex h-full flex-col items-center justify-center">
                     <Loader2 size={20} className="animate-spin text-accent-2" />
