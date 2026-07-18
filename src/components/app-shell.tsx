@@ -8,6 +8,7 @@ import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { TOPUPS, PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
 import { cn } from "@/lib/utils";
+import { trackSubscribeConversion } from "@/lib/conversions";
 import { Button, Modal, Badge, TextInput } from "@/components/ui";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { Turnstile, captchaEnabled } from "@/components/auth/turnstile";
@@ -723,13 +724,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   // the studio unlocks.
   useEffect(() => {
     if (typeof window === "undefined" || !supabase) return;
-    const status = new URLSearchParams(window.location.search).get("purchase");
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("purchase");
     if (!status) return;
+    // Read the conversion params before replaceState strips them off the URL.
+    const purchaseId = params.get("purchase_id");
+    const kind = params.get("kind");
+    const amount = Number(params.get("amount"));
+    const currency = params.get("currency") ?? "USD";
     window.history.replaceState({}, "", window.location.pathname);
     if (status === "failed") {
       setPurchaseNote("Payment didn’t go through — no charge was made.");
       const t = setTimeout(() => setPurchaseNote(null), 6000);
       return () => clearTimeout(t);
+    }
+    // Conversion: a paid subscription (not a credit top-up) fires the browser
+    // Google Ads / Meta pixels. The Meta event id = purchaseId, shared with
+    // the webhook's server-side Conversions API call so Meta dedupes the two.
+    // Each purchase fires at most once (guarded in trackSubscribeConversion).
+    if (kind === "subscription" && purchaseId && Number.isFinite(amount)) {
+      trackSubscribeConversion({ purchaseId, value: amount, currency });
     }
     let poll: ReturnType<typeof setInterval> | null = null;
     void supabase.auth.getSession().then(({ data }) => {

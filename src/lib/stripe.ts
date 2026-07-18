@@ -88,8 +88,14 @@ export async function createEmbeddedCheckout(opts: {
     line_items: [{ quantity: 1, price_data: priceDataFor(item) }],
     metadata: meta,
     ...(isSubscription ? { subscription_data: { metadata: meta } } : {}),
-    // Embedded Checkout returns the buyer to our own page when done.
-    return_url: `${origin}/app?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
+    // Embedded Checkout returns the buyer to our own page when done. kind/
+    // amount/currency/purchase_id ride along so the client can fire the
+    // browser conversion pixel (Google Ads / Meta) without another round
+    // trip — none of this is sensitive, it's the same catalog price the
+    // buyer just saw on the checkout form.
+    return_url:
+      `${origin}/app?purchase=success&session_id={CHECKOUT_SESSION_ID}` +
+      `&purchase_id=${purchaseId}&kind=${item.kind}&amount=${item.amount}&currency=${item.currency}`,
   });
 
   if (!session.client_secret) throw new Error("Stripe did not return a client secret");

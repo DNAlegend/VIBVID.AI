@@ -17,6 +17,13 @@ import { stripeConfigured, createEmbeddedCheckout, ensureStripeCustomer } from "
 
 export const maxDuration = 20;
 
+/** Pull one cookie's value out of a raw Cookie header, or null if absent. */
+function cookieValue(header: string | null, name: string): string | null {
+  if (!header) return null;
+  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export async function POST(req: Request) {
   if (!stripeConfigured() || !supabaseAdmin) {
     // Stripe not wired up — the client falls back to demo credits (local only).
@@ -64,6 +71,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not start checkout" }, { status: 502 });
   }
 
+  // Capture Meta's match-quality signals now, while we still have the raw
+  // request — the webhook (no browser context) reads them back later to
+  // report this purchase via the Conversions API.
+  const cookieHeader = req.headers.get("cookie");
+  const fbp = cookieValue(cookieHeader, "_fbp");
+  const fbc = cookieValue(cookieHeader, "_fbc");
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const userAgent = req.headers.get("user-agent");
+
   // Record the intent first so the webhook has something to reconcile against.
   const { data: purchase, error: insErr } = await supabaseAdmin
     .from("credit_purchases")
@@ -75,6 +91,10 @@ export async function POST(req: Request) {
       amount: item.amount,
       currency: item.currency,
       status: "pending",
+      fbp,
+      fbc,
+      client_ip: clientIp,
+      user_agent: userAgent,
     })
     .select("id")
     .single();

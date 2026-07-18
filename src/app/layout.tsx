@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
+import { AnalyticsTags } from "@/components/analytics-tags";
 import "./globals.css";
 
 // Mobile-first: fit the device width and keep pinch-zoom available for
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased">
         {children}
         <Analytics />
+        <AnalyticsTags />
       </body>
     </html>
   );
