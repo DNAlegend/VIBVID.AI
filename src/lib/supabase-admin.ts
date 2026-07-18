@@ -29,17 +29,66 @@ export async function userIdFromRequest(req: Request): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
+/** The minimal auth-user shape the established-account check reads. */
+interface AuthUserLite {
+  id: string;
+  last_sign_in_at?: string | null;
+  user_metadata?: { guest_activated?: boolean } | null;
+}
+
 /**
- * Create-or-fetch a user for an email address, for guest checkout: the buyer
- * pays first and confirms the account afterwards (via the magic link the app
- * sends when they return from payment). No email is sent from here.
+ * Is this account ESTABLISHED — i.e. must it log in rather than be handed a
+ * session by the pay-first flow? True if it has ever signed in, has already
+ * been activated once by guest checkout, or has real value behind it (a paid
+ * purchase or a positive credit balance). A shell account left by an
+ * abandoned guest checkout (created but never used, never paid, no credits)
+ * is NOT established — the same buyer may come back and finish.
+ *
+ * This is the ONE definition both the guest-checkout gate and the guest
+ * auto-login (/api/checkout/complete) must share — any mismatch is an
+ * account-takeover hole (a paid-but-not-yet-signed-in account could be
+ * handed to whoever replays the checkout session id).
  */
-export async function userIdForEmail(email: string): Promise<string | null> {
+export async function isEstablishedAccount(user: AuthUserLite): Promise<boolean> {
+  if (!supabaseAdmin) return true; // fail closed
+  if (user.last_sign_in_at) return true;
+  if (user.user_metadata?.guest_activated) return true;
+  const { data: paid } = await supabaseAdmin
+    .from("credit_purchases")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "paid")
+    .limit(1);
+  if ((paid?.length ?? 0) > 0) return true;
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("credits")
+    .eq("id", user.id)
+    .maybeSingle();
+  return (profile?.credits ?? 0) > 0;
+}
+
+/**
+ * Guest checkout resolution for an email — pay first, account after. The
+ * pay-before-login path may be used ONCE per email; an established account
+ * (see isEstablishedAccount) must log in and subscribe inside the app.
+ *
+ * Returns `{ userId }` when guest checkout may proceed (creating the account
+ * if needed), or `{ exists: true }` when the email must log in. No email is
+ * ever sent from here.
+ */
+export async function guestUserForEmail(
+  email: string,
+): Promise<{ userId: string; exists?: never } | { exists: true; userId?: never } | null> {
   if (!supabaseAdmin) return null;
   const created = await supabaseAdmin.auth.admin.createUser({ email });
-  if (created.data.user) return created.data.user.id;
+  if (created.data.user) return { userId: created.data.user.id };
+
   // Already registered — generateLink is the admin API that returns the
   // existing user by email (the link itself is discarded, nothing is sent).
   const existing = await supabaseAdmin.auth.admin.generateLink({ type: "magiclink", email });
-  return existing.data.user?.id ?? null;
+  const user = existing.data.user;
+  if (!user) return null;
+  if (await isEstablishedAccount(user)) return { exists: true };
+  return { userId: user.id };
 }

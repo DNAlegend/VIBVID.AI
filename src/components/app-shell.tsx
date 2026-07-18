@@ -431,10 +431,15 @@ function SignUpGate() {
         {step === "email" ? (
           <>
             <div className="mt-5 text-center">
-              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Let’s get started</h1>
+              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Log in</h1>
               <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-                Enter your email and we’ll send a one-time code to sign you in. You’ll pick a plan
-                once you’re inside.
+                Enter your email and we’ll send a one-time code to sign you in.
+              </p>
+              <p className="mt-2 text-[13px] text-muted">
+                New to VIBVID?{" "}
+                <Link href="/subscribe" className="font-medium text-accent-2 hover:underline">
+                  Subscribe &amp; start creating
+                </Link>
               </p>
             </div>
 
@@ -659,6 +664,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const signOutToLocal = useStore((s) => s.signOutToLocal);
   const lastUser = useRef<string | null>(null);
   const [purchaseNote, setPurchaseNote] = useState<string | null>(null);
+  /** Fresh from checkout: keep the loader up (not the paywall) while the
+   *  webhook's credits poll in — the buyer just paid; don't show plans again. */
+  const [activating, setActivating] = useState(false);
   const [autoBuy, setAutoBuy] = useState<BillingItem | null>(null);
   // True once Supabase has reported the initial session (gate vs app decision).
   const [authReady, setAuthReady] = useState(false);
@@ -756,6 +764,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         return;
       }
       setPurchaseNote("Payment received — activating your studio…");
+      setActivating(true);
       void checkSubscription();
       // Only claim success when the balance actually increased — the webhook
       // grants credits async and can fail; never tell a customer "all set" on faith.
@@ -775,6 +784,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (++n >= 7) {
           if (poll) clearInterval(poll);
           void checkSubscription();
+          setActivating(false);
           setPurchaseNote(
             "Payment received — your credits are still processing. If they don’t appear in a few minutes, email support@vibvid.ai.",
           );
@@ -840,8 +850,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Payment-first paywall: signed in but we don't yet know if the account is
   // active — wait (brief; a cached answer resolves it instantly) rather than
-  // flash either the app or the wall.
-  if (cloudConfigured && email && subscribed === null) {
+  // flash either the app or the wall. `activating` keeps this loader up for a
+  // buyer fresh from checkout while the webhook's credits land.
+  if (cloudConfigured && email && (subscribed === null || (subscribed === false && activating))) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <LogoWordmark className="animate-pulse text-2xl" />

@@ -73,8 +73,10 @@ export async function createEmbeddedCheckout(opts: {
   userId: string;
   customerId: string;
   origin: string;
+  /** Where Embedded Checkout returns the buyer (default the app itself). */
+  returnPath?: string;
 }): Promise<{ id: string; clientSecret: string }> {
-  const { item, purchaseId, userId, customerId, origin } = opts;
+  const { item, purchaseId, userId, customerId, origin, returnPath = "/app" } = opts;
   const isSubscription = item.kind === "subscription";
   const meta = { purchase_id: purchaseId, user_id: userId, item_id: item.id };
 
@@ -94,7 +96,7 @@ export async function createEmbeddedCheckout(opts: {
     // trip — none of this is sensitive, it's the same catalog price the
     // buyer just saw on the checkout form.
     return_url:
-      `${origin}/app?purchase=success&session_id={CHECKOUT_SESSION_ID}` +
+      `${origin}${returnPath}?purchase=success&session_id={CHECKOUT_SESSION_ID}` +
       `&purchase_id=${purchaseId}&kind=${item.kind}&amount=${item.amount}&currency=${item.currency}`,
   });
 

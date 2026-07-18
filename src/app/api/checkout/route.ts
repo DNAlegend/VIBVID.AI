@@ -10,7 +10,7 @@
 // confirm the account after payment.
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin, userIdFromRequest, userIdForEmail } from "@/lib/supabase-admin";
+import { supabaseAdmin, userIdFromRequest, guestUserForEmail } from "@/lib/supabase-admin";
 import { getBillingCustomer, saveBillingCustomer } from "@/lib/billing-customer";
 import { billingItem } from "@/lib/billing";
 import { stripeConfigured, createEmbeddedCheckout, ensureStripeCustomer } from "@/lib/stripe";
@@ -40,6 +40,9 @@ export async function POST(req: Request) {
 
   let userId = await userIdFromRequest(req);
   let customerEmail: string | null = null;
+  // Guest checkout (no session): pay first, account after — allowed once per
+  // email. Established accounts are told to log in and pay inside instead.
+  let isGuest = false;
   if (userId) {
     const { data } = await supabaseAdmin.auth.admin.getUserById(userId);
     customerEmail = data.user?.email ?? null;
@@ -48,11 +51,39 @@ export async function POST(req: Request) {
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return NextResponse.json({ error: "Enter your email to continue" }, { status: 401 });
     }
-    userId = await userIdForEmail(email);
-    if (!userId) {
+    if (item.kind !== "subscription") {
+      // Top-ups are a subscriber add-on — no guest path for them.
+      return NextResponse.json({ error: "Sign in to buy credits" }, { status: 401 });
+    }
+    // Cap the unauthenticated path per client IP per hour, BEFORE creating any
+    // account / Stripe customer / DB row — otherwise a script iterating emails
+    // could spam real users, customers and enumerate accounts. Fail-open if the
+    // RPC isn't deployed yet (mirrors the authenticated limiter).
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: allowed, error: rlErr } = await supabaseAdmin.rpc("consume_guest_rate_limit", {
+      p_key: ip,
+      p_bucket: "guest_checkout",
+      p_max: 15,
+    });
+    if (!rlErr && allowed === false) {
+      return NextResponse.json(
+        { error: "Too many attempts — take a short break and try again." },
+        { status: 429 },
+      );
+    }
+    const guest = await guestUserForEmail(email);
+    if (!guest) {
       return NextResponse.json({ error: "Could not set up your account" }, { status: 500 });
     }
+    if (guest.exists) {
+      return NextResponse.json(
+        { error: "This email already has an account — log in to subscribe.", code: "account_exists" },
+        { status: 409 },
+      );
+    }
+    userId = guest.userId;
     customerEmail = email;
+    isGuest = true;
   }
 
   // Ensure the user has one Stripe customer so every purchase, invoice and
@@ -109,6 +140,9 @@ export async function POST(req: Request) {
       userId,
       customerId,
       origin,
+      // Guests return to /subscribe/complete, which signs them into the
+      // account their payment just created; signed-in buyers return to /app.
+      returnPath: isGuest ? "/subscribe/complete" : "/app",
     });
     return NextResponse.json({
       provider: "stripe",

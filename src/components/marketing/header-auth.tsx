@@ -50,7 +50,7 @@ export function HeaderAuth() {
       <Link href={APP} className={cn(btn, soft, "hidden sm:inline-flex")}>
         Sign in
       </Link>
-      <Link href={APP} className={cn(btn, primary)}>
+      <Link href="/subscribe" className={cn(btn, primary)}>
         Get started
       </Link>
     </>

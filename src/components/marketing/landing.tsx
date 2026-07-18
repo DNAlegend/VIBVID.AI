@@ -183,7 +183,7 @@ function Hero() {
           in full 1080p with native audio. One studio, from idea to export.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <CTA href={APP}>
+          <CTA href="/subscribe">
             <Sparkles size={18} /> Start creating
           </CTA>
           <CTA href="#how" variant="outline">
@@ -650,7 +650,7 @@ function LongForm() {
               acts in Plan, generate every scene in Make with a consistent cast, then assemble the whole
               runtime in Post and export one continuous film.
             </p>
-            <CTA href={APP} size="md" className="shrink-0">
+            <CTA href="/subscribe" size="md" className="shrink-0">
               <Clapperboard size={16} /> Start your season
             </CTA>
           </div>
@@ -869,7 +869,7 @@ export function Pricing() {
                 ))}
               </ul>
               <CTA
-                href={`${APP}?buy=${p.itemId}`}
+                href={`/subscribe?plan=${p.itemId}`}
                 variant={p.popular ? "primary" : "outline"}
                 size="md"
                 className="mt-6 w-full"
@@ -877,7 +877,7 @@ export function Pricing() {
                 {p.cta}
               </CTA>
               <Link
-                href={`${APP}?buy=${p.itemId}-year`}
+                href={`/subscribe?plan=${p.itemId}-year`}
                 className="mt-2.5 text-center text-[12.5px] font-medium text-accent-2 hover:underline"
               >
                 or {p.yearPrice}/yr — 4 months on us
@@ -1016,7 +1016,7 @@ function FinalCTA() {
         </p>
         <div className="mt-7 flex justify-center">
           <Link
-            href={APP}
+            href="/subscribe"
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-accent transition-transform hover:scale-[1.02]"
           >
             <Sparkles size={18} /> Create your first video
