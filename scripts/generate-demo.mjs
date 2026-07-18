@@ -13,7 +13,12 @@
 // Ark video results are temporary URLs (~24h) — this script downloads them
 // immediately, which is why the site only ever references local files.
 
-import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { writeFile, mkdir, readFile, unlink } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+
+const run = promisify(execFile);
 
 /* ------------------------------- env ------------------------------------ */
 
@@ -149,18 +154,37 @@ async function download(url, filename) {
   await writeFile(new URL(filename, OUT_DIR), Buffer.from(await res.arrayBuffer()));
 }
 
+// Seedream 4.5/5.0 render at 2K-class canvases only — upsize the request,
+// then downscale locally so the site ships light files with the new model's
+// detail baked in.
+const IS_2K_MODEL = /seedream-(4-5|5)/.test(IMAGE_MODEL);
+const SIZE_2K = { "1024x1024": "1920x1920", "1280x720": "2560x1440" };
+
 async function generateImage({ id, size, prompt }) {
+  const askSize = IS_2K_MODEL ? SIZE_2K[size] ?? size : size;
   const res = await fetch(`${BASE}/images/generations`, {
     method: "POST",
     headers: HEADERS,
-    body: JSON.stringify({ model: IMAGE_MODEL, prompt, size, response_format: "b64_json", watermark: false }),
+    body: JSON.stringify({ model: IMAGE_MODEL, prompt, size: askSize, response_format: "b64_json", watermark: false }),
   });
   if (!res.ok) throw new Error(`image ${id}: HTTP ${res.status} ${await res.text()}`);
   const json = await res.json();
   const b64 = json.data?.[0]?.b64_json;
   if (!b64) throw new Error(`image ${id}: empty response ${JSON.stringify(json).slice(0, 200)}`);
-  await writeFile(new URL(`${id}.png`, OUT_DIR), Buffer.from(b64, "base64"));
-  await saveManifest({ [id]: `/generated/${id}.png` });
+
+  if (!IS_2K_MODEL) {
+    await writeFile(new URL(`${id}.png`, OUT_DIR), Buffer.from(b64, "base64"));
+    await saveManifest({ [id]: `/generated/${id}.png` });
+    return;
+  }
+  // 2K intermediate → display-size JPEG via macOS sips (no extra deps).
+  const tmp = new URL(`${id}.tmp.png`, OUT_DIR);
+  const out = new URL(`${id}.jpg`, OUT_DIR);
+  await writeFile(tmp, Buffer.from(b64, "base64"));
+  const maxDim = size === "1024x1024" ? "1024" : "1280";
+  await run("sips", ["-Z", maxDim, "-s", "format", "jpeg", "-s", "formatOptions", "88", fileURLToPath(tmp), "--out", fileURLToPath(out)]);
+  await unlink(tmp);
+  await saveManifest({ [id]: `/generated/${id}.jpg` });
 }
 
 async function generateVideo({ id, aspect, prompt }) {
