@@ -69,7 +69,7 @@ type Picks = Partial<Record<AssetClass, string>>;
 const MODEL_CHOICES = [
   {
     key: "mini",
-    label: "Mini 2.0",
+    label: "Seedance 2.0 Mini",
     emoji: "🐇",
     tagline: "Zippy little drafts — try ideas fast",
     modelId: "seedance-2-mini",
@@ -78,7 +78,7 @@ const MODEL_CHOICES = [
   },
   {
     key: "pro",
-    label: "2.0 Pro",
+    label: "Seedance 2.0 Pro",
     emoji: "🎬",
     tagline: "The cinematic one — crisp 1080p",
     modelId: "seedance-2-pro",
@@ -87,7 +87,7 @@ const MODEL_CHOICES = [
   },
   {
     key: "4k",
-    label: "2.0 4K",
+    label: "Seedance 2.0 4K",
     emoji: "💎",
     tagline: "Every pore, every pixel — max detail",
     modelId: "seedance-2-pro",
@@ -834,6 +834,17 @@ export function MakeView({ mode }: { mode?: Modality }) {
           <div className="mb-3.5">
             <h2 className="text-[15px] font-bold tracking-tight text-fg">Model &amp; format</h2>
             <p className="mt-0.5 text-[12.5px] text-muted">The exact model, quality, aspect and length</p>
+            {/* The partnership lockup: our studio, ByteDance's Seedance engine. */}
+            <div className="mt-2 inline-flex flex-wrap items-center gap-1.5 rounded-full border border-line bg-surface-2/70 px-2.5 py-1 text-[11.5px] font-medium text-muted">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo-square.png" alt="VIBVID" className="h-4 w-4 rounded-[4px]" />
+              <span className="font-semibold text-fg">VIBVID</span>
+              <span className="text-faint">running</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logos/bytedance.svg" alt="ByteDance" className="h-4 w-4" />
+              <span className="font-semibold text-fg">Seedance 2.0</span>
+              <span className="text-faint">by ByteDance</span>
+            </div>
           </div>
           {/* Locking greys the format out (Edit reopens it) and wakes the rest of the page. */}
           <div className={cn(formatLocked && "pointer-events-none opacity-50")}>
@@ -857,8 +868,17 @@ export function MakeView({ mode }: { mode?: Modality }) {
                         : "border-line hover:-translate-y-0.5 hover:border-line-2",
                     )}
                   >
-                    <span className="text-xl">{c.emoji}</span>
-                    <span className="mt-0.5 block text-[13px] font-bold text-fg">{c.label}</span>
+                    <span className="flex items-start justify-between">
+                      <span className="text-xl">{c.emoji}</span>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/logos/bytedance.svg"
+                        alt="Seedance by ByteDance"
+                        title="Seedance by ByteDance"
+                        className="h-4 w-4 opacity-80"
+                      />
+                    </span>
+                    <span className="mt-0.5 block text-[13px] font-bold leading-tight text-fg">{c.label}</span>
                     <span className="block min-h-[2.6em] text-[11px] leading-snug text-muted">{c.tagline}</span>
                     <span
                       className={cn(
