@@ -185,7 +185,7 @@ export const PURPOSES: Purpose[] = [
     modality: "image",
     aspectRatio: "1:1",
     durationSec: 5,
-    modelId: "seedream-5",
+    modelId: "gpt-image-2",
     classes: ["product", "scene"],
     placeholder: "The product, the surface, the light…",
     ideas: [
@@ -202,7 +202,7 @@ export const PURPOSES: Purpose[] = [
     modality: "image",
     aspectRatio: "9:16",
     durationSec: 5,
-    modelId: "seedream-5",
+    modelId: "gpt-image-2",
     classes: ["character", "scene", "dress"],
     placeholder: "The hero, the world, the mood…",
     ideas: [
@@ -219,7 +219,7 @@ export const PURPOSES: Purpose[] = [
     modality: "image",
     aspectRatio: "1:1",
     durationSec: 5,
-    modelId: "seedream-3",
+    modelId: "gpt-image-2",
     classes: ["character", "product", "scene", "dress"],
     placeholder: "Describe the shot — subject, mood, lighting…",
     ideas: [

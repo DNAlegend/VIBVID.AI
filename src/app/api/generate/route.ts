@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { clampResolution, getModel, priceFor } from "@/lib/models";
+import { openaiGenerateImage, openaiImageConfigured } from "@/lib/openai-image";
 import { allowRequest, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 // The finalize step downloads the rendered MP4 from Ark and re-uploads it to
@@ -157,37 +158,56 @@ export async function POST(req: Request) {
   };
 
   if (model.modality === "image") {
-    // Reference photos steer identity (Seedream image-to-image) — e.g. a
-    // character sheet generated from the creator's uploaded pictures.
+    // Reference photos steer identity (image-to-image) — e.g. a character
+    // sheet generated from the creator's uploaded pictures.
     const imageRefs = (Array.isArray(body.refImageUrls) ? body.refImageUrls : [])
       .filter((u: unknown): u is string => typeof u === "string" && /^https:\/\/.+/i.test(u))
       .slice(0, 6);
-    const res = await fetch(`${ARK_BASE}/images/generations`, {
-      method: "POST",
-      headers: arkHeaders(),
-      body: JSON.stringify({
-        model: model.arkModel,
-        prompt,
-        size:
-          (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)[aspectRatio] ??
-          (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)["16:9"],
-        response_format: "b64_json",
-        watermark,
-        ...(imageRefs.length ? { image: imageRefs.length === 1 ? imageRefs[0] : imageRefs } : {}),
-      }),
-    });
-    if (!res.ok) {
-      await refund(sb, user.id, cost);
-      const detail = (await res.text()).slice(0, 300);
-      return NextResponse.json({ error: `Model error: ${detail}` }, { status: 502 });
+
+    let bytes: Buffer;
+    if (model.openaiModel && openaiImageConfigured()) {
+      // OpenAI (GPT Image 2) renders this model's images.
+      try {
+        bytes = await openaiGenerateImage({
+          model: model.openaiModel,
+          prompt,
+          aspectRatio,
+          refImageUrls: imageRefs,
+        });
+      } catch (e) {
+        await refund(sb, user.id, cost);
+        const detail = e instanceof Error ? e.message.slice(0, 300) : "unknown error";
+        return NextResponse.json({ error: `Model error: ${detail}` }, { status: 502 });
+      }
+    } else {
+      // ByteDance Seedream via Ark (also the fallback when OPENAI_API_KEY is absent).
+      const res = await fetch(`${ARK_BASE}/images/generations`, {
+        method: "POST",
+        headers: arkHeaders(),
+        body: JSON.stringify({
+          model: model.arkModel,
+          prompt,
+          size:
+            (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)[aspectRatio] ??
+            (model.arkSize === "2k" ? IMAGE_SIZE_2K : IMAGE_SIZE)["16:9"],
+          response_format: "b64_json",
+          watermark,
+          ...(imageRefs.length ? { image: imageRefs.length === 1 ? imageRefs[0] : imageRefs } : {}),
+        }),
+      });
+      if (!res.ok) {
+        await refund(sb, user.id, cost);
+        const detail = (await res.text()).slice(0, 300);
+        return NextResponse.json({ error: `Model error: ${detail}` }, { status: 502 });
+      }
+      const json = await res.json();
+      const b64 = json.data?.[0]?.b64_json;
+      if (!b64) {
+        await refund(sb, user.id, cost);
+        return NextResponse.json({ error: "Model returned no image" }, { status: 502 });
+      }
+      bytes = Buffer.from(b64, "base64");
     }
-    const json = await res.json();
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) {
-      await refund(sb, user.id, cost);
-      return NextResponse.json({ error: "Model returned no image" }, { status: 502 });
-    }
-    const bytes = Buffer.from(b64, "base64");
     const publicUrl = await storeFile(sb, user.id, `gen-${id}.png`, bytes.buffer as ArrayBuffer, "image/png");
     if (!publicUrl) {
       await refund(sb, user.id, cost);

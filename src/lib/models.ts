@@ -40,6 +40,8 @@ export interface ModelProvider {
   creditsPerImage?: number;
   /** Real BytePlus ModelArk model id — presence enables real generation. */
   arkModel?: string;
+  /** OpenAI image model id — image generation runs on OpenAI when set (needs OPENAI_API_KEY). */
+  openaiModel?: string;
   /** Default resolution for this model. */
   arkResolution?: Resolution;
   /** Image output class — newer Seedream models require ≥2K canvases. */
@@ -121,6 +123,24 @@ export const MODELS: ModelProvider[] = [
     // ≥3× the ~$0.03 Seedream cost at the $0.043 floor.
     creditsPerImage: 3,
     arkModel: "seedream-4-0-250828",
+  },
+  {
+    id: "gpt-image-2",
+    name: "GPT Image 2",
+    vendor: "OpenAI",
+    modality: "image",
+    capabilities: ["text-to-image", "image-to-image"],
+    blurb: "OpenAI's state-of-the-art image model — best-in-class fidelity, text and instruction following.",
+    glyph: "🧠",
+    accent: "#10a37f",
+    badge: "new",
+    enabled: true,
+    // High-quality GPT Image 2 output (~$0.25) — priced ≥2× at the floor.
+    creditsPerImage: 10,
+    openaiModel: "gpt-image-2",
+    // Fallback path when OPENAI_API_KEY isn't configured on the server.
+    arkModel: "seedream-4-5-251128",
+    arkSize: "2k",
   },
   {
     id: "seedream-45",

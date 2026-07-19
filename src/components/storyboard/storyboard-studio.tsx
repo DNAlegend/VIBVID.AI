@@ -96,7 +96,7 @@ export function StoryboardStudio() {
   const locked = cloudConfigured && subscribed === false;
 
   // The sheet renders on the 2K image model — nine legible panels need the detail.
-  const model = getModel("seedream-45");
+  const model = getModel("gpt-image-2");
   const cost = priceFor(model, { count: 1, hasRefs: !!product });
   const canAfford = credits >= cost;
 
