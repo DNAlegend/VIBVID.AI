@@ -114,6 +114,7 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Brand />
         <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
+          <a href="/#seedance" className="transition-colors hover:text-fg">Seedance 2.0</a>
           <a href="/#features" className="transition-colors hover:text-fg">Features</a>
           <a href="/#characters" className="transition-colors hover:text-fg">Characters</a>
           <a href="/#longform" className="transition-colors hover:text-fg">Seasons</a>
@@ -131,10 +132,10 @@ export function Header() {
 
 /** Concrete capability pills shown under the hero CTAs. */
 const HERO_PILLS = [
+  "Seedance 2.0 engine",
   "Shot-by-shot planning",
   "Consistent characters",
-  "Native audio",
-  "1080p export",
+  "Native audio & 4K",
 ];
 
 /** Scene thumbnails for the hero timeline — real generated media when available. */
@@ -172,7 +173,9 @@ function Hero() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-70" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
           </span>
-          Powered by our own VIBVID engine
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/bytedance.svg" alt="" className="h-3.5 w-3.5" />
+          Powered by Seedance 2.0 — ByteDance&rsquo;s frontier video model
         </div>
         <h1 className="font-display mx-auto mt-5 max-w-4xl text-4xl font-bold leading-[1.05] tracking-tight sm:text-[58px]">
           Not just clips.
@@ -180,8 +183,8 @@ function Hero() {
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-relaxed text-muted">
           Storyboard the whole video from one idea, cast consistent characters, and generate
-          every scene with native audio — draft cheaply, produce in 1080p or native 4K. One
-          studio, from idea to finished footage.
+          every scene with native audio — draft cheaply, produce in 1080p or native 4K, all on
+          Seedance 2.0. One studio, from idea to finished footage.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <CTA href="/app">
@@ -285,25 +288,64 @@ function FloatChip({ m }: { m: ShowcaseMedia }) {
   );
 }
 
-function ModelBand() {
-  const items = ["Seedance 2.0 Pro", "Seedance 2.0 Mini", "Seedream 4.5", "The Storyboard Artist", "+ more soon"];
+/** The engine band: VIBVID's brand is built on Seedance 2.0 — say it loudly. */
+function SeedanceBand() {
+  const points = [
+    {
+      title: "Cinematic motion",
+      body: "Physics, camera moves and light that hold up shot after shot — footage that reads as filmed, not generated.",
+    },
+    {
+      title: "Native audio",
+      body: "Dialogue, ambience and sound effects are generated with the picture. No dubbing pass, no silent clips.",
+    },
+    {
+      title: "Native 4K",
+      body: "Not an upscale. The 4K tier renders every pixel at full resolution — the ceiling of AI video today.",
+    },
+  ];
   return (
-    <section className="border-y border-line bg-gradient-to-r from-surface-2/30 via-surface-2/70 to-surface-2/30">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-2 px-6 py-5">
-        <span className="text-[12px] font-semibold uppercase tracking-wider text-faint">The VIBVID engine</span>
-        {items.map((label, i) => (
-          <span key={label} className="flex items-center gap-4">
-            <span className="h-1 w-1 rounded-full bg-line-2" />
-            <span
-              className={cn(
-                "text-sm font-medium",
-                i === items.length - 1 ? "text-faint" : "text-fg",
-              )}
-            >
-              {label}
-            </span>
-          </span>
-        ))}
+    <section id="seedance" className="border-y border-line bg-surface-2/40">
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.15fr]">
+          <div>
+            <div className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logos/bytedance.svg" alt="ByteDance" className="h-5 w-5" />
+              <span className="text-[12px] font-semibold uppercase tracking-[0.16em] text-faint">
+                The engine
+              </span>
+            </div>
+            <h2 className="font-display mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              Seedance 2.0
+            </h2>
+            <p className="mt-3 text-[16px] leading-relaxed text-muted">
+              The go-to AI video model — built by ByteDance, the company behind TikTok. VIBVID
+              runs it in three tiers: <strong className="font-semibold text-fg">Mini</strong> for
+              fast drafts, <strong className="font-semibold text-fg">Pro</strong> for cinematic
+              1080p, and native <strong className="font-semibold text-fg">4K</strong> — with
+              Seedream drawing your storyboards, characters and stills on the same stack.
+            </p>
+            <div className="mt-5 inline-flex flex-wrap items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-muted">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo-square.png" alt="VIBVID" className="h-4 w-4 rounded-[4px]" />
+              <span className="font-semibold text-fg">VIBVID</span>
+              <span className="text-faint">running</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logos/bytedance.svg" alt="ByteDance" className="h-4 w-4" />
+              <span className="font-semibold text-fg">Seedance 2.0</span>
+              <span className="text-faint">by ByteDance</span>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {points.map((p) => (
+              <div key={p.title} className="rounded-2xl border border-line bg-surface p-5">
+                <div className="text-[15px] font-semibold text-fg">{p.title}</div>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{p.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -357,7 +399,7 @@ function Features() {
 const STEPS = [
   { n: "1", icon: LayoutGrid, title: "Board", body: "Give the Storyboard your product and idea, pick a length — it writes the whole commercial scene by scene and draws it as one nine-panel sheet." },
   { n: "2", icon: Layers, title: "Cast & collect", body: "Create characters, and drop your product shots, clips, sound and scripts into Assets — the raw material of every shot." },
-  { n: "3", icon: Wand2, title: "Generate", body: "Attach the board and your cast in the Studio, pick Mini, Pro or 4K, clean the prompt up for Seedance, and generate. Every video lands in My Videos." },
+  { n: "3", icon: Wand2, title: "Generate", body: "Attach the board and your cast in the Studio, pick a Seedance 2.0 tier — Mini, Pro or 4K — clean the prompt up, and generate. Every video lands in My Videos." },
   { n: "4", icon: Download, title: "Publish", body: "Download your scenes — each keeps its full production record, so you can remix or reproduce any of them in one tap — and post them anywhere." },
 ];
 
@@ -998,8 +1040,12 @@ export function Pricing() {
 
 const FAQS = [
   {
+    q: "What model powers VIBVID?",
+    a: "Seedance 2.0, by ByteDance — the go-to AI video model, known for cinematic motion, native audio and native 4K. VIBVID runs it in three tiers (Mini, Pro, 4K) and pairs it with Seedream for storyboards, characters and stills, so your whole production runs on one state-of-the-art stack.",
+  },
+  {
     q: "What can I actually make?",
-    a: "Full productions, not just single clips. The Storyboard writes your commercial scene by scene and boards it as one nine-panel sheet, then you generate each scene (4–15s, native audio) in the Studio — vertical UGC ads, product films, fashion, brand spots. Mini for fast drafts, 2.0 Pro in 1080p, or native 4K when it counts.",
+    a: "Full productions, not just single clips. The Storyboard writes your commercial scene by scene and boards it as one nine-panel sheet, then you generate each scene (4–15s, native audio) in the Studio — vertical UGC ads, product films, fashion, brand spots. Seedance 2.0 Mini for fast drafts, Pro in 1080p, or native 4K when it counts.",
   },
   {
     q: "How do my assets change the output?",
@@ -1209,7 +1255,7 @@ export function Landing() {
       <Header />
       <main>
         <Hero />
-        <ModelBand />
+        <SeedanceBand />
         <Features />
         <Steps />
         <ElementBand />

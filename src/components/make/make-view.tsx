@@ -868,19 +868,25 @@ export function MakeView({ mode }: { mode?: Modality }) {
                         : "border-line hover:border-line-2 hover:bg-surface-2/60",
                     )}
                   >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
-                        Seedance
+                    <span className="flex items-start justify-between gap-2">
+                      {/* Seedance 2.0 is the brand; the tier is the small descriptor. */}
+                      <span className="block text-[15px] font-bold leading-tight tracking-tight text-fg">
+                        Seedance 2.0
                       </span>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/logos/bytedance.svg"
                         alt="Seedance by ByteDance"
                         title="Seedance by ByteDance"
-                        className={cn("h-3.5 w-3.5 transition-opacity", on ? "opacity-90" : "opacity-50")}
+                        className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 transition-opacity", on ? "opacity-90" : "opacity-50")}
                       />
                     </span>
-                    <span className="mt-1.5 block text-[19px] font-bold leading-none tracking-tight text-fg">
+                    <span
+                      className={cn(
+                        "mt-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.1em]",
+                        on ? "bg-accent text-white" : "bg-surface-2 text-muted",
+                      )}
+                    >
                       {c.tier}
                     </span>
                     <span className="mt-1.5 block min-h-[2.4em] text-[11.5px] leading-snug text-muted">
