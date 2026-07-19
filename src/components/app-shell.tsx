@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Package, Coins, UserCircle, UserRound, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Megaphone, Package, Coins, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
@@ -23,7 +23,10 @@ import { LogoWordmark } from "@/components/logo";
 const NAV_GROUPS: { label: string; items: { href: string; label: string; short?: string; icon: typeof Clapperboard }[] }[] = [
   {
     label: "Studio",
-    items: [{ href: "/app", label: "Studio", icon: Clapperboard }],
+    items: [
+      { href: "/app", label: "Studio", icon: Clapperboard },
+      { href: "/app/ugc", label: "UGC Ads", short: "UGC", icon: Megaphone },
+    ],
   },
   {
     label: "Library",
