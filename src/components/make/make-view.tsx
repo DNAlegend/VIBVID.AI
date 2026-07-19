@@ -961,39 +961,49 @@ export function MakeView({ mode }: { mode?: Modality }) {
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-14 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
-                <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                {/* A uniform grid of tiles — the little frame shows the shape,
+                    the word says it plainly. */}
+                <div className="grid flex-1 grid-cols-3 gap-1.5 sm:grid-cols-6">
                   {(
                     [
-                      // A little frame you can read at a glance: wide, tall, square.
-                      { r: "16:9", label: "Wide", frame: "h-[11px] w-[19px]" },
-                      { r: "9:16", label: "Tall", frame: "h-[19px] w-[11px]" },
-                      { r: "1:1", label: "Square", frame: "h-[15px] w-[15px]" },
-                      { r: "21:9", label: "Ultrawide", frame: "h-[9px] w-[21px]" },
-                      { r: "4:3", label: "Classic", frame: "h-[14px] w-[18px]" },
-                      { r: "3:4", label: "Portrait", frame: "h-[18px] w-[14px]" },
+                      { r: "16:9", label: "Wide", frame: "h-[12px] w-[21px]" },
+                      { r: "9:16", label: "Tall", frame: "h-[21px] w-[12px]" },
+                      { r: "1:1", label: "Square", frame: "h-[17px] w-[17px]" },
+                      { r: "21:9", label: "Cinema", frame: "h-[10px] w-[23px]" },
+                      { r: "4:3", label: "Classic", frame: "h-[16px] w-[20px]" },
+                      { r: "3:4", label: "Portrait", frame: "h-[20px] w-[16px]" },
                     ] as const
-                  ).map(({ r, label, frame }) => (
-                    <button
-                      key={r}
-                      onClick={() => setAspectRatio(r)}
-                      title={`${label} · ${r}`}
-                      className={cn(
-                        "flex h-9 items-center gap-2 rounded-full px-3 text-[12.5px] font-medium transition-all",
-                        aspectRatio === r
-                          ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
-                          : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
-                      )}
-                    >
-                      <span
+                  ).map(({ r, label, frame }) => {
+                    const on = aspectRatio === r;
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => setAspectRatio(r)}
+                        title={`${label} · ${r}`}
                         className={cn(
-                          "shrink-0 rounded-[3px] border-[1.5px]",
-                          frame,
-                          aspectRatio === r ? "border-white/90 bg-white/20" : "border-faint",
+                          "flex flex-col items-center gap-1 rounded-2xl px-1 py-2.5 transition-all",
+                          on
+                            ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
+                            : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
                         )}
-                      />
-                      {r}
-                    </button>
-                  ))}
+                      >
+                        {/* Fixed-height stage so every frame sits on the same line. */}
+                        <span className="flex h-[23px] items-center">
+                          <span
+                            className={cn(
+                              "rounded-[3px] border-[1.5px]",
+                              frame,
+                              on ? "border-white/90 bg-white/20" : "border-faint",
+                            )}
+                          />
+                        </span>
+                        <span className="text-[12px] font-semibold tabular-nums leading-none">{r}</span>
+                        <span className={cn("text-[10px] leading-none", on ? "text-white/75" : "text-faint")}>
+                          {label}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               {modality === "video" && (
