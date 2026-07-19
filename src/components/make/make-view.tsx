@@ -308,6 +308,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const subscribed = useStore((s) => s.subscribed);
   const setAuthOpen = useStore((s) => s.setAuthOpen);
   const resultRef = useRef<HTMLDivElement>(null);
+  /** The Cast & assets block — locking the format scrolls the user straight to it. */
+  const castRef = useRef<HTMLDivElement>(null);
   // Real backend configured but visitor not signed in → route them to auth
   // instead of quietly simulating (a sample clip reads as broken generation).
   const needsSignIn = cloudConfigured && !cloudUser;
@@ -956,24 +958,53 @@ export function MakeView({ mode }: { mode?: Modality }) {
               )}
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-end gap-3">
-            {!formatLocked && <span className="text-[11.5px] text-faint">Lock it in to continue</span>}
-            <Button size="sm" variant="soft" onClick={() => setFormatLocked((v) => !v)}>
-              {formatLocked ? (
-                <>
-                  <Pencil size={13} /> Edit format
-                </>
-              ) : (
-                <>
-                  <Lock size={13} /> Lock format
-                </>
-              )}
-            </Button>
-          </div>
-
+          {/* The step gate — front and center so it reads as "confirm this, then move on". */}
+          {(() => {
+            const summary = `${activeChoice.label} · ${resolution} · ${aspectRatio}${
+              modality === "video" ? ` · ${durationSec}s` : ""
+            }`;
+            if (formatLocked) {
+              return (
+                <div className="mt-4 flex flex-col items-center gap-1.5 rounded-xl border border-line bg-surface-2/60 px-4 py-3 text-center">
+                  <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-fg">
+                    <Lock size={13} className="text-accent-2" /> Format locked — {summary}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="soft"
+                    className="gap-1.5"
+                    onClick={() => setFormatLocked(false)}
+                  >
+                    <Pencil size={13} /> Unlock & edit
+                  </Button>
+                </div>
+              );
+            }
+            return (
+              <div className="mt-4 flex flex-col items-center gap-2 text-center">
+                <Button
+                  size="lg"
+                  className="w-full gap-2 sm:w-auto sm:min-w-[320px]"
+                  onClick={() => {
+                    setFormatLocked(true);
+                    // Carry them straight into the next step.
+                    setTimeout(
+                      () => castRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                      80,
+                    );
+                  }}
+                >
+                  <Lock size={16} /> Lock format &amp; continue
+                </Button>
+                <span className="text-[12px] text-faint">
+                  {summary} — lock it in, then build the shot below
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Everything after the format sleeps until the format is locked. */}
-          <div className={cn(!formatLocked && "pointer-events-none select-none opacity-40")}>
+          <div ref={castRef} className={cn(!formatLocked && "pointer-events-none select-none opacity-40")}>
           {/* Cast & assets */}
           <SectionTitle title="Cast & assets" sub="Add characters, products and media" />
           <div>
