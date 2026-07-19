@@ -148,6 +148,8 @@ function CreditWidget({
 
 /** localStorage key caching whether the account has an active subscription. */
 const SUBSCRIBED_KEY = "vibvid-subscribed";
+/** localStorage key caching the plan badge, so the top bar paints it instantly. */
+const PLAN_KEY = "vibvid-plan";
 
 /**
  * Ask the server to start an on-site Stripe checkout. Pass a `token` for a
@@ -685,6 +687,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const c = localStorage.getItem(SUBSCRIBED_KEY);
     if (c === "1" || c === "0") setSubscribed(c === "1");
+    // Seed the plan badge from the last visit so the widget doesn't flash from
+    // "plain credits" to "Agency · x / y" once /api/account answers.
+    try {
+      const cached = localStorage.getItem(PLAN_KEY);
+      if (cached) {
+        const p = JSON.parse(cached) as PlanBadge;
+        if (p && typeof p.label === "string" && typeof p.credits === "number") setPlan(p);
+      }
+    } catch {
+      /* corrupt cache — the live fetch replaces it */
+    }
   }, [setSubscribed]);
 
   // Ask the server whether this account may use the studio, and cache the
@@ -705,16 +718,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         (typeof d?.credits === "number" && d.credits > 0) ||
         Boolean(b && b.plan && ["active", "trialing", "past_due"].includes(b.status));
       setSubscribed(active);
-      setPlan(
-        b?.plan
-          ? {
-              label: b.plan.label,
-              credits: b.plan.credits,
-              interval: b.plan.interval ?? "month",
-              periodEnd: typeof b.currentPeriodEnd === "number" ? b.currentPeriodEnd : null,
-            }
-          : null,
-      );
+      const planBadge: PlanBadge | null = b?.plan
+        ? {
+            label: b.plan.label,
+            credits: b.plan.credits,
+            interval: b.plan.interval ?? "month",
+            periodEnd: typeof b.currentPeriodEnd === "number" ? b.currentPeriodEnd : null,
+          }
+        : null;
+      setPlan(planBadge);
+      if (planBadge) localStorage.setItem(PLAN_KEY, JSON.stringify(planBadge));
+      else localStorage.removeItem(PLAN_KEY);
       localStorage.setItem(SUBSCRIBED_KEY, active ? "1" : "0");
     } catch {
       // Keep a cached answer; but with none (new account, first load) fail
@@ -835,7 +849,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (event === "SIGNED_OUT") {
           lastUser.current = null;
           setSubscribed(null);
+          setPlan(null);
           localStorage.removeItem(SUBSCRIBED_KEY);
+          localStorage.removeItem(PLAN_KEY);
           signOutToLocal();
         }
       }
