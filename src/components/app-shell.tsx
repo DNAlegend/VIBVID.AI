@@ -90,18 +90,31 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function CreditWidget({ onBuy }: { onBuy: () => void }) {
+/** The plan the signed-in account is on, read from /api/account. */
+type PlanBadge = { label: string; credits: number; interval: "month" | "year" };
+
+function CreditWidget({ plan, onBuy }: { plan: PlanBadge | null; onBuy: () => void }) {
   const credits = useStore((s) => s.credits);
   const hydrated = useStore((s) => s.hasHydrated);
   return (
     <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
       <div className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-2.5 py-1.5 sm:px-3">
+        {plan && (
+          <span className="hidden rounded-md bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-2 sm:inline">
+            {plan.label}
+          </span>
+        )}
         <Coins size={15} className="text-warn" />
         <span className="text-sm font-semibold tabular-nums">
           {hydrated ? credits.toLocaleString() : "—"}
         </span>
-        {/* the word is decoration — the coin says it; drop it on phones */}
-        <span className="hidden text-xs text-faint sm:inline">credits</span>
+        {plan ? (
+          // balance against what the plan deposits each cycle
+          <span className="text-xs tabular-nums text-faint">/ {plan.credits.toLocaleString()}</span>
+        ) : (
+          // the word is decoration — the coin says it; drop it on phones
+          <span className="hidden text-xs text-faint sm:inline">credits</span>
+        )}
       </div>
       <Button size="sm" variant="soft" onClick={onBuy} className="gap-1.5">
         <ArrowUpRight size={15} /> Upgrade
@@ -642,6 +655,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   // subscribe). Seeded from a cached hint so decisions are instant on load.
   const subscribed = useStore((s) => s.subscribed);
   const setSubscribed = useStore((s) => s.setSubscribed);
+  /** Current plan (label + per-cycle credits) for the top-bar widget. */
+  const [plan, setPlan] = useState<PlanBadge | null>(null);
   const activateOpen = useStore((s) => s.activateOpen);
   const setActivateOpen = useStore((s) => s.setActivateOpen);
   useEffect(() => {
@@ -667,6 +682,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         (typeof d?.credits === "number" && d.credits > 0) ||
         Boolean(b && b.plan && ["active", "trialing", "past_due"].includes(b.status));
       setSubscribed(active);
+      setPlan(
+        b?.plan
+          ? { label: b.plan.label, credits: b.plan.credits, interval: b.plan.interval ?? "month" }
+          : null,
+      );
       localStorage.setItem(SUBSCRIBED_KEY, active ? "1" : "0");
     } catch {
       // Keep a cached answer; but with none (new account, first load) fail
@@ -902,7 +922,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
               {/* Locked users can browse; the Buy button routes them to subscribe
                   rather than the top-up modal (top-ups are a subscriber add-on). */}
-              <CreditWidget onBuy={() => (subscribed === false ? setActivateOpen(true) : setBuyOpen(true))} />
+              <CreditWidget plan={plan} onBuy={() => (subscribed === false ? setActivateOpen(true) : setBuyOpen(true))} />
               {cloudConfigured &&
                 (email ? (
                   <div className="flex items-center gap-1 sm:gap-1.5">

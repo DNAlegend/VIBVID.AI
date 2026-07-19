@@ -103,12 +103,36 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
         </div>
       ) : (
         <div className="space-y-5">
-          {/* Credits */}
-          <div className="flex items-center justify-between rounded-2xl border border-line bg-surface-2 p-4">
-            <div>
-              <div className="text-[13px] text-faint">Credit balance</div>
-              <div className="text-2xl font-bold tabular-nums">{(data?.credits ?? 0).toLocaleString()}</div>
+          {/* Credits: where they are against what the plan deposits each cycle. */}
+          <div className="rounded-2xl border border-line bg-surface-2 p-4">
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-[13px] text-faint">Credit balance</div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {(data?.credits ?? 0).toLocaleString()}
+                  {plan && (
+                    <span className="ml-1.5 text-[14px] font-medium text-faint">
+                      of {plan.credits.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {plan && (
+                <div className="text-right text-[12px] text-faint">
+                  {plan.credits.toLocaleString()} credits every {plan.interval === "year" ? "year" : "month"} on {plan.label}
+                </div>
+              )}
             </div>
+            {plan && plan.credits > 0 && (
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-line">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-accent to-teal"
+                  style={{
+                    width: `${Math.max(2, Math.min(100, ((data?.credits ?? 0) / plan.credits) * 100))}%`,
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Plan */}
