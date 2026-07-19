@@ -908,10 +908,10 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     }}
                     title={m.blurb}
                     className={cn(
-                      "rounded-xl border p-3.5 text-left transition-colors sm:p-4",
+                      "rounded-2xl p-3.5 text-left transition-all sm:p-4",
                       on
-                        ? "border-accent bg-accent-soft shadow-sm"
-                        : "border-line hover:border-line-2 hover:bg-surface-2/60",
+                        ? "bg-accent-soft ring-2 ring-accent shadow-[0_10px_28px_-14px_rgba(236,19,32,0.5)]"
+                        : "bg-surface-2/60 ring-1 ring-line hover:bg-surface-2 hover:ring-line-2",
                     )}
                   >
                     <span className="flex items-start justify-between gap-2">
@@ -929,8 +929,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     </span>
                     <span
                       className={cn(
-                        "mt-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.1em]",
-                        on ? "bg-accent text-white" : "bg-surface-2 text-muted",
+                        "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.1em]",
+                        on ? "bg-accent text-white" : "bg-surface-3 text-muted",
                       )}
                     >
                       {c.tier}
@@ -950,116 +950,124 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 );
               })}
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {/* Quality lives inside the picked card's world: Mini and Pro each
                   offer their two; 4K is 4K — locked, nothing else to pick. */}
-              <div className="flex items-center gap-1.5">
-                <span className="mr-1 inline-block w-14 text-[11px] font-semibold uppercase tracking-wide text-faint">Quality</span>
-                {activeChoice.qualities.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setResolution(r)}
-                    disabled={activeChoice.key === "4k"}
-                    title={
-                      activeChoice.key === "4k"
-                        ? "Native 4K only"
-                        : `${videoRate(model, r)} credits / second`
-                    }
-                    className={cn(
-                      "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
-                      resolution === r
-                        ? "border-accent bg-accent-soft text-fg"
-                        : "border-line text-muted hover:border-line-2",
-                      activeChoice.key === "4k" && "cursor-default",
-                    )}
-                  >
-                    {r}
-                    <span className={cn("ml-1 text-[10px]", resolution === r ? "text-accent-2" : "text-faint")}>
-                      {videoRate(model, r)}c/s
-                    </span>
-                  </button>
-                ))}
-                {activeChoice.key === "4k" && (
-                  <span className="text-[11px] text-faint">Native 4K only</span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 inline-block w-14 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
-                {(
-                  [
-                    // A little frame you can read at a glance: wide, tall, square.
-                    { r: "16:9", label: "Wide", frame: "h-[11px] w-[19px]" },
-                    { r: "9:16", label: "Tall", frame: "h-[19px] w-[11px]" },
-                    { r: "1:1", label: "Square", frame: "h-[15px] w-[15px]" },
-                    { r: "21:9", label: "Ultrawide", frame: "h-[9px] w-[21px]" },
-                    { r: "4:3", label: "Classic", frame: "h-[14px] w-[18px]" },
-                    { r: "3:4", label: "Portrait", frame: "h-[18px] w-[14px]" },
-                  ] as const
-                ).map(({ r, label, frame }) => (
-                  <button
-                    key={r}
-                    onClick={() => setAspectRatio(r)}
-                    title={`${label} · ${r}`}
-                    className={cn(
-                      "flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[12px] font-medium transition-colors",
-                      aspectRatio === r
-                        ? "border-accent bg-accent-soft text-fg"
-                        : "border-line text-muted hover:border-line-2",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-[3px] border-[1.5px]",
-                        frame,
-                        aspectRatio === r ? "border-accent-2 bg-accent/15" : "border-faint",
-                      )}
-                    />
-                    {r}
-                  </button>
-                ))}
-              </div>
-              {modality === "video" && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="mr-1 inline-block w-14 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
-                  {/* The full Seedance range — any second from 4 to 15. */}
-                  {DURATIONS.map((d) => (
+              <div className="flex items-start gap-2">
+                <span className="w-14 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Quality</span>
+                <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  {activeChoice.qualities.map((r) => (
                     <button
-                      key={d}
-                      onClick={() => setDurationSec(d)}
+                      key={r}
+                      onClick={() => setResolution(r)}
+                      disabled={activeChoice.key === "4k"}
+                      title={
+                        activeChoice.key === "4k"
+                          ? "Native 4K only"
+                          : `${videoRate(model, r)} credits / second`
+                      }
                       className={cn(
-                        "rounded-lg border px-2.5 py-1 text-[12px] font-medium tabular-nums transition-colors",
-                        durationSec === d
-                          ? "border-accent bg-accent-soft text-fg"
-                          : "border-line text-muted hover:border-line-2",
+                        "rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-all",
+                        resolution === r
+                          ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
+                          : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
+                        activeChoice.key === "4k" && "cursor-default",
                       )}
                     >
-                      {d}s
+                      {r}
+                      <span className={cn("ml-1 text-[10px]", resolution === r ? "text-white/75" : "text-faint")}>
+                        {videoRate(model, r)}c/s
+                      </span>
+                    </button>
+                  ))}
+                  {activeChoice.key === "4k" && (
+                    <span className="text-[11px] text-faint">Native 4K only</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="w-14 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
+                <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  {(
+                    [
+                      // A little frame you can read at a glance: wide, tall, square.
+                      { r: "16:9", label: "Wide", frame: "h-[11px] w-[19px]" },
+                      { r: "9:16", label: "Tall", frame: "h-[19px] w-[11px]" },
+                      { r: "1:1", label: "Square", frame: "h-[15px] w-[15px]" },
+                      { r: "21:9", label: "Ultrawide", frame: "h-[9px] w-[21px]" },
+                      { r: "4:3", label: "Classic", frame: "h-[14px] w-[18px]" },
+                      { r: "3:4", label: "Portrait", frame: "h-[18px] w-[14px]" },
+                    ] as const
+                  ).map(({ r, label, frame }) => (
+                    <button
+                      key={r}
+                      onClick={() => setAspectRatio(r)}
+                      title={`${label} · ${r}`}
+                      className={cn(
+                        "flex h-9 items-center gap-2 rounded-full px-3 text-[12.5px] font-medium transition-all",
+                        aspectRatio === r
+                          ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
+                          : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-[3px] border-[1.5px]",
+                          frame,
+                          aspectRatio === r ? "border-white/90 bg-white/20" : "border-faint",
+                        )}
+                      />
+                      {r}
                     </button>
                   ))}
                 </div>
+              </div>
+              {modality === "video" && (
+                <div className="flex items-start gap-2">
+                  <span className="w-14 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
+                  {/* The full Seedance range — any second from 4 to 15. */}
+                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                    {DURATIONS.map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setDurationSec(d)}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-[12.5px] font-medium tabular-nums transition-all",
+                          durationSec === d
+                            ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
+                            : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
+                        )}
+                      >
+                        {d}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
               {modality === "video" && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="mr-1 inline-block w-14 text-[11px] font-semibold uppercase tracking-wide text-faint">Audio</span>
-                  {(
-                    [
-                      { v: true, label: "Native audio" },
-                      { v: false, label: "Silent" },
-                    ] as const
-                  ).map(({ v, label }) => (
-                    <button
-                      key={label}
-                      onClick={() => setAudio(v)}
-                      className={cn(
-                        "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
-                        audio === v
-                          ? "border-accent bg-accent-soft text-fg"
-                          : "border-line text-muted hover:border-line-2",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div className="flex items-start gap-2">
+                  <span className="w-14 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Audio</span>
+                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                    {(
+                      [
+                        { v: true, label: "Native audio" },
+                        { v: false, label: "Silent" },
+                      ] as const
+                    ).map(({ v, label }) => (
+                      <button
+                        key={label}
+                        onClick={() => setAudio(v)}
+                        className={cn(
+                          "rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-all",
+                          audio === v
+                            ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
+                            : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1071,14 +1079,14 @@ export function MakeView({ mode }: { mode?: Modality }) {
             }`;
             if (formatLocked) {
               return (
-                <div className="mt-4 flex flex-col items-center gap-1.5 rounded-xl border border-line bg-surface-2/60 px-4 py-3 text-center">
+                <div className="mt-4 flex flex-col items-center gap-1.5 rounded-2xl bg-surface-2/70 px-4 py-3 text-center ring-1 ring-line">
                   <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-fg">
                     <Lock size={13} className="text-accent-2" /> Format locked — {summary}
                   </span>
                   <Button
                     size="sm"
                     variant="soft"
-                    className="gap-1.5"
+                    className="gap-1.5 rounded-full"
                     onClick={() => setFormatLocked(false)}
                   >
                     <Pencil size={13} /> Unlock & edit
@@ -1090,7 +1098,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
               <div className="mt-4 flex flex-col items-center gap-2 text-center">
                 <Button
                   size="lg"
-                  className="w-full gap-2 sm:w-auto sm:min-w-[320px]"
+                  className="w-full gap-2 rounded-full sm:w-auto sm:min-w-[320px]"
                   onClick={() => {
                     setFormatLocked(true);
                     // Carry them straight into the next step.
