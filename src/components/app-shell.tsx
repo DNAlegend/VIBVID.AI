@@ -1046,24 +1046,45 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function MobileNav() {
   const pathname = usePathname();
+  // Studio sits in the middle as the big red button; the rest split around it.
+  const items = NAV_ITEMS.filter((i) => i.href !== "/app");
+  const left = items.slice(0, Math.ceil(items.length / 2));
+  const right = items.slice(Math.ceil(items.length / 2));
+  const studioActive = isActive("/app", pathname);
+
+  const renderItem = ({ href, label, short, icon: Icon }: (typeof items)[number]) => {
+    const active = isActive(href, pathname);
+    return (
+      <Link
+        key={href}
+        href={href}
+        className={cn(
+          "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-3xl py-2 text-[10px] font-medium transition-colors",
+          active ? "bg-accent-soft text-accent-2" : "text-faint active:text-fg",
+        )}
+      >
+        <Icon size={19} />
+        <span className="max-w-full truncate px-0.5">{short ?? label}</span>
+      </Link>
+    );
+  };
+
   return (
     <>
-      {NAV_ITEMS.map(({ href, label, short, icon: Icon }) => {
-        const active = isActive(href, pathname);
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-3xl py-2 text-[10px] font-medium transition-colors",
-              active ? "bg-accent-soft text-accent-2" : "text-faint active:text-fg",
-            )}
-          >
-            <Icon size={19} />
-            <span className="max-w-full truncate px-0.5">{short ?? label}</span>
-          </Link>
-        );
-      })}
+      <div className="flex min-w-0 flex-1">{left.map(renderItem)}</div>
+      <Link
+        href="/app"
+        aria-label="Studio"
+        aria-current={studioActive ? "page" : undefined}
+        className={cn(
+          "mx-1 flex h-13 w-13 shrink-0 -translate-y-4 items-center justify-center self-center rounded-full bg-accent text-white transition-shadow",
+          "shadow-[0_10px_24px_-8px_rgba(236,19,32,0.75)]",
+          studioActive && "ring-4 ring-accent/25",
+        )}
+      >
+        <Clapperboard size={23} />
+      </Link>
+      <div className="flex min-w-0 flex-1">{right.map(renderItem)}</div>
     </>
   );
 }

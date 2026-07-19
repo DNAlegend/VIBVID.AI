@@ -42,6 +42,9 @@ html {
 html,
 body {
   height: 100%;
+  /* Never let a wide child open sideways scroll — the page must always sit
+     flush with the viewport. clip (not hidden) keeps position:sticky working. */
+  overflow-x: clip;
 }
 
 body {
