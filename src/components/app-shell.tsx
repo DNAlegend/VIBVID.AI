@@ -77,7 +77,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                 href={href}
                 onClick={onNavigate}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
                   active
                     ? "bg-accent-soft text-fg"
                     : "text-muted hover:bg-surface-2 hover:text-fg",
@@ -121,10 +121,10 @@ function CreditWidget({
             ? `${plan.label} — ${plan.credits.toLocaleString()} credits every ${plan.interval}${refresh ? `, refreshed ${refresh}` : ""}`
             : "Credits"
         }
-        className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-2.5 py-1.5 transition-colors hover:border-line-2 sm:px-3"
+        className="flex items-center gap-1.5 rounded-full border border-line bg-surface-2/80 px-2.5 py-1.5 transition-colors hover:border-line-2 sm:px-3"
       >
         {plan && (
-          <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-2">
+          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent-2">
             {plan.label}
           </span>
         )}
@@ -143,7 +143,7 @@ function CreditWidget({
           <span className="hidden whitespace-nowrap text-xs text-faint md:inline">· refresh {refresh}</span>
         )}
       </button>
-      <Button size="sm" variant="soft" onClick={onBuy} className="gap-1.5">
+      <Button size="sm" variant="soft" onClick={onBuy} className="gap-1.5 rounded-full">
         <ArrowUpRight size={15} /> Upgrade
       </Button>
     </div>
@@ -877,7 +877,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="min-h-screen">
         <SignUpGate />
         {purchaseNote && (
-          <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
+          <div className="glass-strong animate-rise fixed bottom-24 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-medium text-fg md:bottom-6">
             <span className="flex items-center gap-2">
               <Coins size={15} className="text-teal" /> {purchaseNote}
             </span>
@@ -905,8 +905,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (cloudConfigured && email && subscribed === false) {
     return (
       <div className="min-h-screen">
-        <header className="sticky top-0 z-20 border-b border-line bg-bg/80 backdrop-blur-md">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+        <header className="sticky top-2 z-20 px-2 sm:top-3 sm:px-4">
+          <div className="glass mx-auto flex h-14 max-w-3xl items-center justify-between gap-3 rounded-full pl-4 pr-2">
             <Brand />
             <div className="flex items-center gap-2">
               <span className="hidden max-w-[180px] truncate text-xs text-muted sm:block">{email}</span>
@@ -915,7 +915,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 variant="ghost"
                 onClick={() => supabase?.auth.signOut()}
                 title="Sign out"
-                className="gap-1.5"
+                className="gap-1.5 rounded-full"
               >
                 <LogOut size={15} /> Sign out
               </Button>
@@ -926,7 +926,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ActivateGate preselect={autoBuy} />
         </main>
         {purchaseNote && (
-          <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
+          <div className="glass-strong animate-rise fixed bottom-24 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-medium text-fg md:bottom-6">
             <span className="flex items-center gap-2">
               <Coins size={15} className="text-teal" /> {purchaseNote}
             </span>
@@ -960,13 +960,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Main column */}
       <div className="md:pl-64">
-        {/* Topbar */}
-        <header className="sticky top-0 z-20 border-b border-line bg-bg/80 backdrop-blur-md">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+        {/* Topbar — a floating glass pill, detached from the page edge */}
+        <header className="sticky top-2 z-20 px-2 sm:top-3 sm:px-4">
+          {/* Full-width bar on mobile (brand + widgets); a compact capsule
+              hugging the top-right on desktop, where the sidebar owns the brand. */}
+          <div className="glass flex h-14 items-center justify-between gap-2 rounded-full pl-3 pr-2 sm:pl-4 sm:pr-2.5 md:ml-auto md:w-fit md:justify-end md:pl-2.5">
             <div className="md:hidden">
               <Brand />
             </div>
-            <div className="hidden text-sm text-faint md:block" />
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
               {/* Locked users can browse; the Buy button routes them to subscribe
                   rather than the top-up modal (top-ups are a subscriber add-on). */}
@@ -984,7 +985,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       variant="ghost"
                       onClick={() => setAccountOpen(true)}
                       title="Account & billing"
-                      className="gap-1.5"
+                      className="gap-1.5 rounded-full"
                     >
                       <UserCircle size={15} />
                     </Button>
@@ -993,13 +994,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                       variant="ghost"
                       onClick={() => supabase?.auth.signOut()}
                       title="Sign out"
-                      className="gap-1.5"
+                      className="gap-1.5 rounded-full"
                     >
                       <LogOut size={15} />
                     </Button>
                   </div>
                 ) : (
-                  <Button size="sm" variant="outline" onClick={() => setAuthOpen(true)} className="gap-1.5">
+                  <Button size="sm" variant="outline" onClick={() => setAuthOpen(true)} className="gap-1.5 rounded-full">
                     <UserCircle size={15} /> Sign in
                   </Button>
                 ))}
@@ -1008,12 +1009,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* The whole studio is browsable; paid actions (generate, Strategist,
-            Director) open the subscribe paywall for a locked account. */}
-        <main className="px-4 pb-24 pt-6 sm:px-6 md:pb-10">{children}</main>
+            Director) open the subscribe paywall for a locked account.
+            Bottom padding clears the floating dock (+ its safe-area offset). */}
+        <main className="px-4 pb-32 pt-6 sm:px-6 md:pb-10">{children}</main>
       </div>
 
-      {/* Bottom nav (mobile) */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur-md md:hidden">
+      {/* Bottom nav (mobile) — a floating glass dock above the home indicator */}
+      <nav className="glass fixed inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-30 flex rounded-[26px] px-1.5 py-1.5 md:hidden">
         <MobileNav />
       </nav>
 
@@ -1032,7 +1034,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Modal>
 
       {purchaseNote && (
-        <div className="animate-rise fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-[0_16px_40px_-16px_rgba(16,18,27,0.4)]">
+        <div className="glass-strong animate-rise fixed bottom-24 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-medium text-fg md:bottom-6">
           <span className="flex items-center gap-2">
             <Coins size={15} className="text-teal" /> {purchaseNote}
           </span>
@@ -1053,12 +1055,12 @@ function MobileNav() {
             key={href}
             href={href}
             className={cn(
-              "flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium",
-              active ? "text-accent-2" : "text-faint",
+              "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-3xl py-2 text-[10px] font-medium transition-colors",
+              active ? "bg-accent-soft text-accent-2" : "text-faint active:text-fg",
             )}
           >
             <Icon size={19} />
-            <span className="max-w-full truncate">{short ?? label}</span>
+            <span className="max-w-full truncate px-0.5">{short ?? label}</span>
           </Link>
         );
       })}

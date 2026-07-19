@@ -50,14 +50,14 @@ export function LegalPage({
 }) {
   return (
     <div className="min-h-screen bg-bg">
-      <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4 sm:px-6">
+      <header className="sticky top-2 z-30 px-2 sm:top-3 sm:px-4">
+        <div className="glass mx-auto flex h-14 max-w-3xl items-center justify-between rounded-full pl-4 pr-2 sm:pl-5 sm:pr-3">
           <Link href="/" className="flex items-center">
             <LogoWordmark />
           </Link>
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-fg"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-2/80 hover:text-fg"
           >
             <ArrowLeft size={15} /> Back to site
           </Link>

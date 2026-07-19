@@ -10,6 +10,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#ffffff",
+  // Paint edge-to-edge on notched phones so the floating glass chrome can
+  // respect env(safe-area-inset-*) itself.
+  viewportFit: "cover",
 };
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });

@@ -108,16 +108,17 @@ function Brand() {
 /* -------------------------------- Sections ------------------------------ */
 
 export function Header() {
+  const link = "rounded-full px-3.5 py-2 transition-colors hover:bg-surface-2/80 hover:text-fg";
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-2 z-30 px-2 sm:top-3 sm:px-4">
+      <div className="glass mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-full pl-4 pr-2 sm:pl-5">
         <Brand />
-        <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
-          <a href="/#styles" className="transition-colors hover:text-fg">Styles</a>
-          <a href="/#how" className="transition-colors hover:text-fg">How it works</a>
-          <a href="/#compare" className="transition-colors hover:text-fg">Compare</a>
-          <a href="/#characters" className="transition-colors hover:text-fg">Your presenter</a>
-          <a href="/pricing" className="transition-colors hover:text-fg">Pricing</a>
+        <nav className="hidden items-center gap-0.5 text-sm font-medium text-muted md:flex">
+          <a href="/#styles" className={link}>Styles</a>
+          <a href="/#how" className={link}>How it works</a>
+          <a href="/#compare" className={link}>Compare</a>
+          <a href="/#characters" className={link}>Your presenter</a>
+          <a href="/pricing" className={link}>Pricing</a>
         </nav>
         <div className="flex items-center gap-2">
           <HeaderAuth />

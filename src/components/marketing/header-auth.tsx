@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 const APP = "/app";
-const btn = "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors";
+const btn = "inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors";
 const primary = "bg-accent text-white hover:bg-accent-2 shadow-[0_8px_24px_-8px_rgba(236,19,32,0.7)]";
 const soft = "bg-surface-3 text-fg hover:bg-line-2";
 
