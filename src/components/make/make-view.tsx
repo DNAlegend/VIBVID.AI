@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cloudConfigured } from "@/lib/supabase";
-import { getModel, priceFor, videoRate, DEFAULT_MODEL_ID } from "@/lib/models";
+import { getModel, priceFor, DEFAULT_MODEL_ID } from "@/lib/models";
 import { ASSET_CLASSES, CLASS_BY_KEY, composeFromAssets } from "@/lib/catalog";
 import { storyboardDurationSec } from "@/lib/storyboard";
 import { PURPOSE_BY_ID, DEFAULT_PURPOSE_ID } from "@/lib/purposes";
@@ -71,7 +71,7 @@ const MODEL_CHOICES = [
     key: "mini",
     label: "Seedance 2.0 Mini",
     tier: "Mini",
-    tagline: "Fast drafts. Light on credits.",
+    tagline: "Fast drafts",
     modelId: "seedance-2-mini",
     resolution: "720p",
     qualities: ["480p", "720p"],
@@ -80,7 +80,7 @@ const MODEL_CHOICES = [
     key: "pro",
     label: "Seedance 2.0 Pro",
     tier: "Pro",
-    tagline: "Cinematic. Crisp 1080p.",
+    tagline: "Cinematic look",
     modelId: "seedance-2-pro",
     resolution: "1080p",
     qualities: ["720p", "1080p"],
@@ -89,7 +89,7 @@ const MODEL_CHOICES = [
     key: "4k",
     label: "Seedance 2.0 4K",
     tier: "4K",
-    tagline: "Maximum detail. Native 4K.",
+    tagline: "Maximum detail",
     modelId: "seedance-2-pro",
     resolution: "4K",
     qualities: ["4K"],
@@ -914,37 +914,18 @@ export function MakeView({ mode }: { mode?: Modality }) {
                         : "bg-surface-2/60 ring-1 ring-line hover:bg-surface-2 hover:ring-line-2",
                     )}
                   >
-                    <span className="flex items-start justify-between gap-2">
-                      {/* Seedance 2.0 is the brand; the tier is the small descriptor. */}
-                      <span className="block text-[15px] font-bold leading-tight tracking-tight text-fg">
-                        Seedance 2.0
-                      </span>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/logos/bytedance.svg"
-                        alt="Seedance by ByteDance"
-                        title="Seedance by ByteDance"
-                        className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 transition-opacity", on ? "opacity-90" : "opacity-50")}
-                      />
+                    {/* The lockup above already says Seedance 2.0 — the card is just the tier. */}
+                    <span className="block text-[16px] font-bold leading-tight tracking-tight text-fg">
+                      {c.tier}
                     </span>
+                    <span className="mt-1 block text-[11.5px] leading-snug text-muted">{c.tagline}</span>
                     <span
                       className={cn(
-                        "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.1em]",
+                        "mt-2 inline-block rounded-full px-2 py-0.5 text-[10.5px] font-semibold tabular-nums",
                         on ? "bg-accent text-white" : "bg-surface-3 text-muted",
                       )}
                     >
-                      {c.tier}
-                    </span>
-                    <span className="mt-1.5 block min-h-[2.4em] text-[11.5px] leading-snug text-muted">
-                      {c.tagline}
-                    </span>
-                    <span
-                      className={cn(
-                        "mt-1 block text-[11px] font-medium tabular-nums",
-                        on ? "text-accent-2" : "text-faint",
-                      )}
-                    >
-                      {on ? resolution : c.resolution} · {videoRate(m, on ? resolution : c.resolution)} cr/s
+                      {on ? resolution : c.resolution}
                     </span>
                   </button>
                 );
@@ -961,13 +942,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       key={r}
                       onClick={() => setResolution(r)}
                       disabled={activeChoice.key === "4k"}
-                      title={
-                        activeChoice.key === "4k"
-                          ? "Native 4K only"
-                          : `${videoRate(model, r)} credits / second`
-                      }
+                      title={activeChoice.key === "4k" ? "Native 4K only" : undefined}
                       className={cn(
-                        "rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-all",
+                        "rounded-full px-3.5 py-1.5 text-[12.5px] font-medium tabular-nums transition-all",
                         resolution === r
                           ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
                           : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
@@ -975,9 +952,6 @@ export function MakeView({ mode }: { mode?: Modality }) {
                       )}
                     >
                       {r}
-                      <span className={cn("ml-1 text-[10px]", resolution === r ? "text-white/75" : "text-faint")}>
-                        {videoRate(model, r)}c/s
-                      </span>
                     </button>
                   ))}
                   {activeChoice.key === "4k" && (
@@ -1025,14 +999,14 @@ export function MakeView({ mode }: { mode?: Modality }) {
               {modality === "video" && (
                 <div className="flex items-start gap-2">
                   <span className="w-14 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
-                  {/* The full Seedance range — any second from 4 to 15. */}
-                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  {/* The full Seedance range, 4–15s — one row, scroll for more. */}
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-1.5">
                     {DURATIONS.map((d) => (
                       <button
                         key={d}
                         onClick={() => setDurationSec(d)}
                         className={cn(
-                          "rounded-full px-3 py-1.5 text-[12.5px] font-medium tabular-nums transition-all",
+                          "shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-medium tabular-nums transition-all",
                           durationSec === d
                             ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
                             : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
