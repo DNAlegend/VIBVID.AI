@@ -239,7 +239,7 @@ function Hero() {
           </div>
           <div className="absolute -right-8 top-36 hidden rotate-[5deg] lg:block">
             <FloatChip
-              m={{ id: "chip-your-presenter", type: "image", src: "/generated/cast-desert-nomad.jpg", label: "Cast once, reuse forever", tag: "Your presenter" }}
+              m={{ id: "chip-your-presenter", type: "image", src: "/generated/ugc-maya-sheet.jpg", label: "Maya — cast once, reuse forever", tag: "Your presenter" }}
             />
           </div>
         </div>
@@ -726,7 +726,7 @@ function CharacterConsistency() {
             <MediaTile m={c} />
             <span className="absolute left-2.5 top-2.5">
               <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
-                <UserRound size={11} className="mr-1 inline" /> Character sheet
+                <UserRound size={11} className="mr-1 inline" /> Presenter sheet
               </Badge>
             </span>
           </div>
@@ -750,7 +750,7 @@ function CharacterConsistency() {
         <div>
           <div className="mb-3 flex items-center gap-2 text-[13px] font-medium text-faint">
             <Repeat size={14} className="text-accent-2" />
-            The same character, generated into six different videos
+            The same presenter, cast into six different ad styles
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {CHARACTER_SCENES.map((m) => (

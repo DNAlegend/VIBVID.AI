@@ -57,25 +57,28 @@ const TILE = (n: string, label: string): ShowcaseMedia => ({
   tag: "VIBVID",
 });
 
-/* ----------------------- Character consistency ------------------------ */
-// One cast member, carried across many videos — the payoff of Characters.
+/* ----------------------- Presenter consistency ------------------------ */
+// One presenter, carried across many ads — the payoff of Characters.
+// Maya is an original AI creator generated with the studio's image engine
+// (scripts/generate-landing-ugc.mjs); every scene reuses her sheet as an
+// identity reference, which is exactly the workflow the section sells.
 
-/** The recurring hero we follow across scenes. */
+/** The recurring presenter we follow across ads. */
 export const CONSISTENT_CHARACTER = {
-  ...media("cast-neon-samurai", "/studio/cast-neon-samurai.svg", "Rei, the Neon Samurai", "Character"),
-  name: "Rei",
-  role: "Neon Samurai",
-  blurb: "Cast once from a single reference. The same face, hair and wardrobe hold in every shot she appears in.",
+  ...media("ugc-maya-sheet", "/generated/ugc-maya-sheet.jpg", "Maya, your UGC presenter", "Presenter"),
+  name: "Maya",
+  role: "UGC presenter",
+  blurb: "Cast once from a selfie or a description. The same face, hair and energy front every ad she appears in.",
 };
 
-/** The same character, generated into six different videos — same identity throughout. */
+/** The same presenter, cast into six different ad styles — same identity throughout. */
 export const CHARACTER_SCENES: ShowcaseMedia[] = [
-  media("hero-video", "/studio/set-neon-tokyo.svg", "Rain-soaked Tokyo alley", "Scene 01"),
-  media("set-cloud-temple", "/studio/set-cloud-temple.svg", "Duel at the cloud temple", "Scene 02"),
-  media("set-mars-colony", "/studio/set-mars-colony.svg", "Aboard the Mars colony", "Scene 03"),
-  media("set-underwater-city", "/studio/set-underwater-city.svg", "The drowned city", "Scene 04"),
-  media("set-desert-highway", "/studio/set-desert-highway.svg", "Desert highway at dusk", "Scene 05"),
-  media("set-enchanted-forest", "/studio/set-enchanted-forest.svg", "Deep in the spirit forest", "Scene 06"),
+  media("ugc-maya-kitchen", "/generated/ugc-maya-kitchen.jpg", "Kitchen counter demo", "Ad 01"),
+  media("ugc-maya-car", "/generated/ugc-maya-car.jpg", "Front-seat car review", "Ad 02"),
+  media("ugc-maya-mirror", "/generated/ugc-maya-mirror.jpg", "Get-ready-with-me", "Ad 03"),
+  media("ugc-maya-unboxing", "/generated/ugc-maya-unboxing.jpg", "Unboxing reaction", "Ad 04"),
+  media("ugc-maya-gym", "/generated/ugc-maya-gym.jpg", "Gym check-in", "Ad 05"),
+  media("ugc-maya-cafe", "/generated/ugc-maya-cafe.jpg", "Café real-talk", "Ad 06"),
 ];
 
 /* --------------------------- Long-form seasons ------------------------- */
