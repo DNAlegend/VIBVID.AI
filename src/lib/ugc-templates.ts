@@ -194,3 +194,293 @@ export const UGC_FORMATS: { key: UgcFormat; label: string; blurb: string }[] = [
   { key: "iphone", label: "iPhone app", blurb: "Your app on an iPhone, creator reacts" },
   { key: "screen", label: "Screen demo", blurb: "A guided walkthrough of your screens" },
 ];
+
+/* ------------------------------- UGC styles ------------------------------ */
+// The style library: ten real, fully-directed 15-second UGC ads — each shot
+// in a real place (a car, the bus, a kitchen…) with its own beats and spoken
+// lines. Every style is a FUNCTION of the creator's inputs, so "copy this
+// style" swaps in their product, their presenter and their lines while the
+// direction, setting and rhythm stay proven. The demo values below are what
+// the library's real example videos were rendered with.
+
+export interface UgcStyleInputs {
+  /** The product's name, e.g. "Ember Coffee". */
+  product: string;
+  /** The one benefit that carries the ad. */
+  benefit: string;
+  /** Who's on camera, e.g. "a woman in her 20s with curly dark hair". */
+  presenter: string;
+  /** The opening spoken line (under 12 words). */
+  open: string;
+  /** The closing spoken line (under 12 words). */
+  close: string;
+}
+
+export interface UgcStyle {
+  id: string;
+  name: string;
+  /** Where it's shot — the style's world. */
+  setting: string;
+  durationSec: number;
+  /** Which generated product image the library demo was rendered with. */
+  demoRefId: string;
+  /** The inputs the library's example video was rendered with. */
+  demo: UgcStyleInputs;
+  script: (i: UgcStyleInputs) => string;
+}
+
+const HANDHELD =
+  "Style: authentic UGC creator video, vertical 9:16, phone front-camera look, natural imperfect handheld motion, true-to-life skin and textures, no text overlays, no captions, no watermark.";
+
+export const UGC_STYLES: UgcStyle[] = [
+  {
+    id: "ugc-car-review",
+    name: "Front Seat Review",
+    setting: "Parked car, driver's seat",
+    durationSec: 15,
+    demoRefId: "prod-coffee",
+    demo: {
+      product: "Ember Coffee",
+      benefit: "keeps me sharp through the whole commute",
+      presenter: "a man in his late 20s with short dark hair and light stubble, wearing a denim jacket",
+      open: "Okay, real talk from my car.",
+      close: "Keeps me sharp all the way to work.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot in a PARKED CAR, driver's seat. ${i.presenter} holds the phone at arm's length, seatbelt off, daylight through the windshield.
+
+0-3s: Tight selfie framing from the passenger side angle, soft window light across their face, they lean toward the lens and say "${i.open}" with a knowing look. Blurred dashboard and headrest behind.
+3-7s: They lift ${i.product} up beside their face — the exact product from the reference, label facing camera — and tilt it once so the light catches it. Quick natural rack focus from face to product.
+7-11s: Close insert: the product in their hand resting on the steering wheel, thumb tapping it twice; outside the windshield, a soft out-of-focus parking lot. Subtle handheld sway.
+11-15s: Back to selfie framing, they nod at the camera, hold the product to their chest and say "${i.close}", small grin, clip ends on the grin.
+
+Audio: quiet car interior ambience, a distant door thunk, both spoken lines close and natural like a voice memo, soft acoustic pad underneath.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-bus-commute",
+    name: "Bus Window Seat",
+    setting: "City bus, window seat",
+    durationSec: 15,
+    demoRefId: "prod-earbuds",
+    demo: {
+      product: "Aura Earbuds",
+      benefit: "the whole bus just disappears",
+      presenter: "a woman in her early 20s with a low bun and a beige hoodie",
+      open: "This is my bus survival kit.",
+      close: "The whole bus just disappears.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot on a MOVING CITY BUS, window seat. ${i.presenter} films themselves front-camera, city sliding past the window, gentle bus vibration in the frame.
+
+0-3s: Selfie framing against the window, daylight flickering as buildings pass, they lean in conspiratorially and half-whisper "${i.open}". Other seats soft-focus behind.
+3-7s: They raise ${i.product} into frame — the exact product from the reference, label readable — open it toward the lens with one thumb, eyebrows up.
+7-11s: Close-up: the product in use in a natural motion, the window light rolling across it as the bus turns; the reflection of passing trees slides over the frame.
+11-15s: Back to the selfie shot, they settle back into the seat with a content exhale, glance out the window, then to camera: "${i.close}". Ends mid-smile as the bus hums on.
+
+Audio: real bus interior — low engine hum, a stop-request ding, muffled chatter — both lines whispered-close, lo-fi beat rising softly at the end.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-kitchen-counter",
+    name: "Kitchen Counter Morning",
+    setting: "Home kitchen, morning",
+    durationSec: 15,
+    demoRefId: "prod-coffee",
+    demo: {
+      product: "Ember Coffee",
+      benefit: "the best part of my morning, every morning",
+      presenter: "a woman in her 30s with shoulder-length brown hair in an oversized cream sweater",
+      open: "My mornings changed because of this.",
+      close: "Best part of my morning, every morning.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot in a bright HOME KITCHEN, morning. ${i.presenter} has the phone propped on the counter, sunlight across marble, a kettle steaming softly behind.
+
+0-3s: Counter-level framing, they lean into frame resting on their elbows and say "${i.open}", morning light glowing on one side of their face.
+3-7s: They set ${i.product} on the counter in front of the lens — the exact product from the reference — and slide it a little closer with two fingers, label square to camera.
+7-11s: Overhead insert: hands using the product naturally on the counter, steam drifting through the sunbeam, a wooden spoon and mug in soft focus at the edge.
+11-15s: Back to counter framing, they cradle their mug in both hands next to the product, shrug happily and say "${i.close}", then take a sip as the clip ends.
+
+Audio: kettle hiss, ceramic clinks, a soft morning acoustic guitar loop, both lines warm and unhurried.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-mirror-routine",
+    name: "Bathroom Mirror Routine",
+    setting: "Bathroom mirror, AM routine",
+    durationSec: 15,
+    demoRefId: "prod-serum",
+    demo: {
+      product: "Glow Serum",
+      benefit: "my skin finally looks awake",
+      presenter: "a woman in her mid 20s with curly dark hair pulled back with a claw clip",
+      open: "Step one, every single morning.",
+      close: "My skin finally looks awake.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot at a BATHROOM MIRROR. ${i.presenter} films their mirror reflection with the phone visible in one hand, warm vanity light bulbs glowing along the mirror's edge.
+
+0-3s: Mirror selfie framing, they meet their own eyes in the reflection and say "${i.open}", towel-dried hair, fresh morning face.
+3-7s: They hold ${i.product} up beside their cheek in the mirror — the exact product from the reference, label to camera — and give it a little shake, smiling.
+7-11s: Close insert at the sink: the product in use with gentle, precise fingers, water beads on porcelain, the vanity bulbs throwing soft highlights.
+11-15s: Back to the mirror, they lean toward their reflection, point at their own face and say "${i.close}", then laugh softly; end on the laugh.
+
+Audio: bathroom room tone, a tap turning off, the two lines intimate and close, a light airy pop bed underneath.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-couch-haul",
+    name: "Couch Close-Up",
+    setting: "Living room couch, evening",
+    durationSec: 15,
+    demoRefId: "prod-handbag",
+    demo: {
+      product: "Atelier Handbag",
+      benefit: "elevates literally every outfit I own",
+      presenter: "a woman in her late 20s with straight black hair, gold hoops and a knit cardigan",
+      open: "Okay, it finally arrived.",
+      close: "It elevates literally everything I own.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot on a LIVING ROOM COUCH in the evening. ${i.presenter} sits cross-legged on the couch, a warm floor lamp glowing behind, phone at arm's length.
+
+0-3s: Cozy selfie framing sunk into couch cushions, they bite back a grin and say "${i.open}", lamplight warm on their face.
+3-7s: They lift ${i.product} up from off-screen into the frame — the exact product from the reference — turning it slowly so every side catches the lamp light, mouth open in delight.
+7-11s: Close pass: their fingers tracing the product's details and texture, gold light and soft shadows, a knit blanket in the background bokeh.
+11-15s: Back to the couch framing, they hug the product to their chest, look at the ceiling in mock disbelief and say "${i.close}", flopping back into the cushions as it ends.
+
+Audio: soft home ambience, couch fabric rustle, a warm R&B-tinged bed, both lines gleeful and close.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-desk-latenight",
+    name: "Late-Night Desk",
+    setting: "Bedroom desk, night",
+    durationSec: 15,
+    demoRefId: "prod-earbuds",
+    demo: {
+      product: "Aura Earbuds",
+      benefit: "three hours of focus, zero distractions",
+      presenter: "a man in his early 20s with round glasses and a grey hoodie",
+      open: "Finals week. This is how I survive.",
+      close: "Three hours of focus, zero distractions.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot at a BEDROOM DESK at night. ${i.presenter} sits at a desk lit by a warm lamp and the cool glow of a laptop, fairy lights out of focus behind.
+
+0-3s: Desk-level selfie framing, laptop glow on their face, they look up from the screen at the lens and say "${i.open}" with tired but amused eyes.
+3-7s: They pick ${i.product} up from beside the keyboard and hold it toward the lens — the exact product from the reference — turning it once, the lamp catching its finish.
+7-11s: Close insert on the desk: the product in use next to scattered notes and a coffee mug, the laptop light pulsing softly, a pen tapping once.
+11-15s: Back to the selfie framing, they exhale, settle into the chair and say "${i.close}", give the lens a small salute and turn back to the screen as it ends.
+
+Audio: quiet night room tone, keyboard taps, page turn, a mellow lo-fi study beat, both lines low and close.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-cafe-table",
+    name: "Café Table Chat",
+    setting: "Coffee shop table",
+    durationSec: 15,
+    demoRefId: "prod-handbag",
+    demo: {
+      product: "Atelier Handbag",
+      benefit: "fits my whole life and still looks like this",
+      presenter: "a woman in her 30s with a blunt bob and a camel coat",
+      open: "Everyone keeps asking about this.",
+      close: "Fits my whole life, still looks like this.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot at a CAFÉ TABLE by a window. ${i.presenter} sits with a latte, phone propped against a sugar jar, soft daylight and café bustle behind.
+
+0-3s: Table-level framing across the latte, they lean in over the cup and say "${i.open}" with a raised eyebrow, window light rimming their hair.
+3-7s: They lift ${i.product} from the chair beside them onto the table — the exact product from the reference — placing it neatly beside the latte, angled to the lens.
+7-11s: Close orbit across the tabletop: the product's details against the wood grain, steam from the latte drifting past, silverware glinting soft-focus.
+11-15s: Back to the table framing, they rest their chin on one hand, pat the product twice and say "${i.close}", then sip the latte as the clip ends.
+
+Audio: café ambience — espresso machine hiss, cup clinks, low chatter — a jazzy lo-fi loop, both lines conversational and warm.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-gym-check",
+    name: "Gym Bag Check",
+    setting: "Gym floor, between sets",
+    durationSec: 15,
+    demoRefId: "prod-sneakers",
+    demo: {
+      product: "Court Sneakers",
+      benefit: "leg day tested, zero complaints",
+      presenter: "a fit man in his 20s with short curly hair, wearing a black training tee",
+      open: "Leg day verdict, right now.",
+      close: "Leg day tested. Zero complaints.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot on a GYM FLOOR between sets. ${i.presenter} films front-camera sitting on a bench, racks and plates out of focus behind, bright gym lighting.
+
+0-3s: Slightly breathless selfie framing on the bench, towel over one shoulder, they point at the lens and say "${i.open}".
+3-7s: They angle the phone down to ${i.product} — the exact product from the reference — flexing it once with one hand, gym light across its lines.
+7-11s: Low tracking insert: the product in action on the gym floor for two quick beats, rubber floor texture, a plate being racked in the background blur.
+11-15s: Back to the bench selfie, they wipe their brow, nod at the camera with respect and say "${i.close}", then stand up out of frame as it ends.
+
+Audio: real gym — plates clinking, distant treadmill hum, a bass-forward workout beat, both lines punchy over the noise.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-street-walk",
+    name: "Walk-and-Talk",
+    setting: "City sidewalk, walking",
+    durationSec: 15,
+    demoRefId: "prod-sneakers",
+    demo: {
+      product: "Court Sneakers",
+      benefit: "ten thousand steps and my feet feel brand new",
+      presenter: "a woman in her 20s with box braids, a puffer jacket and gold jewelry",
+      open: "Day three of wearing these everywhere.",
+      close: "Ten thousand steps, feet feel brand new.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot WALKING on a CITY SIDEWALK. ${i.presenter} films themselves front-camera mid-stride, storefronts and pedestrians sliding by, natural walking bounce in the frame.
+
+0-3s: Walking selfie framing, hair moving with the pace, they talk straight into the lens: "${i.open}", city light shifting across their face.
+3-7s: They flip the camera down mid-stride to ${i.product} — the exact product from the reference — in step after step on the pavement, crosswalk stripes passing under.
+7-11s: Quick cut: they stop at a shop window, hold the product up to the glass reflection so both it and their grin are visible, tilting it to the light.
+11-15s: Walking selfie again, they shrug into the camera with a laugh and say "${i.close}", then look ahead as the city keeps moving past.
+
+Audio: street ambience — traffic wash, footsteps, a crosswalk chirp — an upbeat confident pop loop, both lines bright over the city.
+
+${HANDHELD}`,
+  },
+  {
+    id: "ugc-office-desk",
+    name: "Office Desk Flex",
+    setting: "Office desk, daytime",
+    durationSec: 15,
+    demoRefId: "prod-watch",
+    demo: {
+      product: "Meridian Watch",
+      benefit: "makes every meeting feel like my meeting",
+      presenter: "a man in his 30s with a trimmed beard, navy shirt with rolled sleeves",
+      open: "Small upgrade. Massive difference.",
+      close: "Every meeting feels like my meeting now.",
+    },
+    script: (i) =>
+      `UGC-style vertical ad shot at an OFFICE DESK in daylight. ${i.presenter} films front-camera at a tidy desk, a monitor and a plant soft-focus behind, big window light from the side.
+
+0-3s: Desk selfie framing, they glance left and right like sharing a secret, then to the lens: "${i.open}".
+3-7s: They raise their wrist deliberately into frame with ${i.product} on it — the exact product from the reference — rotating the wrist slowly so the light walks across it.
+7-11s: Close insert over the keyboard: the product catching window light as they type two beats, then a slow push toward its face, papers and a coffee cup in the blur.
+11-15s: Back to the desk framing, they straighten their collar with one hand, show the wrist once more and say "${i.close}", ending on a confident half-smile.
+
+Audio: quiet office tone, keyboard clicks, a sleek minimal beat, both lines low-key confident.
+
+${HANDHELD}`,
+  },
+];
