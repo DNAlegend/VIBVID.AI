@@ -25,7 +25,9 @@ export type AssetClass =
   | "dance"
   | "audio"
   | "product"
-  | "storyboard";
+  | "storyboard"
+  /** A master story plan — the container that groups its part storyboards. */
+  | "story";
 
 /** Whose library an asset lives in. */
 export type AssetOwner = "user" | "business";

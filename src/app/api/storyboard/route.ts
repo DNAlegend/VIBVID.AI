@@ -47,6 +47,51 @@ const STORYBOARD_SCHEMA = {
   },
 };
 
+/**
+ * Story mode — the master planner. One story arc broken into N parts; each
+ * part is a full storyboard of its own (a Seedance flow + a nine-panel sheet
+ * prompt) and the cast stays word-for-word identical across every part.
+ */
+const STORY_SYSTEM = `You are a world-class commercial director and story architect working inside an AI video studio.
+The creator gives you a story idea (in ANY language), a CAST (characters and products with their looks), a number of PARTS, and a per-part clip length in seconds. Plan ONE continuous story told across exactly that many parts — each part is a self-contained clip that advances the story, with a clear opening tease in part 1 and a payoff/hero ending in the final part.
+
+CONSISTENCY IS EVERYTHING. Decide each cast member's exact look ONCE (from the provided looks) and repeat that identical one-line description word-for-word in EVERY part where they appear — characters keep the same face, hair, build and outfit; products keep the same shape, colors, label and finish. Reference sheets of the cast will be attached to every render, so write as if the model can see them.
+
+Respond with STRICT JSON only, no markdown fences:
+{"title":"...","logline":"...","parts":[{"title":"...","flow":"...","imagePrompt":"..."},...]}
+
+- "title": the story's name, same language as the brief, at most 6 words.
+- "logline": one sentence — the whole story arc, same language as the brief.
+- "parts": EXACTLY the requested number of parts, in story order. Each part:
+  · "title": the part's name (e.g. "Part 1 — The Spark"), same language as the brief.
+  · "flow": that part's complete SEEDANCE PROMPT, ALWAYS in English, structured as labeled blocks separated by blank lines: an opening block "Create a premium {length} second clip — part {n} of {total} of \"{story title}\"." plus one sentence of production values; then "Scene 1 (0 to Xs): ..." blocks of 1-4 seconds whose ranges sum EXACTLY to the per-part length — each scene 2-4 hyper-detailed sentences: the cast with their identical descriptions, one exact action, named physics, camera framing AND movement, and the light; then a "Style:" paragraph (genre, palette, environment, "no text overlays, no watermark, no distortion"); then an "Audio:" sentence (foley synced to actions + music energy; a spoken line under 12 words in double quotes only if the brief asks). 150-280 words per part.
+  · "imagePrompt": ONE image prompt, ALWAYS in English, drawing that part as a professional storyboard sheet — a 3 columns × 3 rows grid of nine vertical frames on a clean white background with thin gutters, each cell carrying exactly ONE small grey numeral in its bottom-left corner and no other text anywhere. Describe each of the nine cells ("Panel 1: ...") in one vivid sentence covering that part's beats in order, state that the exact same cast appears identical in every panel, and end with the shared style. 120-200 words.
+
+Never put captions, logos or brand names inside panels. Never reference real brands, trademarked characters or real public figures — original, generic descriptions even when the brief names one.`;
+
+const STORY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "logline", "parts"],
+  properties: {
+    title: { type: "string" },
+    logline: { type: "string" },
+    parts: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "flow", "imagePrompt"],
+        properties: {
+          title: { type: "string" },
+          flow: { type: "string" },
+          imagePrompt: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
 export async function POST(req: Request) {
   if (!llmConfigured()) {
     return NextResponse.json({ error: "Storyboard writer not configured" }, { status: 501 });
@@ -85,6 +130,71 @@ export async function POST(req: Request) {
           look: String(body.product.look ?? "").slice(0, 400),
         }
       : null;
+
+  // ---- Story mode: 2-4 parts, each its own storyboard, one continuous arc.
+  const partsCount = Math.min(4, Math.max(0, Math.round(Number(body?.parts) || 0)));
+  if (partsCount >= 2) {
+    const cast: { type: string; name: string; look: string }[] = Array.isArray(body?.cast)
+      ? body.cast
+          .filter((c: unknown) => c && typeof c === "object")
+          .slice(0, 8)
+          .map((c: { type?: unknown; name?: unknown; look?: unknown }) => ({
+            type: c.type === "product" ? "product" : "character",
+            name: String(c.name ?? "").slice(0, 80),
+            look: String(c.look ?? "").slice(0, 400),
+          }))
+      : [];
+    const storyMsg = [
+      `Parts: exactly ${partsCount}. Per-part clip length: exactly ${durationSec} seconds.`,
+      cast.length
+        ? `Cast (keep each identical in every part; their reference sheets are attached to every render):\n${cast
+            .map((c) => `- ${c.type}: ${c.name}${c.look ? ` — ${c.look}` : ""}`)
+            .join("\n")}`
+        : null,
+      `Story idea: ${brief}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    let rawStory: string;
+    try {
+      rawStory = await chatText({
+        system: STORY_SYSTEM,
+        user: storyMsg,
+        // Each part carries a full flow + sheet prompt; scale with the count.
+        maxTokens: 2600 * partsCount + 600,
+        temperature: 0.85,
+        jsonSchema: STORY_SCHEMA,
+      });
+    } catch (e) {
+      const detail = e instanceof Error ? e.message.slice(0, 200) : "unknown error";
+      return NextResponse.json({ error: `Story writer error: ${detail}` }, { status: 502 });
+    }
+    const m = rawStory.match(/\{[\s\S]*\}/);
+    try {
+      const parsed = JSON.parse(m ? m[0] : rawStory);
+      const parts = (Array.isArray(parsed?.parts) ? parsed.parts : [])
+        .slice(0, partsCount)
+        .map((p: { title?: unknown; flow?: unknown; imagePrompt?: unknown }) => ({
+          title: String(p?.title ?? "").slice(0, 120),
+          flow: String(p?.flow ?? "").slice(0, 6000),
+          imagePrompt: String(p?.imagePrompt ?? "").slice(0, 3000),
+        }))
+        .filter((p: { flow: string; imagePrompt: string }) => p.flow && p.imagePrompt);
+      if (parts.length < 2) throw new Error("too few parts");
+      return NextResponse.json({
+        title: String(parsed?.title ?? "").slice(0, 120),
+        logline: String(parsed?.logline ?? "").slice(0, 300),
+        parts,
+        durationSec,
+        engine: llmEngine(),
+      });
+    } catch {
+      return NextResponse.json(
+        { error: "The story writer returned nothing usable — try again" },
+        { status: 502 },
+      );
+    }
+  }
 
   const userMsg = [
     `Video length: exactly ${durationSec} seconds.`,
