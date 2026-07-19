@@ -117,7 +117,6 @@ export function Header() {
           <a href="/#how" className="transition-colors hover:text-fg">How it works</a>
           <a href="/#compare" className="transition-colors hover:text-fg">Compare</a>
           <a href="/#characters" className="transition-colors hover:text-fg">Your presenter</a>
-          <a href="/#features" className="transition-colors hover:text-fg">Studio</a>
           <a href="/pricing" className="transition-colors hover:text-fg">Pricing</a>
         </nav>
         <div className="flex items-center gap-2">
@@ -1159,14 +1158,6 @@ const FAQS = [
     a: "Seedance 2.0, by ByteDance — the go-to AI video model, known for cinematic motion, native audio and native 4K. VIBVID runs it in three tiers (Mini, Pro, 4K) and pairs it with Seedream for storyboards, characters and stills, so your whole production runs on one state-of-the-art stack.",
   },
   {
-    q: "What can I actually make?",
-    a: "Full productions, not just single clips. The Storyboard writes your commercial scene by scene and boards it as one nine-panel sheet, then you generate each scene (4–15s, native audio) in the Studio — vertical UGC ads, product films, fashion, brand spots. Seedance 2.0 Mini for fast drafts, Pro in 1080p, or native 4K when it counts.",
-  },
-  {
-    q: "How do my assets change the output?",
-    a: "Add pictures, clips, sound and scripts to a shot and they steer it directly: images set the exact frames or act as identity references, clips lend their motion, and your character's sheet keeps the same face in every video — so the sneaker in your clip is your sneaker, not a lookalike.",
-  },
-  {
     q: "Can I upload my own reference materials?",
     a: "Yes — pictures, clips, sound and scripts. You must own those materials or have the rights and permissions to use them. Don't upload other people's copyrighted work, or anyone's likeness or voice, without authorization.",
   },
@@ -1179,24 +1170,12 @@ const FAQS = [
     a: "Everything you generate lands in your private library, stored on your account, ready to download. Commercial use is available on all paid plans, subject to the VIBVID Terms of Service and any rights attached to materials you upload.",
   },
   {
-    q: "How long does a video take?",
-    a: "Typically 30–90 seconds from prompt to finished clip. Images land in a few seconds.",
-  },
-  {
-    q: "Can I keep the same character across videos?",
+    q: "Can I keep the same presenter across all my ads?",
     a: "Yes — that's what Characters is for. Create one from a selfie or a description and you get a single reference sheet with every angle of them, plus an optional voice. Cast them in the Studio and the engine keeps their identity consistent from video to video.",
   },
   {
     q: "Can I create videos of real people?",
     a: "VIBVID is for original and authorized creation only. It does not permit deceptive impersonation, unauthorized use of a real person's likeness, face swaps, deepfakes, voice impersonation or misleading testimonials. A character built from your own selfie is fine; someone else's face or voice without their permission is not. See the Acceptable Use Policy for the full list.",
-  },
-  {
-    q: "Can I make a full episode, season or movie?",
-    a: "Yes. Each generation is a scene (4–15s). Board the arc as storyboards, keep the same cast and world across every scene, and generate them one after another in the Studio — then cut the scenes together into episodes, seasons or a feature in any video editor. There's no cap on length beyond your credits.",
-  },
-  {
-    q: "Can I make training or presenter-style videos?",
-    a: "Yes — as scenario re-enactments, demonstrations, b-roll and explainer scenes featuring original characters you create. VIBVID does not lip-sync a presenter to a script, clone voices, or generate talking-head avatars of real people — pair generated scenes with your own narration or instructor recordings instead.",
   },
 ];
 
@@ -1269,9 +1248,8 @@ const FOOTER_COLS: { heading: string; links: { label: string; href: string }[] }
       { label: "How it works", href: "/#how" },
       { label: "Compare", href: "/#compare" },
       { label: "Your presenter", href: "/#characters" },
-      { label: "The studio", href: "/#features" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Launch studio", href: APP },
+      { label: "Make your first ad", href: "/app/ugc" },
     ],
   },
   {
@@ -1284,7 +1262,6 @@ const FOOTER_COLS: { heading: string; links: { label: string; href: string }[] }
   {
     heading: "Explore",
     links: [
-      { label: "Showcase", href: "/#showcase" },
       { label: "Responsible AI", href: "/#responsible" },
       { label: "FAQ", href: "/#faq" },
     ],
@@ -1378,12 +1355,6 @@ export function Landing() {
         <UgcEconomics />
         <CharacterConsistency />
         <Pricing />
-        <Features />
-        <SeedanceBand />
-        <ElementBand />
-        <UseCases />
-        <LongForm />
-        <Showcase />
         <ResponsibleAI />
         <FAQ />
         <FinalCTA />
