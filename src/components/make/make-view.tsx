@@ -776,13 +776,27 @@ export function MakeView({ mode }: { mode?: Modality }) {
 
   function startGenerate(promptText: string) {
     if (rendering) return;
+    // Seedance can't guess what an attachment is — every render carries the
+    // reference legend, even when the creator skipped "Clean up for Seedance".
+    // (The Director's output already binds slots — "Image 1 is…" — so only
+    // prepend when the prompt doesn't reference them yet.)
+    let boundPrompt = promptText;
+    const media = taggedMedia.filter((t) => {
+      // Only media that actually rides with this render: frames beat refs
+      // (the API contract), so when a first frame is set the ref rows stay home.
+      if (board.firstFrame) return t.tag === "F1" || t.tag === "F2" || t.tag.startsWith("A");
+      return t.tag !== "F1" && t.tag !== "F2";
+    });
+    if (media.length && !/\bimage 1\b|\bfirst frame\b/i.test(promptText)) {
+      boundPrompt = `${media.map(referenceBrief).join(" ")}\n\n${promptText}`;
+    }
     // Poster must be an image — a video url as poster renders a blank tile.
     const posterSource =
       pickedAssets.find((a) => a.class === "scene" && a.kind === "image") ??
       pickedAssets.find((a) => a.kind === "image");
     const posterUrl = posterSource?.posterUrl ?? posterSource?.url;
     const id = generate({
-      prompt: promptText,
+      prompt: boundPrompt,
       tier,
       durationSec,
       aspectRatio,

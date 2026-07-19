@@ -162,6 +162,12 @@ export function composeFromAssets(picked: Composable[], direction?: string): str
   if (picked.length === 0) return direction?.trim() ?? "";
   // Everything picked is already described in the direction — use it as-is.
   if (allContained) return direction?.trim() ?? "";
+  // Nothing picked carries a class fragment (e.g. only plain photos/clips):
+  // a bare "the subject." scaffold adds nothing but noise — the media itself
+  // rides as references, bound by the generate-time legend.
+  if (!characters.length && !products.length && !dresses.length && !dances.length && !scenes.length && !audios.length) {
+    return direction?.trim() ?? "";
+  }
 
   const subject = characters.length
     ? join(characters)
