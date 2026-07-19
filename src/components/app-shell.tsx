@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
@@ -100,11 +100,9 @@ type PlanBadge = { label: string; credits: number; interval: "month" | "year"; p
 function CreditWidget({
   plan,
   onOpenAccount,
-  onBuy,
 }: {
   plan: PlanBadge | null;
   onOpenAccount: () => void;
-  onBuy: () => void;
 }) {
   const credits = useStore((s) => s.credits);
   const hydrated = useStore((s) => s.hasHydrated);
@@ -118,8 +116,8 @@ function CreditWidget({
         onClick={onOpenAccount}
         title={
           plan
-            ? `${plan.label} — ${plan.credits.toLocaleString()} credits every ${plan.interval}${refresh ? `, refreshed ${refresh}` : ""}`
-            : "Credits"
+            ? `${plan.label} — ${plan.credits.toLocaleString()} credits every ${plan.interval}${refresh ? `, refreshed ${refresh}` : ""}. Manage your account.`
+            : "Account & credits"
         }
         className="flex items-center gap-1.5 rounded-full border border-line bg-surface-2/80 px-2.5 py-1.5 transition-colors hover:border-line-2 sm:px-3"
       >
@@ -143,9 +141,6 @@ function CreditWidget({
           <span className="hidden whitespace-nowrap text-xs text-faint md:inline">· refresh {refresh}</span>
         )}
       </button>
-      <Button size="sm" variant="soft" onClick={onBuy} className="gap-1.5 rounded-full">
-        <ArrowUpRight size={15} /> Upgrade
-      </Button>
     </div>
   );
 }
@@ -969,13 +964,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Brand />
             </div>
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-              {/* Locked users can browse; the Buy button routes them to subscribe
-                  rather than the top-up modal (top-ups are a subscriber add-on). */}
-              <CreditWidget
-                plan={plan}
-                onOpenAccount={() => setAccountOpen(true)}
-                onBuy={() => (subscribed === false ? setActivateOpen(true) : setBuyOpen(true))}
-              />
+              {/* The credits pill is the account button — plan, billing and
+                  upgrades all live in Account. */}
+              <CreditWidget plan={plan} onOpenAccount={() => setAccountOpen(true)} />
               {cloudConfigured &&
                 (email ? (
                   <div className="flex items-center gap-1 sm:gap-1.5">
