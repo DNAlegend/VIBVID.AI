@@ -91,16 +91,36 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 /** The plan the signed-in account is on, read from /api/account. */
-type PlanBadge = { label: string; credits: number; interval: "month" | "year" };
+type PlanBadge = { label: string; credits: number; interval: "month" | "year"; periodEnd: number | null };
 
-function CreditWidget({ plan, onBuy }: { plan: PlanBadge | null; onBuy: () => void }) {
+function CreditWidget({
+  plan,
+  onOpenAccount,
+  onBuy,
+}: {
+  plan: PlanBadge | null;
+  onOpenAccount: () => void;
+  onBuy: () => void;
+}) {
   const credits = useStore((s) => s.credits);
   const hydrated = useStore((s) => s.hasHydrated);
+  const refresh = plan?.periodEnd
+    ? new Date(plan.periodEnd * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : null;
   return (
     <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-      <div className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-2.5 py-1.5 sm:px-3">
+      {/* The whole meter opens Account & billing — plan, cycle and invoices live there. */}
+      <button
+        onClick={onOpenAccount}
+        title={
+          plan
+            ? `${plan.label} — ${plan.credits.toLocaleString()} credits every ${plan.interval}${refresh ? `, refreshed ${refresh}` : ""}`
+            : "Credits"
+        }
+        className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-2.5 py-1.5 transition-colors hover:border-line-2 sm:px-3"
+      >
         {plan && (
-          <span className="hidden rounded-md bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-2 sm:inline">
+          <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-2">
             {plan.label}
           </span>
         )}
@@ -115,7 +135,10 @@ function CreditWidget({ plan, onBuy }: { plan: PlanBadge | null; onBuy: () => vo
           // the word is decoration — the coin says it; drop it on phones
           <span className="hidden text-xs text-faint sm:inline">credits</span>
         )}
-      </div>
+        {plan && refresh && (
+          <span className="hidden whitespace-nowrap text-xs text-faint md:inline">· refresh {refresh}</span>
+        )}
+      </button>
       <Button size="sm" variant="soft" onClick={onBuy} className="gap-1.5">
         <ArrowUpRight size={15} /> Upgrade
       </Button>
@@ -684,7 +707,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       setSubscribed(active);
       setPlan(
         b?.plan
-          ? { label: b.plan.label, credits: b.plan.credits, interval: b.plan.interval ?? "month" }
+          ? {
+              label: b.plan.label,
+              credits: b.plan.credits,
+              interval: b.plan.interval ?? "month",
+              periodEnd: typeof b.currentPeriodEnd === "number" ? b.currentPeriodEnd : null,
+            }
           : null,
       );
       localStorage.setItem(SUBSCRIBED_KEY, active ? "1" : "0");
@@ -922,7 +950,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
               {/* Locked users can browse; the Buy button routes them to subscribe
                   rather than the top-up modal (top-ups are a subscriber add-on). */}
-              <CreditWidget plan={plan} onBuy={() => (subscribed === false ? setActivateOpen(true) : setBuyOpen(true))} />
+              <CreditWidget
+                plan={plan}
+                onOpenAccount={() => setAccountOpen(true)}
+                onBuy={() => (subscribed === false ? setActivateOpen(true) : setBuyOpen(true))}
+              />
               {cloudConfigured &&
                 (email ? (
                   <div className="flex items-center gap-1 sm:gap-1.5">

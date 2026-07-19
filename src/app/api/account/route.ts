@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getBillingCustomer } from "@/lib/billing-customer";
+import { billingItem } from "@/lib/billing";
 import {
   stripeConfigured,
   getBillingOverview,
@@ -28,16 +29,55 @@ function adminEmails(): string[] {
     .filter(Boolean);
 }
 
-async function authed(
-  req: Request,
-): Promise<{ userId: string; email: string | null; customerId: string | null } | null> {
+async function authed(req: Request): Promise<{
+  userId: string;
+  email: string | null;
+  customerId: string | null;
+  compPlan: string | null;
+  compSince: string | null;
+} | null> {
   if (!stripeConfigured() || !supabaseAdmin) return null;
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) return null;
   const bc = await getBillingCustomer(data.user.id);
-  return { userId: data.user.id, email: data.user.email?.toLowerCase() ?? null, customerId: bc?.customerId ?? null };
+  const meta = (data.user.app_metadata ?? {}) as Record<string, unknown>;
+  return {
+    userId: data.user.id,
+    email: data.user.email?.toLowerCase() ?? null,
+    customerId: bc?.customerId ?? null,
+    compPlan: typeof meta.comp_plan === "string" ? meta.comp_plan : null,
+    compSince: typeof meta.comp_since === "string" ? meta.comp_since : null,
+  };
+}
+
+/**
+ * A complimentary membership set on the auth user (app_metadata.comp_plan) —
+ * owner/partner accounts that hold a plan without a Stripe subscription. It
+ * renders exactly like the paid plan; the period end is the next monthly (or
+ * yearly) anniversary of when the comp was granted.
+ */
+function compOverview(a: NonNullable<Awaited<ReturnType<typeof authed>>>) {
+  const item = a.compPlan ? billingItem(a.compPlan) : null;
+  if (!item) return null;
+  const months = item.interval === "year" ? 12 : 1;
+  const next = new Date(a.compSince ?? Date.now());
+  while (next.getTime() <= Date.now()) next.setMonth(next.getMonth() + months);
+  return {
+    plan: {
+      itemId: item.id,
+      label: item.label,
+      interval: item.interval ?? ("month" as const),
+      priceLabel: item.priceLabel,
+      credits: item.credits,
+    },
+    status: "active",
+    currentPeriodEnd: Math.floor(next.getTime() / 1000),
+    cancelAtPeriodEnd: false,
+    card: null,
+    invoices: [],
+  };
 }
 
 export async function GET(req: Request) {
@@ -54,15 +94,16 @@ export async function GET(req: Request) {
   const admin = Boolean(a.email && adminEmails().includes(a.email));
 
   if (!a.customerId) {
-    // No purchases yet — nothing to manage, just show the balance.
-    return NextResponse.json({ credits, admin, billing: null });
+    // No purchases yet — a comped membership still shows as a plan.
+    return NextResponse.json({ credits, admin, billing: compOverview(a) });
   }
   try {
     const billing = await getBillingOverview(a.customerId);
-    return NextResponse.json({ credits, admin, billing });
+    // A Stripe customer with no live plan can still hold a comped membership.
+    return NextResponse.json({ credits, admin, billing: billing.plan ? billing : (compOverview(a) ?? billing) });
   } catch (e) {
     console.error("[account] overview failed:", e instanceof Error ? e.message : e);
-    return NextResponse.json({ credits, admin, billing: null });
+    return NextResponse.json({ credits, admin, billing: compOverview(a) });
   }
 }
 
