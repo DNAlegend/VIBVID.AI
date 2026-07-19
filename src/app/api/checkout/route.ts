@@ -138,24 +138,31 @@ export async function POST(req: Request) {
   const userAgent = req.headers.get("user-agent");
 
   // Record the intent first so the webhook has something to reconcile against.
-  const { data: purchase, error: insErr } = await supabaseAdmin
+  const baseRow = {
+    user_id: userId,
+    kind: item.kind,
+    item: item.id,
+    credits: item.credits,
+    amount: item.amount,
+    currency: item.currency,
+    status: "pending",
+  };
+  let { data: purchase, error: insErr } = await supabaseAdmin
     .from("credit_purchases")
-    .insert({
-      user_id: userId,
-      kind: item.kind,
-      item: item.id,
-      credits: item.credits,
-      amount: item.amount,
-      currency: item.currency,
-      status: "pending",
-      fbp,
-      fbc,
-      client_ip: clientIp,
-      user_agent: userAgent,
-    })
+    .insert({ ...baseRow, fbp, fbc, client_ip: clientIp, user_agent: userAgent })
     .select("id")
     .single();
+  if (insErr && /fbp|fbc|client_ip|user_agent/.test(insErr.message)) {
+    // The conversion-tracking migration isn't applied on this database yet —
+    // never block a sale on optional ad-attribution columns.
+    ({ data: purchase, error: insErr } = await supabaseAdmin
+      .from("credit_purchases")
+      .insert(baseRow)
+      .select("id")
+      .single());
+  }
   if (insErr || !purchase) {
+    console.error("[checkout] purchase insert failed:", insErr?.message);
     return NextResponse.json({ error: "Could not start checkout" }, { status: 500 });
   }
 
