@@ -1,12 +1,13 @@
-import type { Metadata } from "next";
-import { SubscribeFlow } from "@/components/subscribe/subscribe-flow";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Subscribe — VIBVID.AI",
-  description: "Pick a plan, pay, and you're in the studio — under a minute.",
-};
-
-// Pay-first onboarding: plan → email → pay → straight into the studio.
-export default function SubscribePage() {
-  return <SubscribeFlow />;
+// Onboarding is OTP-first now: sign up with your email in the app, then pick a
+// plan at the gate. Old /subscribe links (ads, bookmarks) land there too, with
+// a chosen plan carried along as ?buy= so the gate preselects it.
+export default async function SubscribePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  const { plan } = await searchParams;
+  redirect(plan ? `/app?buy=${encodeURIComponent(plan)}` : "/app");
 }

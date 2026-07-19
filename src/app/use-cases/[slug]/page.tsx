@@ -48,7 +48,7 @@ export default async function UseCasePage({ params }: { params: Promise<{ slug: 
               </h1>
               <p className="mt-4 text-[16.5px] leading-relaxed text-muted">{u.intro}</p>
               <div className="mt-7 flex flex-wrap items-center gap-3">
-                <CTA href="/subscribe">
+                <CTA href="/app">
                   <Wand2 size={17} /> Start creating
                 </CTA>
                 <CTA href="/pricing" variant="outline">

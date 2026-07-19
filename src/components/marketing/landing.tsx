@@ -184,7 +184,7 @@ function Hero() {
           studio, from idea to finished footage.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <CTA href="/subscribe">
+          <CTA href="/app">
             <Sparkles size={18} /> Start creating
           </CTA>
           <CTA href="#how" variant="outline">
@@ -721,7 +721,7 @@ function LongForm() {
               acts as storyboards, generate every scene in the Studio with a consistent cast, then cut
               the whole runtime together into one continuous film.
             </p>
-            <CTA href="/subscribe" size="md" className="shrink-0">
+            <CTA href="/app" size="md" className="shrink-0">
               <Clapperboard size={16} /> Start your season
             </CTA>
           </div>
@@ -850,7 +850,7 @@ const PLANS: Plan[] = [
       "All models — drafts to native 4K",
       "No watermark",
       "Commercial usage rights",
-      "Top up credits any time",
+      "Upgrade or cancel anytime",
     ],
     cta: "Get Creator",
     itemId: "plan-creator",
@@ -903,7 +903,8 @@ export function Pricing() {
           <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Simple plans. Scale on credits.</h2>
           <p className="mt-3 text-[17px] text-muted">
             Every plan is a monthly credit budget — draft cheaply, produce in full quality, and
-            top up any time. Pay for the year and get 4 months on us. No surprise bills, no lock-in.
+            upgrade whenever you need more. Pay for the year and get 4 months on us. No surprise
+            bills, no lock-in.
           </p>
         </div>
         <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -940,7 +941,7 @@ export function Pricing() {
                 ))}
               </ul>
               <CTA
-                href={`/subscribe?plan=${p.itemId}`}
+                href={`/app?buy=${p.itemId}`}
                 variant={p.popular ? "primary" : "outline"}
                 size="md"
                 className="mt-6 w-full"
@@ -948,7 +949,7 @@ export function Pricing() {
                 {p.cta}
               </CTA>
               <Link
-                href={`/subscribe?plan=${p.itemId}-year`}
+                href={`/app?buy=${p.itemId}-year`}
                 className="mt-2.5 text-center text-[12.5px] font-medium text-accent-2 hover:underline"
               >
                 or {p.yearPrice}/yr — 4 months on us
@@ -974,8 +975,8 @@ export function Pricing() {
         </div>
 
         <p className="mt-6 text-center text-[13px] text-faint">
-          Run out of credits? Buy top-up packs any time from inside the studio — from $15 for 200
-          credits. Pack credits stay valid for 12 months.
+          Run out of credits early? Upgrade your plan from inside the studio — the higher budget
+          applies right away. Otherwise your credits refresh at the next billing cycle.
         </p>
         <p className="mx-auto mt-3 max-w-2xl text-center text-[12px] leading-relaxed text-faint">
           Generation credits are non-transferable service-usage units. They have no cash value and
@@ -1010,7 +1011,7 @@ const FAQS = [
   },
   {
     q: "How do credits work?",
-    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~3 credits, a 5-second Draft clip ~15, a 5-second 720p HD render ~45, and a 5-second 1080p Full-HD render (native audio) ~90; native 4K is the top tier at ~200. Plans refill monthly (Creator 300, Pro 800, Agency 1,500) and reset each cycle; annual billing deposits the full year of credits up front. Run out early? Buy a top-up pack any time — from $15 — and those stay valid for 12 months.",
+    a: "Everything you generate spends credits, and quality is part of the price — a standard image is ~3 credits, a 5-second Draft clip ~15, a 5-second 720p HD render ~45, and a 5-second 1080p Full-HD render (native audio) ~90; native 4K is the top tier at ~200. Plans refill monthly (Creator 300, Pro 800, Agency 1,500) and reset each cycle; annual billing deposits the full year of credits up front. Run out early? Upgrade your plan and the bigger budget applies right away — otherwise credits refresh at your next billing cycle.",
   },
   {
     q: "Do I own what I make, and can I use it commercially?",
@@ -1087,7 +1088,7 @@ function FinalCTA() {
         </p>
         <div className="mt-7 flex justify-center">
           <Link
-            href="/subscribe"
+            href="/app"
             className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 text-[15px] font-semibold text-accent transition-transform hover:scale-[1.02]"
           >
             <Sparkles size={18} /> Create your first video

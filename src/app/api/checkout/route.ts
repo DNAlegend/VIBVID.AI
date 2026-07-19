@@ -1,4 +1,5 @@
-// Start an on-site checkout for a top-up pack or a subscription plan.
+// Start an on-site checkout for a subscription plan (subscription-only: one-time
+// credit packs are rejected — members upgrade their plan for more credits).
 // Records a pending purchase (server-priced from the billing catalog — never
 // trusts the client's amount), ensures the user has a Stripe customer, then
 // creates an Embedded Checkout Session and returns its client secret. The
@@ -32,6 +33,14 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const item = billingItem(typeof body?.itemId === "string" ? body.itemId : "");
   if (!item) return NextResponse.json({ error: "Unknown item" }, { status: 400 });
+  // Subscription-only for now: no one-time credit packs. Members who need more
+  // credits upgrade their plan (or wait for the cycle refill).
+  if (item.kind !== "subscription") {
+    return NextResponse.json(
+      { error: "Credit packs aren’t available — upgrade your plan for more credits." },
+      { status: 400 },
+    );
+  }
 
   // Where Embedded Checkout returns the buyer once done — always our own site.
   const origin =
@@ -50,10 +59,6 @@ export async function POST(req: Request) {
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return NextResponse.json({ error: "Enter your email to continue" }, { status: 401 });
-    }
-    if (item.kind !== "subscription") {
-      // Top-ups are a subscriber add-on — no guest path for them.
-      return NextResponse.json({ error: "Sign in to buy credits" }, { status: 401 });
     }
     // Cap the unauthenticated path per client IP per hour, BEFORE creating any
     // account / Stripe customer / DB row — otherwise a script iterating emails

@@ -184,8 +184,8 @@ export function classifyGenError(raw?: string): {
     return {
       kind: "credits",
       title: "Not enough credits",
-      detail: "Top up with the Buy button in the top bar, then try again.",
-      tips: ["Buy a top-up pack — credits land instantly after payment."],
+      detail: "Upgrade your plan with the Upgrade button in the top bar, or wait for your next refill.",
+      tips: ["A bigger plan applies right away — credits land as soon as the upgrade clears."],
     };
   }
   const msg = extractMessage(raw);

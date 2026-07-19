@@ -43,8 +43,8 @@ export default function TermsPage() {
           The Service runs on a credit system. Generating content spends credits at the rates shown in
           the app. You obtain credits by subscribing to a plan — billed monthly (credits refresh each
           billing cycle and do not roll over) or annually (the full year of credits is deposited up
-          front on each yearly charge) — or by buying one-time top-up packs (which remain valid for 12
-          months from purchase). Promotional or evaluation credits, where granted, may carry a
+          front on each yearly charge). You can upgrade your plan at any time for a larger credit
+          budget. Promotional or evaluation credits, where granted, may carry a
           watermark. Credits are non-transferable service-usage units: they have no cash value and
           cannot be exchanged, transferred, resold, or redeemed for money.
         </p>

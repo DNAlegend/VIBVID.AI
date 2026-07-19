@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Package, Plus, Coins, UserCircle, UserRound, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Package, Coins, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
-import { TOPUPS, PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
+import { PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 import { trackSubscribeConversion } from "@/lib/conversions";
 import { Button, Modal, Badge, TextInput } from "@/components/ui";
@@ -104,7 +104,7 @@ function CreditWidget({ onBuy }: { onBuy: () => void }) {
         <span className="hidden text-xs text-faint sm:inline">credits</span>
       </div>
       <Button size="sm" variant="soft" onClick={onBuy} className="gap-1.5">
-        <Plus size={15} /> Buy
+        <ArrowUpRight size={15} /> Upgrade
       </Button>
     </div>
   );
@@ -165,7 +165,6 @@ function BuyCreditsModal({
   const [cycle, setCycle] = useState<"month" | "year">("month");
   // Set once a checkout starts: the Embedded Checkout form renders in-page.
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const autostarted = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -210,19 +209,6 @@ function BuyCreditsModal({
     }
   }
 
-  // A plan picked on the landing page (?buy=) starts checkout on open — the
-  // user already chose it there, so don't make them click it a second time.
-  // EXCEPT a subscription for someone already subscribed: that would open a
-  // payment form for a duplicate plan — let them read the options instead
-  // (clicking a plan surfaces the "switch from Account & billing" message).
-  useEffect(() => {
-    if (!open || !autostart || autostarted.current === autostart.id) return;
-    if (autostart.kind === "subscription") return;
-    autostarted.current = autostart.id;
-    void buy(autostart);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, autostart]);
-
   if (clientSecret) {
     return (
       <Modal open={open} onClose={onClose} title="Checkout" size="lg">
@@ -232,40 +218,13 @@ function BuyCreditsModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Get more credits" size="lg">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-faint">Top up — one-time</div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {TOPUPS.map((p) => (
-          <button
-            key={p.id}
-            disabled={!!busy}
-            onClick={() => buy(p)}
-            className={cn(
-              "relative rounded-2xl border bg-surface-2 p-4 text-left transition-colors hover:border-accent/50 disabled:opacity-60",
-              selected === p.id
-                ? "border-accent ring-1 ring-accent/40"
-                : p.popular
-                  ? "border-accent/40"
-                  : "border-line",
-            )}
-          >
-            {p.popular && (
-              <span className="absolute right-3 top-3">
-                <Badge tone="accent">Popular</Badge>
-              </span>
-            )}
-            <div className="text-sm font-medium text-muted">{p.label}</div>
-            <div className="mt-1 text-2xl font-bold tabular-nums">{p.credits.toLocaleString()}</div>
-            <div className="text-xs text-faint">credits · {p.sublabel}</div>
-            <div className="mt-3 flex items-center gap-1.5 text-lg font-semibold text-accent-2">
-              {busy === p.id ? <Loader2 size={16} className="animate-spin" /> : p.priceLabel}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wider text-faint">Or subscribe</div>
+    <Modal open={open} onClose={onClose} title="Your plan" size="lg">
+      <p className="text-[13.5px] text-muted">
+        Credits refresh with every billing cycle. Need more sooner? Move up a tier — the upgrade
+        applies right away.
+      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wider text-faint">Plans</div>
         <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12px] font-medium">
           <button
             onClick={() => setCycle("month")}
@@ -444,15 +403,10 @@ function SignUpGate() {
         {step === "email" ? (
           <>
             <div className="mt-5 text-center">
-              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Log in</h1>
+              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Log in or sign up</h1>
               <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-                Enter your email and we’ll send a one-time code to sign you in.
-              </p>
-              <p className="mt-2 text-[13px] text-muted">
-                New to VIBVID?{" "}
-                <Link href="/subscribe" className="font-medium text-accent-2 hover:underline">
-                  Subscribe &amp; start creating
-                </Link>
+                Enter your email and we’ll send a one-time code. New here? Same door — your account
+                is created when you verify.
               </p>
             </div>
 

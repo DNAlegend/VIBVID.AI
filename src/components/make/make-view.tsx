@@ -812,7 +812,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
       // Same gate as the Generate button — a retry must never spend credits
       // the account doesn't have.
       if (!canAfford) {
-        setDirectorError("Prompt rewritten — but you don’t have enough credits to regenerate. Top up and try again.");
+        setDirectorError("Prompt rewritten — but you don’t have enough credits to regenerate. Upgrade your plan and try again.");
         return;
       }
       startGenerate(data.prompt);
@@ -1517,7 +1517,8 @@ export function MakeView({ mode }: { mode?: Modality }) {
             )}
             {!needsSignIn && !locked && hydrated && !canAfford && (
               <p className="mt-2 text-center text-xs text-danger">
-                Not enough credits — you need {cost - credits} more. Tap “Buy” in the top bar.
+                Not enough credits — you need {cost - credits} more. Upgrade your plan from the top
+                bar, or wait for your next refill.
               </p>
             )}
             {needsSignIn && (

@@ -189,7 +189,7 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
             </div>
           ) : (
             <div className="rounded-2xl border border-line p-4 text-[13px] text-faint">
-              No active subscription. Buy a plan or a top-up from the credits menu.
+              No active subscription. Choose a plan to unlock the studio.
             </div>
           )}
 
