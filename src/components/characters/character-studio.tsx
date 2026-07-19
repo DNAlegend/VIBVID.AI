@@ -117,8 +117,8 @@ export function CharacterStudio() {
   const [sheet, setSheet] = useState<string | null>(null);
   /** Job ids already auto-saved — a render persists exactly once. */
   const savedJobs = useRef<Set<string>>(new Set());
-  /** Full-screen view of the sheet. */
-  const [fullOpen, setFullOpen] = useState(false);
+  /** Full-screen view of the sheet or a look (the image URL being shown). */
+  const [fullSrc, setFullSrc] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const voiceRef = useRef<HTMLInputElement>(null);
   // In-browser voice recording (MediaRecorder) — capped at 60 seconds.
@@ -294,6 +294,11 @@ export function CharacterStudio() {
       url: JSON.stringify({ description, biology, wardrobe, style } satisfies Recipe),
       label: RECIPE_LABEL,
     };
+    // Alternate looks live on the composite too — rebuilding parts from the
+    // form must never drop them.
+    const existingLooks = editingId
+      ? assets.find((a) => a.id === editingId)?.parts?.filter((p) => p.label?.startsWith("Look: ")) ?? []
+      : [];
     const parts: AssetPart[] = [
       ...photos.map((p, i) => ({
         role: "face" as const,
@@ -306,6 +311,7 @@ export function CharacterStudio() {
         ? [{ role: "primary" as const, kind: "image" as const, url: theSheet, posterUrl: theSheet, label: "Character sheet" }]
         : []),
       ...(theVoice ? [{ role: "voice" as const, kind: "audio" as const, url: theVoice.url, label: "Voice" }] : []),
+      ...existingLooks,
       recipePart,
     ];
     const hero = theSheet ?? photos[0]?.url ?? "";
@@ -457,6 +463,116 @@ export function CharacterStudio() {
     setDraftElements(ids.length ? ids : [character.id]);
     router.push("/app/make");
   }
+
+  /* ------------------------------- Looks -------------------------------- */
+  // A look = the SAME character re-sheeted in a Wardrobe outfit. The original
+  // sheet locks identity, the outfit photos lock the garment; the result is
+  // stored as a "Look: <outfit>" part on the composite plus its own asset in
+  // the character's collection.
+
+  const dresses = useMemo(
+    () => assets.filter((a) => a.class === "dress" && (a.parts?.length ?? 0) > 0),
+    [assets],
+  );
+  const [lookOutfitId, setLookOutfitId] = useState<string | null>(null);
+  const [lookJob, setLookJob] = useState<{ jobId: string; outfitName: string } | null>(null);
+  /** Look jobs already saved — each look persists exactly once. */
+  const savedLooks = useRef<Set<string>>(new Set());
+  const lookVideo = lookJob ? videos.find((v) => v.id === lookJob.jobId) ?? null : null;
+  const lookRendering = lookVideo?.status === "rendering";
+  const character = editingId ? assets.find((a) => a.id === editingId) ?? null : null;
+  const looks = (character?.parts ?? []).filter((p) => p.label?.startsWith("Look: "));
+
+  function outfitPhotoUrls(d: Asset): string[] {
+    return (d.parts ?? [])
+      .filter((p) => p.kind === "image" && /^https:\/\//i.test(p.url))
+      .map((p) => p.url)
+      .slice(0, 3);
+  }
+
+  /** Attach a finished look to its character (composite part + its own asset). */
+  function persistLook(characterId: string | null, outfitName: string, url: string) {
+    if (!characterId) return;
+    const c = useStore.getState().assets.find((a) => a.id === characterId);
+    if (!c) return;
+    const label = `Look: ${outfitName}`;
+    const parts: AssetPart[] = [
+      ...(c.parts ?? []).filter((p) => p.label !== label),
+      { role: "reference", kind: "image", url, posterUrl: url, label },
+    ];
+    updateAsset(c.id, { parts });
+    if (c.categoryId) {
+      addAsset({
+        name: `${c.name} — look: ${outfitName}`,
+        kind: "image",
+        url,
+        posterUrl: url,
+        categoryId: c.categoryId,
+        source: "generation",
+        promptFragment: `${c.name} wearing ${outfitName} — the same person, every angle`,
+      });
+    }
+  }
+
+  /** Re-sheet the character in the picked outfit. */
+  function generateLook() {
+    const outfit = lookOutfitId ? assets.find((a) => a.id === lookOutfitId) : null;
+    if (!outfit || !sheet || lookRendering || !editingId) return;
+    if (locked) {
+      useStore.getState().blockIfLocked();
+      return;
+    }
+    if (credits < cost) return;
+    const refs = [sheet, ...outfitPhotoUrls(outfit)];
+    const base = `the exact person shown in image 1 — identical face, hair, height and build — now wearing the exact outfit shown in the remaining reference images: same cut, colour and fabric, changed in nothing`;
+    const id = generate({
+      prompt: sheetPrompt(base, STYLES[style].suffix),
+      tier: "standard",
+      durationSec: 5,
+      aspectRatio: "1:1",
+      audio: false,
+      modelId: model.id,
+      modality: "image",
+      direction: `${name.trim() || "Character"} — look: ${outfit.name}`,
+      refImageUrls: refs,
+    });
+    setLookJob({ jobId: id, outfitName: outfit.name });
+    setPendingSheet("look", { jobId: id, data: { characterId: editingId, outfitName: outfit.name } });
+  }
+
+  // A finished look saves itself onto the character.
+  useEffect(() => {
+    if (!lookJob) return;
+    const j = videos.find((v) => v.id === lookJob.jobId);
+    if (!j || j.status !== "succeeded" || !j.posterUrl) return;
+    if (savedLooks.current.has(lookJob.jobId)) return;
+    savedLooks.current.add(lookJob.jobId);
+    persistLook(editingId, lookJob.outfitName, j.posterUrl);
+    clearPendingSheet("look");
+    setLookJob(null);
+    setLookOutfitId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videos, lookJob]);
+
+  // Safety net: a look that finished while the creator was elsewhere still
+  // lands on its character the next time this page loads.
+  useEffect(() => {
+    if (!hydrated) return;
+    const pending = getPendingSheet<{ characterId: string | null; outfitName: string }>("look");
+    if (!pending?.data?.characterId) return;
+    const j = useStore.getState().videos.find((v) => v.id === pending.jobId);
+    if (!j) return;
+    if (j.status === "failed") {
+      clearPendingSheet("look");
+      return;
+    }
+    if (j.status === "succeeded" && j.posterUrl && !savedLooks.current.has(pending.jobId)) {
+      savedLooks.current.add(pending.jobId);
+      persistLook(pending.data.characterId, pending.data.outfitName, j.posterUrl);
+      clearPendingSheet("look");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, videos]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -783,7 +899,7 @@ export function CharacterStudio() {
                     {job.error ?? "Failed"}
                   </div>
                 ) : sheet ? (
-                  <button onClick={() => setFullOpen(true)} className="block h-full w-full" title="View full size">
+                  <button onClick={() => setFullSrc(sheet)} className="block h-full w-full" title="View full size">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={sheet} alt="Character sheet" className="h-full w-full object-cover" />
                   </button>
@@ -816,16 +932,112 @@ export function CharacterStudio() {
               </Button>
             </Card>
           )}
+
+          {/* ------------------------------ Looks ------------------------------ */}
+          {editingId && !!sheet && !rendering && (
+            <Card className="p-4">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-accent-2">Looks</div>
+              <p className="mb-3 text-[12px] text-faint">
+                The same {name.trim() || "character"}, different outfits — pick one from your
+                Wardrobe and they get a second sheet wearing it.
+              </p>
+
+              {/* The looks they already have. */}
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setFullSrc(sheet)} className="group w-24 text-left" title="The original look">
+                  <span className="block aspect-square overflow-hidden rounded-xl border border-line transition-colors group-hover:border-line-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={sheet} alt="Original look" className="h-full w-full object-cover" />
+                  </span>
+                  <span className="mt-1 block truncate text-[11px] font-medium text-muted">Original</span>
+                </button>
+                {looks.map((l) => (
+                  <button key={l.label} onClick={() => setFullSrc(l.url)} className="group w-24 text-left" title={l.label}>
+                    <span className="block aspect-square overflow-hidden rounded-xl border border-line transition-colors group-hover:border-line-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={l.posterUrl ?? l.url} alt={l.label} className="h-full w-full object-cover" />
+                    </span>
+                    <span className="mt-1 block truncate text-[11px] font-medium text-muted">
+                      {l.label?.replace(/^Look: /, "")}
+                    </span>
+                  </button>
+                ))}
+                {lookRendering && (
+                  <div className="w-24">
+                    <div className="shimmer flex aspect-square flex-col items-center justify-center rounded-xl border border-line bg-surface-2">
+                      <Loader2 size={16} className="animate-spin text-accent-2" />
+                    </div>
+                    <span className="mt-1 block truncate text-[11px] text-faint">{lookJob?.outfitName}…</span>
+                  </div>
+                )}
+              </div>
+              {lookVideo?.status === "failed" && (
+                <p className="mt-2 text-[12px] text-danger">{lookVideo.error ?? "The look failed — try again."}</p>
+              )}
+
+              {/* New look: pick an outfit from the Wardrobe. */}
+              {dresses.length === 0 ? (
+                <button
+                  onClick={() => router.push("/app/wardrobe")}
+                  className="mt-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-line-2 px-3 py-2 text-left text-[12.5px] text-muted transition-colors hover:border-accent/50 hover:text-fg"
+                >
+                  <Plus size={14} className="text-accent-2" /> Save an outfit in the Wardrobe first — then dress them here
+                </button>
+              ) : (
+                <>
+                  <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
+                    {dresses.map((d) => {
+                      const on = lookOutfitId === d.id;
+                      return (
+                        <button
+                          key={d.id}
+                          onClick={() => setLookOutfitId(on ? null : d.id)}
+                          className={cn(
+                            "flex shrink-0 items-center gap-2 rounded-xl border py-1.5 pl-1.5 pr-3 text-[12px] font-medium transition-colors",
+                            on ? "border-accent bg-accent-soft text-fg" : "border-line text-muted hover:border-line-2",
+                          )}
+                        >
+                          <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={d.posterUrl ?? d.url} alt={d.name} className="h-full w-full object-cover" />
+                            {on && (
+                              <span className="absolute inset-0 flex items-center justify-center bg-accent/70 text-white">
+                                <Check size={13} />
+                              </span>
+                            )}
+                          </span>
+                          {d.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    disabled={!lookOutfitId || lookRendering || (!locked && credits < cost)}
+                    onClick={generateLook}
+                  >
+                    {lookRendering ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={14} />
+                    )}{" "}
+                    Give them this look · {cost} cr
+                  </Button>
+                </>
+              )}
+            </Card>
+          )}
         </div>
       </div>
         </>
       )}
 
-      {/* The sheet, full size. */}
-      <Modal open={fullOpen} onClose={() => setFullOpen(false)} size="lg" title={name.trim() || "Character sheet"}>
-        {sheet && (
+      {/* The sheet (or a look), full size. */}
+      <Modal open={!!fullSrc} onClose={() => setFullSrc(null)} size="lg" title={name.trim() || "Character sheet"}>
+        {fullSrc && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={sheet} alt="Character sheet — full size" className="w-full rounded-xl" />
+          <img src={fullSrc} alt="Character sheet — full size" className="w-full rounded-xl" />
         )}
       </Modal>
     </div>
