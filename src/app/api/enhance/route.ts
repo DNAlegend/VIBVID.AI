@@ -68,8 +68,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const brief = typeof body?.brief === "string" ? body.brief.trim().slice(0, 2000) : "";
   if (!brief) return NextResponse.json({ error: "Empty brief" }, { status: 400 });
-  // The clip length sizes the beat timeline (5/10/15s; defaults to 5).
-  const durationSec = [5, 10, 15].includes(Number(body?.durationSec)) ? Number(body.durationSec) : 5;
+  // The clip length sizes the beat timeline — any second in Seedance's 4–15 range.
+  const durationSec = Math.min(15, Math.max(4, Math.round(Number(body?.durationSec) || 5)));
   const modality = body?.modality === "image" ? "still image" : `${durationSec}-second video clip`;
   const purpose = typeof body?.purpose === "string" ? body.purpose.slice(0, 100) : null;
   const assets: string[] = Array.isArray(body?.assets)

@@ -199,9 +199,10 @@ export const TIERS: Record<
   pro: { label: "Pro", resolution: "2K", creditsPerSec: 20, blurb: "Maximum quality" },
 };
 
-/** Clip lengths surfaced in the UI (Seedance 2.0 accepts 4–15s). */
-export const DURATIONS = [5, 10, 15] as const;
-export const ASPECT_RATIOS: AspectRatio[] = ["16:9", "9:16", "1:1"];
+/** Clip lengths surfaced in the UI — the full Seedance 2.0 range, any second from 4 to 15. */
+export const DURATIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
+/** Every aspect ratio the Seedance 2.0 API accepts. */
+export const ASPECT_RATIOS: AspectRatio[] = ["16:9", "9:16", "1:1", "21:9", "4:3", "3:4"];
 
 export function estimateCredits(p: Pick<GenerateParams, "tier" | "durationSec" | "refAssetId">): number {
   const base = Math.ceil(p.durationSec * TIERS[p.tier].creditsPerSec);

@@ -293,7 +293,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
   const [durationSec, setDurationSec] = useState<number>(initialPurpose.durationSec);
   const [tier] = useState<Tier>("standard");
   const [resolution, setResolution] = useState<string>(getModel(initialPurpose.modelId).arkResolution ?? "720p");
-  const [audio] = useState(true);
+  const [audio, setAudio] = useState(true);
   const [pickClass, setPickClass] = useState<AssetClass | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
@@ -969,7 +969,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                   <span className="text-[11px] text-faint">Native 4K only</span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <span className="mr-1 inline-block w-14 text-[11px] font-semibold uppercase tracking-wide text-faint">Aspect</span>
                 {(
                   [
@@ -977,6 +977,9 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     { r: "16:9", label: "Wide", frame: "h-[11px] w-[19px]" },
                     { r: "9:16", label: "Tall", frame: "h-[19px] w-[11px]" },
                     { r: "1:1", label: "Square", frame: "h-[15px] w-[15px]" },
+                    { r: "21:9", label: "Ultrawide", frame: "h-[9px] w-[21px]" },
+                    { r: "4:3", label: "Classic", frame: "h-[14px] w-[18px]" },
+                    { r: "3:4", label: "Portrait", frame: "h-[18px] w-[14px]" },
                   ] as const
                 ).map(({ r, label, frame }) => (
                   <button
@@ -1002,20 +1005,45 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 ))}
               </div>
               {modality === "video" && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="mr-1 inline-block w-14 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
+                  {/* The full Seedance range — any second from 4 to 15. */}
                   {DURATIONS.map((d) => (
                     <button
                       key={d}
                       onClick={() => setDurationSec(d)}
                       className={cn(
-                        "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                        "rounded-lg border px-2.5 py-1 text-[12px] font-medium tabular-nums transition-colors",
                         durationSec === d
                           ? "border-accent bg-accent-soft text-fg"
                           : "border-line text-muted hover:border-line-2",
                       )}
                     >
                       {d}s
+                    </button>
+                  ))}
+                </div>
+              )}
+              {modality === "video" && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 inline-block w-14 text-[11px] font-semibold uppercase tracking-wide text-faint">Audio</span>
+                  {(
+                    [
+                      { v: true, label: "Native audio" },
+                      { v: false, label: "Silent" },
+                    ] as const
+                  ).map(({ v, label }) => (
+                    <button
+                      key={label}
+                      onClick={() => setAudio(v)}
+                      className={cn(
+                        "rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                        audio === v
+                          ? "border-accent bg-accent-soft text-fg"
+                          : "border-line text-muted hover:border-line-2",
+                      )}
+                    >
+                      {label}
                     </button>
                   ))}
                 </div>

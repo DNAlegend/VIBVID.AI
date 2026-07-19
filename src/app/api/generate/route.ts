@@ -29,6 +29,9 @@ const IMAGE_SIZE: Record<string, string> = {
   "16:9": "1280x720",
   "9:16": "720x1280",
   "1:1": "1024x1024",
+  "21:9": "1512x648",
+  "4:3": "1152x864",
+  "3:4": "864x1152",
 };
 
 // Seedream 4.5/5.0 reject canvases under ~3.7MP — they render at 2K.
@@ -36,6 +39,9 @@ const IMAGE_SIZE_2K: Record<string, string> = {
   "16:9": "2560x1440",
   "9:16": "1440x2560",
   "1:1": "1920x1920",
+  "21:9": "3024x1296",
+  "4:3": "2304x1728",
+  "3:4": "1728x2304",
 };
 
 function userClient(req: Request): SupabaseClient | null {
@@ -230,17 +236,20 @@ export async function POST(req: Request) {
     }
   }
 
+  // Audio on/off is a real request field (generate_audio) — the flags string
+  // doesn't carry it.
+  const generateAudio = body.audio !== false;
   let res = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
     method: "POST",
     headers: arkHeaders(),
-    body: JSON.stringify({ model: model.arkModel, content }),
+    body: JSON.stringify({ model: model.arkModel, content, generate_audio: generateAudio }),
   });
   if (!res.ok && content.length > 1) {
     // The reference image may be unreachable/unsupported — retry text-only.
     res = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
       method: "POST",
       headers: arkHeaders(),
-      body: JSON.stringify({ model: model.arkModel, content: content.slice(0, 1) }),
+      body: JSON.stringify({ model: model.arkModel, content: content.slice(0, 1), generate_audio: generateAudio }),
     });
   }
   if (!res.ok) {

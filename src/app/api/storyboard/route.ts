@@ -75,7 +75,8 @@ export async function POST(req: Request) {
   const brief = typeof body?.brief === "string" ? body.brief.trim().slice(0, 2000) : "";
   if (!brief) return NextResponse.json({ error: "Empty brief" }, { status: 400 });
   // The commercial's length — scenes must sum to it (Make offers 5/10/15s).
-  const durationSec = [5, 10, 15].includes(Number(body?.durationSec)) ? Number(body.durationSec) : 10;
+  // Any second in Seedance's 4–15 range (defaults to 10).
+  const durationSec = Math.min(15, Math.max(4, Math.round(Number(body?.durationSec) || 10)));
   // The hero product: a saved Product's name + look, or absent (brief describes it).
   const product =
     body?.product && typeof body.product === "object"

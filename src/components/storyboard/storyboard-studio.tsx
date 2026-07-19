@@ -34,7 +34,7 @@ import { storyboardDurationSec } from "@/lib/storyboard";
 import { clearPendingSheet, getPendingSheet, setPendingSheet } from "@/lib/pending-sheet";
 import type { Asset } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Badge, Button, Card, EmptyState, Progress, Segmented } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Progress } from "@/components/ui";
 import { thumbFor } from "@/lib/catalog";
 
 const DURATIONS = [5, 10, 15] as const;
@@ -447,11 +447,23 @@ export function StoryboardStudio() {
           <label className="mb-1.5 mt-4 block text-xs font-medium uppercase tracking-wide text-faint">
             Video length
           </label>
-          <Segmented<number>
-            value={durationSec}
-            onChange={setDurationSec}
-            options={DURATIONS.map((d) => ({ value: d, label: `${d}s` }))}
-          />
+          {/* Any second in Seedance's 4–15 range. */}
+          <div className="flex flex-wrap gap-1.5">
+            {DURATIONS.map((d) => (
+              <button
+                key={d}
+                onClick={() => setDurationSec(d)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-1 text-[12px] font-medium tabular-nums transition-colors",
+                  durationSec === d
+                    ? "border-accent bg-accent-soft text-fg"
+                    : "border-line text-muted hover:border-line-2",
+                )}
+              >
+                {d}s
+              </button>
+            ))}
+          </div>
 
           {needsSignIn ? (
             <Button size="lg" className="mt-5 w-full" onClick={() => setAuthOpen(true)}>
