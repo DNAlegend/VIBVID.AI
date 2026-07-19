@@ -570,6 +570,37 @@ export function MakeView({ mode }: { mode?: Modality }) {
       .filter(Boolean) as { tag: string; asset: Asset; expand: string }[],
   ];
 
+  /**
+   * One unambiguous line per attachment for the Director. Seedance only sees
+   * the prompt text plus the media in order — it cannot guess what a
+   * reference is, so we say exactly what each one is and what to take from it.
+   */
+  function referenceBrief(t: (typeof taggedMedia)[number]): string {
+    const a = t.asset;
+    const named = a.promptFragment && a.promptFragment !== a.name ? `${a.name} — ${a.promptFragment}` : a.name;
+    if (t.tag === "F1")
+      return `FIRST FRAME (${named}): the exact image the clip OPENS on — frame one is this picture; animate forward from it.`;
+    if (t.tag === "F2")
+      return `LAST FRAME (${named}): the exact image the clip ENDS on — the motion must resolve into this picture.`;
+    if (t.tag.startsWith("I")) {
+      const slot = `image ${t.tag.slice(1)}`;
+      if (a.id === storyboardId)
+        return `${slot} = a nine-panel STORYBOARD SHEET of this whole video, panels numbered 1-9 in reading order: follow it panel by panel as the shot list — composition, staging and story exactly as drawn.`;
+      if (a.class === "character")
+        return `${slot} = a CHARACTER SHEET of "${a.name}"${a.promptFragment ? ` (${a.promptFragment})` : ""} — several views of ONE person's face and body: this exact person appears in the video; copy the face, hair, build and skin exactly from the sheet; never invent a different look.`;
+      if (a.class === "product")
+        return `${slot} = the PRODUCT "${a.name}"${a.promptFragment ? ` (${a.promptFragment})` : ""} — reproduce this exact product, its shape, colors, materials and label, whenever the product is on screen; do not redesign it.`;
+      if (a.class === "dress")
+        return `${slot} = the WARDROBE reference "${named}" — the outfit worn on screen matches this exactly: cut, fabric, color.`;
+      if (a.class === "scene")
+        return `${slot} = the SETTING reference "${named}" — the location, architecture, palette and light of the scene come from this image.`;
+      return `${slot} = a visual reference (${named}) — match its subject and look exactly where it is used.`;
+    }
+    if (t.tag.startsWith("V"))
+      return `video ${t.tag.slice(1)} = a MOTION/STYLE reference (${named}) — borrow its movement, pacing and energy; do not copy its subject unless the brief says so.`;
+    return `audio direction: ${a.promptFragment ?? a.name} — fold this into the Audio line.`;
+  }
+
   /** Replace #TAG mentions with model-readable references. */
   function expandTags(text: string): string {
     if (!text.includes("#")) return text;
@@ -724,10 +755,11 @@ export function MakeView({ mode }: { mode?: Modality }) {
           modality,
           durationSec, // the locked clip length — the cleaned prompt must fit it exactly
           purpose: purpose.id === "custom" ? null : `${purpose.label} — ${purpose.tagline}`,
-          // Named exactly as Seedance will see them ("image 1", "video 1"…) so
-          // the cleaned prompt can reference each attached thing explicitly.
+          // A precise manifest — what each attachment IS and what to take from
+          // it, named exactly as Seedance receives them ("image 1", "video 1"…),
+          // so the cleaned prompt can bind every reference with zero guessing.
           assets: taggedMedia.length
-            ? taggedMedia.map((t) => `${t.expand} — ${t.asset.promptFragment ?? t.asset.name}`)
+            ? taggedMedia.map(referenceBrief)
             : pickedAssets.map((a) => a.promptFragment ?? a.name),
         }),
       });
