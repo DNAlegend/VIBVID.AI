@@ -997,24 +997,26 @@ export function MakeView({ mode }: { mode?: Modality }) {
                 </div>
               </div>
               {modality === "video" && (
-                <div className="flex items-start gap-2">
-                  <span className="w-14 shrink-0 pt-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
-                  {/* The full Seedance range, 4–15s — one row, scroll for more. */}
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-1.5">
-                    {DURATIONS.map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => setDurationSec(d)}
-                        className={cn(
-                          "shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-medium tabular-nums transition-all",
-                          durationSec === d
-                            ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
-                            : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
-                        )}
-                      >
-                        {d}s
-                      </button>
-                    ))}
+                <div className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-faint">Length</span>
+                  {/* The full Seedance range, 4–15s — drag the bar. */}
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <input
+                      type="range"
+                      min={DURATIONS[0]}
+                      max={DURATIONS[DURATIONS.length - 1]}
+                      step={1}
+                      value={durationSec}
+                      onChange={(e) => setDurationSec(Number(e.target.value))}
+                      aria-label="Clip length in seconds"
+                      className="slider w-full"
+                      style={{
+                        "--fill": `${((durationSec - DURATIONS[0]) / (DURATIONS[DURATIONS.length - 1] - DURATIONS[0])) * 100}%`,
+                      } as React.CSSProperties}
+                    />
+                    <span className="shrink-0 rounded-full bg-accent px-3 py-1 text-[12.5px] font-semibold tabular-nums text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]">
+                      {durationSec}s
+                    </span>
                   </div>
                 </div>
               )}
