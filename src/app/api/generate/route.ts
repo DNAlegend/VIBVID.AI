@@ -234,10 +234,11 @@ export async function POST(req: Request) {
     if (lastFrameUrl) {
       content.push({ type: "image_url", image_url: { url: lastFrameUrl }, role: "last_frame" });
     }
-  } else if (refImageUrls.length + refVideoUrls.length === 1 && refVideoUrls.length === 0) {
-    // Single lone image keeps the classic i2v behavior (becomes the first frame).
-    content.push({ type: "image_url", image_url: { url: refImageUrls[0] } });
   } else {
+    // Reference media NEVER becomes the opening frame. Only an explicit
+    // first-frame asset (the F1 slot) opens the clip — a lone reference image
+    // used to fall through to classic i2v, which made storyboards and
+    // character sheets show up as frame one of the video.
     for (const u of refImageUrls) {
       content.push({ type: "image_url", image_url: { url: u }, role: "reference_image" });
     }
