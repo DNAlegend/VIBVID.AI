@@ -22,7 +22,9 @@ import { allowRequest, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 // The finalize step downloads the rendered MP4 from Ark and re-uploads it to
 // Storage — give the function headroom beyond the serverless default.
-export const maxDuration = 60;
+// Image renders run synchronously in this route — GPT Image 2 at high quality
+// (especially edits with reference photos) can take a couple of minutes.
+export const maxDuration = 300;
 
 const ARK_BASE = process.env.ARK_BASE_URL ?? "https://ark.ap-southeast.bytepluses.com/api/v3";
 

@@ -13,7 +13,9 @@ import { chatText, llmConfigured, llmEngine } from "@/lib/llm";
 import { allowRequest, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { hasStudioAccess, ACTIVATE_MESSAGE } from "@/lib/access";
 
-export const maxDuration = 120;
+// Story mode writes up to 4 full storyboards in one Claude call (with
+// adaptive thinking) — give it room.
+export const maxDuration = 300;
 
 const SYSTEM = `You are a world-class product-commercial director and storyboard artist working inside an AI video studio.
 The creator gives you a PRODUCT, a commercial idea (in ANY language), and a video length in seconds. Direct it into ONE premium product commercial — the kind a high-end beverage, candy or electronics brand would run — then board it as nine key frames.
