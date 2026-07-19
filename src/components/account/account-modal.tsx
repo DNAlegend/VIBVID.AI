@@ -43,6 +43,8 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
+  /** Billing cycle shown in the switch-plan picker — 3 plans per cycle. */
+  const [cycle, setCycle] = useState<"month" | "year">("month");
   const [cardSecret, setCardSecret] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -159,7 +161,17 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => setSwitching((s) => !s)} disabled={!!acting}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Open on the cycle they're already paying — annual buyers
+                    // see annual prices first, monthly buyers monthly.
+                    setCycle(plan.interval);
+                    setSwitching((s) => !s);
+                  }}
+                  disabled={!!acting}
+                >
                   Switch plan
                 </Button>
                 {canceling ? (
@@ -176,8 +188,30 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
               {/* Switch-plan picker */}
               {switching && (
                 <div className="mt-4 space-y-2 border-t border-line pt-4">
-                  <div className="text-[12px] font-semibold uppercase tracking-wider text-faint">Choose a plan</div>
-                  {PLAN_ITEMS.flatMap((base) => [base, planVariant(base.id, "year")!]).map((p) => {
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[12px] font-semibold uppercase tracking-wider text-faint">Choose a plan</div>
+                    <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12px] font-medium">
+                      <button
+                        onClick={() => setCycle("month")}
+                        className={cn(
+                          "rounded-full px-3 py-1 transition-colors",
+                          cycle === "month" ? "bg-accent text-white" : "text-muted hover:text-fg",
+                        )}
+                      >
+                        Monthly
+                      </button>
+                      <button
+                        onClick={() => setCycle("year")}
+                        className={cn(
+                          "rounded-full px-3 py-1 transition-colors",
+                          cycle === "year" ? "bg-accent text-white" : "text-muted hover:text-fg",
+                        )}
+                      >
+                        Annual · 4 months on us
+                      </button>
+                    </div>
+                  </div>
+                  {PLAN_ITEMS.map((base) => (cycle === "year" ? planVariant(base.id, "year")! : base)).map((p) => {
                     const current = p.id === plan.itemId;
                     return (
                       <button
