@@ -66,24 +66,6 @@ async function refund(sb: SupabaseClient, userId: string, cost: number) {
   await sb.rpc("adjust_credits", { delta: cost });
 }
 
-/**
- * Accounts with no settled paid purchase (legacy free signups, admin credit
- * grants) render with the provider watermark; any paid purchase removes it.
- * RLS lets the caller read only their own purchase rows. Fail toward paid
- * (no watermark) on lookup errors — never punish a paying customer for a
- * transient failure.
- */
-async function isFreeTier(sb: SupabaseClient, userId: string): Promise<boolean> {
-  const { data, error } = await sb
-    .from("credit_purchases")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("status", "paid")
-    .limit(1);
-  if (error) return false;
-  return (data?.length ?? 0) === 0;
-}
-
 async function storeFile(
   sb: SupabaseClient,
   userId: string,
@@ -119,8 +101,9 @@ export async function POST(req: Request) {
   const id = typeof body?.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(body.id) ? body.id : null;
   if (!prompt || !id) return NextResponse.json({ error: "Bad request" }, { status: 400 });
 
-  // Free tier renders with the provider watermark, per the pricing promise.
-  const watermark = await isFreeTier(sb, user.id);
+  // Never watermark: the studio is paid-only (subscription or a comped
+  // membership), so every render that reaches this route is a member's.
+  const watermark = false;
 
   const model = getModel(body.modelId);
   if (!model.arkModel) {
