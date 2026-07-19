@@ -70,8 +70,8 @@ const MODEL_CHOICES = [
   {
     key: "mini",
     label: "Seedance 2.0 Mini",
-    emoji: "🐇",
-    tagline: "Zippy little drafts — try ideas fast",
+    tier: "Mini",
+    tagline: "Fast drafts. Light on credits.",
     modelId: "seedance-2-mini",
     resolution: "720p",
     qualities: ["480p", "720p"],
@@ -79,8 +79,8 @@ const MODEL_CHOICES = [
   {
     key: "pro",
     label: "Seedance 2.0 Pro",
-    emoji: "🎬",
-    tagline: "The cinematic one — crisp 1080p",
+    tier: "Pro",
+    tagline: "Cinematic. Crisp 1080p.",
     modelId: "seedance-2-pro",
     resolution: "1080p",
     qualities: ["720p", "1080p"],
@@ -88,8 +88,8 @@ const MODEL_CHOICES = [
   {
     key: "4k",
     label: "Seedance 2.0 4K",
-    emoji: "💎",
-    tagline: "Every pore, every pixel — max detail",
+    tier: "4K",
+    tagline: "Maximum detail. Native 4K.",
     modelId: "seedance-2-pro",
     resolution: "4K",
     qualities: ["4K"],
@@ -862,28 +862,34 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     }}
                     title={m.blurb}
                     className={cn(
-                      "rounded-xl border p-3 text-left transition-all",
+                      "rounded-xl border p-3.5 text-left transition-colors sm:p-4",
                       on
                         ? "border-accent bg-accent-soft shadow-sm"
-                        : "border-line hover:-translate-y-0.5 hover:border-line-2",
+                        : "border-line hover:border-line-2 hover:bg-surface-2/60",
                     )}
                   >
-                    <span className="flex items-start justify-between">
-                      <span className="text-xl">{c.emoji}</span>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
+                        Seedance
+                      </span>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/logos/bytedance.svg"
                         alt="Seedance by ByteDance"
                         title="Seedance by ByteDance"
-                        className="h-4 w-4 opacity-80"
+                        className={cn("h-3.5 w-3.5 transition-opacity", on ? "opacity-90" : "opacity-50")}
                       />
                     </span>
-                    <span className="mt-0.5 block text-[13px] font-bold leading-tight text-fg">{c.label}</span>
-                    <span className="block min-h-[2.6em] text-[11px] leading-snug text-muted">{c.tagline}</span>
+                    <span className="mt-1.5 block text-[19px] font-bold leading-none tracking-tight text-fg">
+                      {c.tier}
+                    </span>
+                    <span className="mt-1.5 block min-h-[2.4em] text-[11.5px] leading-snug text-muted">
+                      {c.tagline}
+                    </span>
                     <span
                       className={cn(
-                        "mt-1.5 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                        on ? "bg-accent text-white" : "bg-surface-2 text-faint",
+                        "mt-1 block text-[11px] font-medium tabular-nums",
+                        on ? "text-accent-2" : "text-faint",
                       )}
                     >
                       {on ? resolution : c.resolution} · {videoRate(m, on ? resolution : c.resolution)} cr/s
@@ -904,7 +910,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                     disabled={activeChoice.key === "4k"}
                     title={
                       activeChoice.key === "4k"
-                        ? "4K is the whole point of this one"
+                        ? "Native 4K only"
                         : `${videoRate(model, r)} credits / second`
                     }
                     className={cn(
@@ -922,7 +928,7 @@ export function MakeView({ mode }: { mode?: Modality }) {
                   </button>
                 ))}
                 {activeChoice.key === "4k" && (
-                  <span className="text-[11px] text-faint">— locked in, as it should be</span>
+                  <span className="text-[11px] text-faint">Native 4K only</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
