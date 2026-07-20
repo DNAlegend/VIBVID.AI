@@ -665,7 +665,12 @@ export const useStore = create<StoreState>()(
       },
 
       addCategory: (name) => {
-        const cat: Category = { id: uid("cat"), name: name.trim(), createdAt: Date.now() };
+        const trimmed = name.trim();
+        // One folder per name — repeat saves (story redraws, board refreshes)
+        // land in the existing category instead of minting a duplicate.
+        const existing = get().categories.find((c) => c.name === trimmed);
+        if (existing) return existing;
+        const cat: Category = { id: uid("cat"), name: trimmed, createdAt: Date.now() };
         set((s) => ({ categories: [...s.categories, cat] }));
         pushCategory(cat);
         return cat;

@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
-import { getModel, priceFor, videoRate } from "@/lib/models";
+import { getModel, priceFor } from "@/lib/models";
 import { storyboardDurationSec } from "@/lib/storyboard";
 import { clearPendingSheet, getPendingSheet, setPendingSheet } from "@/lib/pending-sheet";
 import { DURATIONS, type Asset } from "@/lib/types";
@@ -201,7 +201,12 @@ export function StoryboardStudio() {
   const sheetCost = priceFor(imageModel, { count: 1 });
   const storyVideoModel = getModel(STORY_TIERS[story?.tier ?? storyTier].modelId);
   const storyVideoRes = STORY_TIERS[story?.tier ?? storyTier].resolution;
-  const clipCost = videoRate(storyVideoModel, storyVideoRes) * (story?.durationSec ?? storyDur);
+  // Priced exactly as the store will charge it: refs always ride along (+4).
+  const clipCost = priceFor(storyVideoModel, {
+    durationSec: story?.durationSec ?? storyDur,
+    resolution: storyVideoRes,
+    hasRefs: true,
+  });
 
   /** Identity reference photos for the cast (character sheets, product photos). */
   const castRefUrls = useCallback(
@@ -221,8 +226,12 @@ export function StoryboardStudio() {
   /** Persist the story as a 'story' asset once at least one sheet exists. */
   const persistStory = useCallback(
     (d: StoryDraft): StoryDraft => {
+      // Read assets FRESH from the store — the board this cover comes from may
+      // have been added a moment ago in the same effect run, before the `byId`
+      // memo has rebuilt. A stale lookup here silently drops the whole story.
+      const liveById = new Map(useStore.getState().assets.map((a) => [a.id, a]));
       const cover =
-        d.parts.map((p) => (p.boardId ? byId[p.boardId]?.url : null)).find(Boolean) ?? null;
+        d.parts.map((p) => (p.boardId ? liveById.get(p.boardId)?.url : null)).find(Boolean) ?? null;
       if (!cover) return d;
       const recipe = JSON.stringify({ ...d, storyAssetId: undefined });
       const parts = [
@@ -230,7 +239,7 @@ export function StoryboardStudio() {
         { role: "reference", kind: "prompt", url: recipe, label: STORY_RECIPE_LABEL },
       ] as Asset["parts"];
       const name = d.title.trim() || "New story";
-      if (d.storyAssetId && byId[d.storyAssetId]) {
+      if (d.storyAssetId && liveById.get(d.storyAssetId)) {
         updateAsset(d.storyAssetId, { name, url: cover, posterUrl: cover, promptFragment: d.logline, parts });
         return d;
       }
@@ -248,7 +257,7 @@ export function StoryboardStudio() {
       } as Omit<Asset, "id" | "createdAt">);
       return { ...d, storyAssetId: a.id };
     },
-    [byId, updateAsset, addCategory, addAsset],
+    [updateAsset, addCategory, addAsset],
   );
   const product = productId ? products.find((p) => p.id === productId) ?? null : null;
   const needsSignIn = cloudConfigured && !cloudUser;
@@ -257,7 +266,7 @@ export function StoryboardStudio() {
 
   // The sheet renders on the 2K image model — nine legible panels need the detail.
   const model = getModel("gpt-image-2");
-  const cost = priceFor(model, { count: 1, hasRefs: !!product });
+  const cost = priceFor(model, { count: 1 });
   const canAfford = credits >= cost;
 
   const job = jobId ? videos.find((v) => v.id === jobId) ?? null : null;
@@ -320,7 +329,6 @@ export function StoryboardStudio() {
       return;
     }
     if (!flow.trim() || !canAfford) return;
-    setSavedAssetId(null);
     const refs = product ? productPhotoUrls(product) : [];
     const id = generate({
       prompt: composedImagePrompt,
@@ -344,29 +352,44 @@ export function StoryboardStudio() {
 
   // A finished board saves itself: one storyboard asset carrying the sheet,
   // the Seedance prompt and the video length — nothing for the creator to do.
+  // A redraw of the same board REFRESHES that asset; it never mints a second.
   useEffect(() => {
     if (!job || job.status !== "succeeded" || !job.posterUrl) return;
     if (savedJobs.current.has(job.id)) return;
     savedJobs.current.add(job.id);
     const name = title.trim() || product?.name || brief.trim().slice(0, 40) || "New storyboard";
-    const col = addCategory(`${name} — storyboard`);
-    const asset = addAsset({
-      name,
-      kind: "image",
-      url: job.posterUrl,
-      posterUrl: job.posterUrl,
-      categoryId: col.id,
-      source: "generation",
-      class: "storyboard",
-      // The Seedance prompt rides along as the asset's prompt.
-      promptFragment: flow.trim(),
-      parts: [
-        { role: "primary", kind: "image", url: job.posterUrl, posterUrl: job.posterUrl, label: "Storyboard sheet" },
-        // The video length, machine-readable for Make.
-        { role: "reference", kind: "prompt", url: String(durationSec), label: `Video length: ${durationSec}s` },
-      ],
-    } as Omit<Asset, "id" | "createdAt">);
-    setSavedAssetId(asset.id);
+    const sheetParts = [
+      { role: "primary", kind: "image", url: job.posterUrl, posterUrl: job.posterUrl, label: "Storyboard sheet" },
+      // The video length, machine-readable for Make.
+      { role: "reference", kind: "prompt", url: String(durationSec), label: `Video length: ${durationSec}s` },
+    ] as Asset["parts"];
+    const existing = savedAssetId
+      ? useStore.getState().assets.find((a) => a.id === savedAssetId)
+      : null;
+    if (existing) {
+      updateAsset(existing.id, {
+        name,
+        url: job.posterUrl,
+        posterUrl: job.posterUrl,
+        promptFragment: flow.trim(),
+        parts: sheetParts,
+      });
+    } else {
+      const col = addCategory(`${name} — storyboard`);
+      const asset = addAsset({
+        name,
+        kind: "image",
+        url: job.posterUrl,
+        posterUrl: job.posterUrl,
+        categoryId: col.id,
+        source: "generation",
+        class: "storyboard",
+        // The Seedance prompt rides along as the asset's prompt.
+        promptFragment: flow.trim(),
+        parts: sheetParts,
+      } as Omit<Asset, "id" | "createdAt">);
+      setSavedAssetId(asset.id);
+    }
     clearPendingSheet("storyboard");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.status, job?.posterUrl]);
@@ -484,7 +507,8 @@ export function StoryboardStudio() {
       useStore.getState().blockIfLocked();
       return;
     }
-    if (credits < sheetCost) return;
+    // Fresh read — "draw" clicks in the same tick each deduct before re-render.
+    if (useStore.getState().credits < sheetCost) return;
     const refs = castRefUrls(story.castIds, 6);
     const id = generate({
       prompt: part.imagePrompt,
@@ -527,19 +551,31 @@ export function StoryboardStudio() {
       return;
     }
     if (credits < clipCost) return;
-    const cast = story.castIds.map((id) => byId[id]).filter(Boolean);
-    const castUrls = castRefUrls(story.castIds, 8);
+    // One legend line PER ATTACHED IMAGE, built from the same list that ships —
+    // a product can contribute two photos, so deriving lines from the cast
+    // list would bind names to the wrong slots.
+    const castEntries = story.castIds
+      .map((cid) => byId[cid])
+      .filter(Boolean)
+      .flatMap((a) =>
+        a.class === "product"
+          ? productPhotoUrls(a)
+              .slice(0, 2)
+              .map((u) => ({ asset: a, url: u }))
+          : /^https:\/\//i.test(a.url)
+            ? [{ asset: a, url: a.url }]
+            : [],
+      )
+      .slice(0, 8);
+    const castUrls = castEntries.map((e) => e.url);
     // The reference legend — Seedance sees media in this exact order.
     const legend = [
       `Image 1 is the nine-panel storyboard sheet for this clip — follow it panel by panel: composition, staging and story exactly as drawn.`,
-      ...cast
-        .filter((a) => /^https:\/\//i.test(a.url) || a.class === "product")
-        .slice(0, castUrls.length)
-        .map((a, i) =>
-          a.class === "product"
-            ? `Image ${i + 2} is the product "${a.name}" — reproduce this exact product, its shape, colors and label; do not redesign it.`
-            : `Image ${i + 2} is the character sheet of "${a.name}" — this exact person appears in the clip; copy the face, hair and build exactly.`,
-        ),
+      ...castEntries.map(({ asset: a }, i) =>
+        a.class === "product"
+          ? `Image ${i + 2} is a photo of the product "${a.name}" — reproduce this exact product, its shape, colors and label; do not redesign it.`
+          : `Image ${i + 2} is the character sheet of "${a.name}" — this exact person appears in the clip; copy the face, hair and build exactly.`,
+      ),
     ].join(" ");
     const t = STORY_TIERS[story.tier];
     const id = generate({
@@ -714,11 +750,14 @@ export function StoryboardStudio() {
                         <BookOpen size={26} />
                       </div>
                     )}
-                    <span className="absolute left-2 top-2">
-                      <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
-                        <Clapperboard size={10} /> {done}/{d?.partsCount ?? "?"} boards
-                      </Badge>
-                    </span>
+                    {/* Board counts only mean something on legacy multi-part stories. */}
+                    {(d?.partsCount ?? 1) > 1 && (
+                      <span className="absolute left-2 top-2">
+                        <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
+                          <Clapperboard size={10} /> {done}/{d?.partsCount} boards
+                        </Badge>
+                      </span>
+                    )}
                     <button
                       onClick={() => {
                         if (confirm(`Delete the "${s.name}" story? Its boards stay in your storyboards.`))
@@ -841,7 +880,15 @@ export function StoryboardStudio() {
       {storyView && (
         <>
           <button
-            onClick={() => setStoryView(false)}
+            onClick={() => {
+              // A draft that never drew a sheet has nothing paid to protect —
+              // walking away discards it instead of force-reopening forever.
+              if (story && !story.storyAssetId && story.parts.every((p) => !p.sheetJobId)) {
+                clearPendingSheet("story");
+                setStory(null);
+              }
+              setStoryView(false);
+            }}
             className="mb-4 text-[13px] font-medium text-muted transition-colors hover:text-fg"
           >
             ← All stories
@@ -985,7 +1032,11 @@ export function StoryboardStudio() {
                 The writer plans the whole story into ONE nine-panel board with its own Seedance
                 prompt. The sheet costs {sheetCost} credits; the {storyDur}s clip on Seedance 2.0{" "}
                 {STORY_TIERS[storyTier].label} costs{" "}
-                {videoRate(getModel(STORY_TIERS[storyTier].modelId), STORY_TIERS[storyTier].resolution) * storyDur}{" "}
+                {priceFor(getModel(STORY_TIERS[storyTier].modelId), {
+                  durationSec: storyDur,
+                  resolution: STORY_TIERS[storyTier].resolution,
+                  hasRefs: true,
+                })}{" "}
                 credits.
               </p>
             </Card>
@@ -1001,9 +1052,12 @@ export function StoryboardStudio() {
                     <h2 className="mt-1 text-xl font-bold tracking-tight">{story.title || "New story"}</h2>
                     {story.logline && <p className="mt-1 text-[13.5px] text-muted">{story.logline}</p>}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <Badge tone="neutral">{story.parts.length} parts</Badge>
+                      {/* A story is ONE board now — the count only matters on legacy multi-part saves. */}
+                      {story.parts.length > 1 && (
+                        <Badge tone="neutral">{story.parts.length} parts</Badge>
+                      )}
                       <Badge tone="neutral">
-                        <Clock size={10} /> {story.durationSec}s / clip
+                        <Clock size={10} /> {story.durationSec}s{story.parts.length > 1 ? " / clip" : " clip"}
                       </Badge>
                       <Badge tone="neutral">Seedance 2.0 {STORY_TIERS[story.tier].label}</Badge>
                       {story.castIds.map((id) =>
