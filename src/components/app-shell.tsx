@@ -70,13 +70,13 @@ function Brand() {
   );
 }
 
-/** The app's ambient backdrop — faint color fields + a fading dot grid. */
+/** The app's ambient color fields (the dot grid itself is site-wide,
+ *  painted once by the root layout). */
 function AmbientStage() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
       <div className="absolute -top-32 right-[-8%] h-[440px] w-[620px] rounded-full bg-accent/[0.07] blur-[100px]" />
       <div className="absolute left-[-12%] top-[38%] h-[380px] w-[520px] rounded-full bg-indigo-500/[0.05] blur-[110px]" />
-      <div className="dot-grid absolute inset-0" />
     </div>
   );
 }

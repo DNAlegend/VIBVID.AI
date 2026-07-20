@@ -44,6 +44,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${grotesk.variable}`}>
       <body className="antialiased">
+        {/* The site-wide stage: a faint engineering dot grid behind every
+            page, fading out down the viewport. Sections with their own
+            background paint over it; everything else sits on the grid. */}
+        <div aria-hidden className="dot-grid pointer-events-none fixed inset-0 -z-10" />
         {children}
         <Analytics />
         <AnalyticsTags />
