@@ -872,7 +872,14 @@ export function MakeView({ mode }: { mode?: Modality }) {
   return (
     <div className="mx-auto max-w-2xl">
       {/* The header is the page title; the model is picked in the format bar below. */}
-      <h1 className="mb-4 text-center text-xl font-bold tracking-tight">Studio</h1>
+      <h1 className="text-center text-xl font-bold tracking-tight">Studio</h1>
+      <p className="mb-4 mt-1 text-center text-[12.5px] text-muted">
+        Full control over any shot — frames, references, aspect, length. UGC styles start faster in{" "}
+        <Link href="/app" className="font-medium text-accent-2 hover:underline">
+          UGC Ads
+        </Link>
+        .
+      </p>
 
       <Card className="overflow-hidden">
         <div className="p-5">

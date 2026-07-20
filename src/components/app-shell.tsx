@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
@@ -16,14 +16,20 @@ import { CheckoutPanel } from "@/components/checkout/checkout-panel";
 import { AccountModal } from "@/components/account/account-modal";
 import { LogoWordmark } from "@/components/logo";
 
-// The nav reads top to bottom as the workflow: make UGC ads, the Library
-// (your products, presenters, wardrobe and uploads — what the ads are made
-// from), and the finished ads at the bottom.
-// `short` is the label used on the compact mobile bar (6 items must fit).
+// The nav reads top to bottom as the UGC workflow: Create (UGC Ads is the
+// fast path; the Studio is the full-control shot builder it escalates to;
+// Storyboard plans multi-scene ads that feed the Studio), the Library (your
+// products, presenters, wardrobe and uploads — what the ads are made from),
+// and the finished ads at the bottom.
+// `short` is the label used on the compact mobile bar (7 items must fit).
 const NAV_GROUPS: { label: string; items: { href: string; label: string; short?: string; icon: typeof Clapperboard }[] }[] = [
   {
     label: "Create",
-    items: [{ href: "/app", label: "UGC Ads", short: "UGC", icon: Megaphone }],
+    items: [
+      { href: "/app", label: "UGC Ads", short: "UGC", icon: Megaphone },
+      { href: "/app/make", label: "Studio", icon: Clapperboard },
+      { href: "/app/storyboard", label: "Storyboard", short: "Board", icon: LayoutGrid },
+    ],
   },
   {
     label: "Library",
@@ -31,7 +37,7 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; short?:
       { href: "/app/products", label: "Products", short: "Product", icon: Package },
       { href: "/app/characters", label: "Presenters", short: "Cast", icon: UserRound },
       { href: "/app/wardrobe", label: "Wardrobe", short: "Dress", icon: Shirt },
-      { href: "/app/assets", label: "Assets", icon: FolderOpen },
+      { href: "/app/assets", label: "Assets", short: "Files", icon: FolderOpen },
     ],
   },
   {
@@ -42,11 +48,11 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; short?:
 // Flat list for the mobile bar (can't show group headers) — one source of truth.
 const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
-/** UGC Ads is the index route — it also owns /app/ugc deep links (and the
- *  power-user studio at /app/make); the rest match by prefix. */
+/** UGC Ads is the index route — it also owns /app/ugc deep links; the rest
+ *  (including the Studio at /app/make) match by prefix. */
 const isActive = (href: string, pathname: string) =>
   href === "/app"
-    ? pathname === "/app" || pathname.startsWith("/app/ugc") || pathname.startsWith("/app/make")
+    ? pathname === "/app" || pathname.startsWith("/app/ugc")
     : pathname.startsWith(href);
 
 function Brand() {
@@ -1034,11 +1040,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function MobileNav() {
   const pathname = usePathname();
-  // Studio sits in the middle as the big red button; the rest split around it.
+  // UGC Ads sits in the middle as the big red button; the rest split around it.
+  // Floor split: the longer labels (Studio/Board/Product) sit left with more
+  // room each; the four short ones (Cast/Dress/Assets/Ads) share the right.
   const items = NAV_ITEMS.filter((i) => i.href !== "/app");
-  const left = items.slice(0, Math.ceil(items.length / 2));
-  const right = items.slice(Math.ceil(items.length / 2));
-  const studioActive = isActive("/app", pathname);
+  const left = items.slice(0, Math.floor(items.length / 2));
+  const right = items.slice(Math.floor(items.length / 2));
+  const ugcActive = isActive("/app", pathname);
 
   const renderItem = ({ href, label, short, icon: Icon }: (typeof items)[number]) => {
     const active = isActive(href, pathname);
@@ -1062,15 +1070,15 @@ function MobileNav() {
       <div className="flex min-w-0 flex-1">{left.map(renderItem)}</div>
       <Link
         href="/app"
-        aria-label="Studio"
-        aria-current={studioActive ? "page" : undefined}
+        aria-label="UGC Ads"
+        aria-current={ugcActive ? "page" : undefined}
         className={cn(
           "mx-1 flex h-13 w-13 shrink-0 -translate-y-4 items-center justify-center self-center rounded-full bg-accent text-white transition-shadow",
           "shadow-[0_10px_24px_-8px_rgba(236,19,32,0.75)]",
-          studioActive && "ring-4 ring-accent/25",
+          ugcActive && "ring-4 ring-accent/25",
         )}
       >
-        <Clapperboard size={23} />
+        <Megaphone size={23} />
       </Link>
       <div className="flex min-w-0 flex-1">{right.map(renderItem)}</div>
     </>

@@ -9,10 +9,13 @@
 // pick. Product ads only for now — app and screen formats come later.
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   Check,
+  Clapperboard,
   Coins,
   Loader2,
   MapPin,
@@ -206,12 +209,21 @@ export function UgcStudio() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">UGC Ads</h1>
-        <p className="mt-1 text-sm text-muted">
-          Ten real ads, ten real places — a car, the bus, a kitchen counter. Copy a style, swap in
-          your product, your presenter and your lines, and shoot it.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">UGC Ads</h1>
+          <p className="mt-1 text-sm text-muted">
+            Ten real ads, ten real places — a car, the bus, a kitchen counter. Copy a style, swap in
+            your product, your presenter and your lines, and shoot it.
+          </p>
+        </div>
+        <Link
+          href="/app/make"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-[12.5px] font-medium text-muted transition-colors hover:border-accent/50 hover:text-fg"
+        >
+          <Clapperboard size={14} className="text-accent-2" /> Full control? Open the Studio
+          <ArrowRight size={13} />
+        </Link>
       </header>
 
       {/* ============================ PRODUCT WORLD ============================ */}
