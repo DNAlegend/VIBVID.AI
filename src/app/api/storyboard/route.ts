@@ -55,7 +55,7 @@ const STORYBOARD_SCHEMA = {
  * prompt) and the cast stays word-for-word identical across every part.
  */
 const STORY_SYSTEM = `You are a world-class commercial director and story architect working inside an AI video studio.
-The creator gives you a story idea (in ANY language), a CAST (characters and products with their looks), a number of PARTS, and a per-part clip length in seconds. Plan ONE continuous story told across exactly that many parts — each part is a self-contained clip that advances the story, with a clear opening tease in part 1 and a payoff/hero ending in the final part.
+The creator gives you a story idea (in ANY language), a CAST (characters and products with their looks), a number of PARTS, and a per-part clip length in seconds. Plan ONE continuous story told across exactly that many parts — each part is a self-contained clip that advances the story, with a clear opening tease in part 1 and a payoff/hero ending in the final part. When PARTS is 1, the whole story is that single clip — tease, build and payoff inside it — and its part "title" is simply the story's title, never "Part 1".
 
 CONSISTENCY IS EVERYTHING. Decide each cast member's exact look ONCE (from the provided looks) and repeat that identical one-line description word-for-word in EVERY part where they appear — characters keep the same face, hair, build and outfit; products keep the same shape, colors, label and finish. Reference sheets of the cast will be attached to every render, so write as if the model can see them.
 
@@ -133,9 +133,10 @@ export async function POST(req: Request) {
         }
       : null;
 
-  // ---- Story mode: 2-4 parts, each its own storyboard, one continuous arc.
+  // ---- Story mode: one continuous arc as a single storyboard (the UI always
+  // sends parts: 1 now; 2-4 still parse for older clients).
   const partsCount = Math.min(4, Math.max(0, Math.round(Number(body?.parts) || 0)));
-  if (partsCount >= 2) {
+  if (partsCount >= 1) {
     const cast: { type: string; name: string; look: string }[] = Array.isArray(body?.cast)
       ? body.cast
           .filter((c: unknown) => c && typeof c === "object")
@@ -182,7 +183,7 @@ export async function POST(req: Request) {
           imagePrompt: String(p?.imagePrompt ?? "").slice(0, 3000),
         }))
         .filter((p: { flow: string; imagePrompt: string }) => p.flow && p.imagePrompt);
-      if (parts.length < 2) throw new Error("too few parts");
+      if (parts.length < 1) throw new Error("no parts");
       return NextResponse.json({
         title: String(parsed?.title ?? "").slice(0, 120),
         logline: String(parsed?.logline ?? "").slice(0, 300),

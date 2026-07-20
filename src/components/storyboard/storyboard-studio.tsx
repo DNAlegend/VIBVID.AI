@@ -3,13 +3,13 @@
 // Storyboard — the story room, two levels deep:
 //
 // STORY (the master planner): give it a story idea plus a CAST — saved
-// characters, products, any of your assets — and how many parts to tell it
-// in. The Story Writer (Claude) plans one continuous arc and breaks it into
-// N parts; each part is a full storyboard of its own (a Seedance flow whose
-// scenes sum to the part length + a nine-panel sheet prompt). Each part
-// draws its sheet (cast reference photos steer identity) and can generate
-// its VIDEO right here — the sheet + the cast sheets ride as references with
-// an explicit legend, so the same faces and products carry across every clip.
+// characters, products, any of your assets. The Story Writer (Claude) plans
+// one continuous arc as ONE storyboard (a Seedance flow whose scenes sum to
+// the clip length + a nine-panel sheet prompt). It draws its sheet (cast
+// reference photos steer identity) and can generate its VIDEO right here —
+// the sheet + the cast sheets ride as references with an explicit legend, so
+// the same faces and products carry across the clip. (Older multi-part
+// stories still open and render.)
 //
 // SINGLE STORYBOARD: the classic one-off product commercial — one board,
 // one sheet, one prompt.
@@ -188,7 +188,8 @@ export function StoryboardStudio() {
   // Inputs for a new story (kept when re-writing).
   const [storyBrief, setStoryBrief] = useState("");
   const [storyCastIds, setStoryCastIds] = useState<string[]>([]);
-  const [storyPartsCount, setStoryPartsCount] = useState(4);
+  // Every story is ONE storyboard now — the writer plans the whole arc into a
+  // single nine-panel board. (Older multi-part stories still open fine.)
   const [storyDur, setStoryDur] = useState(10);
   const [storyTier, setStoryTier] = useState<StoryTier>("pro");
   /** Part whose full flow is expanded for editing. */
@@ -433,7 +434,7 @@ export function StoryboardStudio() {
         body: JSON.stringify({
           brief: idea,
           durationSec: storyDur,
-          parts: storyPartsCount,
+          parts: 1,
           cast: storyCastIds
             .map((id) => byId[id])
             .filter(Boolean)
@@ -493,7 +494,8 @@ export function StoryboardStudio() {
       audio: false,
       modelId: imageModel.id,
       modality: "image",
-      direction: `${part.title || `Part ${idx + 1}`} — ${story.title}`,
+      direction:
+        story.parts.length === 1 ? story.title : `${part.title || `Part ${idx + 1}`} — ${story.title}`,
       refImageUrls: refs.length ? refs : undefined,
     });
     setStory((s) =>
@@ -549,7 +551,8 @@ export function StoryboardStudio() {
       modelId: t.modelId,
       modality: "video",
       elements: [part.boardId!, ...story.castIds],
-      direction: `${part.title || `Part ${idx + 1}`} — ${story.title}`,
+      direction:
+        story.parts.length === 1 ? story.title : `${part.title || `Part ${idx + 1}`} — ${story.title}`,
       posterUrl: sheetUrl,
       resolution: t.resolution,
       refImageUrls: [sheetUrl, ...castUrls].slice(0, 9),
@@ -566,7 +569,6 @@ export function StoryboardStudio() {
     setStory(d);
     setStoryBrief(d.brief);
     setStoryCastIds(d.castIds);
-    setStoryPartsCount(d.partsCount);
     setStoryDur(d.durationSec);
     setStoryTier(d.tier);
     setStoryView(true);
@@ -584,7 +586,12 @@ export function StoryboardStudio() {
       const job = videos.find((v) => v.id === p.sheetJobId);
       if (!job || job.status !== "succeeded" || !job.posterUrl) return;
       storySavedSheets.current.add(p.sheetJobId);
-      const name = `${next.title.trim() || "Story"} — ${p.title.trim() || `Part ${idx + 1}`}`;
+      // One-part story = one board named after the story itself; only
+      // multi-part stories (older saves) carry the "— Part N" suffix.
+      const name =
+        next.parts.length === 1
+          ? next.title.trim() || "Story"
+          : `${next.title.trim() || "Story"} — ${p.title.trim() || `Part ${idx + 1}`}`;
       const col = addCategory(`${next.title.trim() || "Story"} — story`);
       const asset = addAsset({
         name,
@@ -638,7 +645,6 @@ export function StoryboardStudio() {
     setStory(pending.data);
     setStoryBrief(pending.data.brief);
     setStoryCastIds(pending.data.castIds);
-    setStoryPartsCount(pending.data.partsCount);
     setStoryDur(pending.data.durationSec);
     setStoryTier(pending.data.tier);
     setStoryView(true);
@@ -664,9 +670,9 @@ export function StoryboardStudio() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Storyboard</h1>
         <p className="mt-1 text-sm text-muted">
-          The master planner. Tell one story with your characters, products and assets — broken
-          into parts, each part a nine-panel board that generates its video right here. Every
-          board also works in the Studio.
+          The master planner. Tell one story with your characters, products and assets — it
+          becomes one nine-panel board that generates its video right here. Every board also
+          works in the Studio.
         </p>
       </header>
 
@@ -745,7 +751,7 @@ export function StoryboardStudio() {
           icon={<Plus size={24} />}
           art={[thumbFor("art-product-reveal"), thumbFor("prod-coffee"), thumbFor("set-desert-highway")]}
           title="No stories yet"
-          description="Give it your cast and the idea — the writer plans the whole story, boards every part as a nine-panel sheet, and each part generates its video right here. Tap “New story” to plan your first."
+          description="Give it your cast and the idea — the writer plans the whole story as one nine-panel board that generates its video right here. Tap “New story” to plan your first."
         />
       )}
 
@@ -849,7 +855,7 @@ export function StoryboardStudio() {
               </div>
 
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint">
-                Cast <span className="normal-case">(your characters and products — they stay identical in every part)</span>
+                Cast <span className="normal-case">(your characters and products — they stay identical in every scene)</span>
               </label>
               {castOptions.length === 0 ? (
                 <button
@@ -906,48 +912,25 @@ export function StoryboardStudio() {
                 className={textareaCls}
               />
 
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint">
-                    Parts <span className="normal-case">(one board + one clip each)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[2, 3, 4].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setStoryPartsCount(n)}
-                        className={cn(
-                          "rounded-lg border px-2.5 py-1 text-[12px] font-medium tabular-nums transition-colors",
-                          storyPartsCount === n
-                            ? "border-accent bg-accent-soft text-fg"
-                            : "border-line text-muted hover:border-line-2",
-                        )}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint">
-                    Length per clip
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {DURATIONS.map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => setStoryDur(d)}
-                        className={cn(
-                          "rounded-lg border px-2 py-1 text-[12px] font-medium tabular-nums transition-colors",
-                          storyDur === d
-                            ? "border-accent bg-accent-soft text-fg"
-                            : "border-line text-muted hover:border-line-2",
-                        )}
-                      >
-                        {d}s
-                      </button>
-                    ))}
-                  </div>
+              <div className="mt-4">
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint">
+                  Clip length
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {DURATIONS.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setStoryDur(d)}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-[12px] font-medium tabular-nums transition-all",
+                        storyDur === d
+                          ? "bg-accent text-white shadow-[0_6px_16px_-6px_rgba(236,19,32,0.6)]"
+                          : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-fg",
+                      )}
+                    >
+                      {d}s
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -984,7 +967,7 @@ export function StoryboardStudio() {
                 >
                   {storyWriting ? (
                     <>
-                      <Loader2 size={17} className="animate-spin" /> Planning {storyPartsCount} parts…
+                      <Loader2 size={17} className="animate-spin" /> Writing the story…
                     </>
                   ) : locked ? (
                     <>
@@ -999,9 +982,9 @@ export function StoryboardStudio() {
               )}
               {storyError && <p className="mt-2 text-xs text-danger">{storyError}</p>}
               <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
-                The writer plans one continuous story across {storyPartsCount} parts — each part gets
-                its own Seedance prompt and nine-panel board. Sheets cost {sheetCost} credits each;
-                each {storyDur}s clip on Seedance 2.0 {STORY_TIERS[storyTier].label} costs{" "}
+                The writer plans the whole story into ONE nine-panel board with its own Seedance
+                prompt. The sheet costs {sheetCost} credits; the {storyDur}s clip on Seedance 2.0{" "}
+                {STORY_TIERS[storyTier].label} costs{" "}
                 {videoRate(getModel(STORY_TIERS[storyTier].modelId), STORY_TIERS[storyTier].resolution) * storyDur}{" "}
                 credits.
               </p>
@@ -1032,7 +1015,8 @@ export function StoryboardStudio() {
                     <Button size="sm" variant="soft" onClick={() => setStory(null)}>
                       <PenLine size={13} /> Edit & rewrite
                     </Button>
-                    {story.parts.some((p) => !p.boardId) && (
+                    {/* Bulk draw only earns its place on old multi-part stories. */}
+                    {story.parts.length > 1 && story.parts.some((p) => !p.boardId) && (
                       <Button size="sm" onClick={drawAllSheets} disabled={!hydrated || locked}>
                         <Sparkles size={13} /> Draw all boards
                       </Button>
@@ -1053,11 +1037,15 @@ export function StoryboardStudio() {
                   <Card key={idx} className="p-4 sm:p-5">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-white">
-                          {idx + 1}
-                        </span>
+                        {story.parts.length > 1 && (
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-white">
+                            {idx + 1}
+                          </span>
+                        )}
                         <span className="truncate text-[14.5px] font-semibold">
-                          {part.title || `Part ${idx + 1}`}
+                          {story.parts.length === 1
+                            ? part.title || "The board"
+                            : part.title || `Part ${idx + 1}`}
                         </span>
                       </div>
                       <span className="flex items-center gap-1.5">
