@@ -22,6 +22,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { verifyStripeWebhook, invoiceSubscriptionInfo, planFromSubscriptionMeta } from "@/lib/stripe";
 import { userForCustomer, saveBillingCustomer, saveSubscriptionId } from "@/lib/billing-customer";
 import { metaCapiConfigured, sendMetaSubscribeEvent } from "@/lib/meta-capi";
+import { emailFounder } from "@/lib/notify-founder";
 
 export const maxDuration = 20;
 
@@ -128,27 +129,46 @@ export async function POST(req: Request) {
       const purchaseId = metadata.purchase_id || null;
       const credited = await grant(invoice.id, purchaseId, userId, plan.credits);
 
-      // Conversion tracking: report to Meta only for a genuinely NEW
-      // subscriber (this invoice's billing_reason, checked above, is
-      // "subscription_create" — never a renewal), and only once per charge
-      // (credited === true guards a webhook retry from double-reporting).
-      if (credited && reason === "subscription_create" && metaCapiConfigured()) {
+      // A genuinely NEW subscriber (this invoice's billing_reason, checked
+      // above, is "subscription_create" — never a renewal), exactly once per
+      // charge (credited === true guards a webhook retry from re-reporting):
+      // tell Meta's Conversions API and email the founder.
+      if (credited && reason === "subscription_create") {
         const [{ data: userRes }, { data: purchaseRow }] = await Promise.all([
           supabaseAdmin.auth.admin.getUserById(userId),
           purchaseId
             ? supabaseAdmin.from("credit_purchases").select("fbp, fbc, client_ip, user_agent").eq("id", purchaseId).maybeSingle()
             : Promise.resolve({ data: null }),
         ]);
-        await sendMetaSubscribeEvent({
-          eventId: purchaseId ?? invoice.id,
-          email: userRes?.user?.email ?? null,
-          value: plan.amount,
-          currency: plan.currency,
-          fbp: purchaseRow?.fbp,
-          fbc: purchaseRow?.fbc,
-          clientIp: purchaseRow?.client_ip,
-          userAgent: purchaseRow?.user_agent,
-        });
+        const email = userRes?.user?.email ?? null;
+
+        await emailFounder(
+          `New paid subscriber: ${email ?? userId}`,
+          [
+            "Someone just became a paying VIBVID member.",
+            "",
+            `Email: ${email ?? "(unknown)"}`,
+            `Plan: ${plan.label} — ${plan.priceLabel}/${plan.interval === "year" ? "yr" : "mo"}`,
+            `Paid: $${plan.amount} ${plan.currency}`,
+            `Credits granted: ${plan.credits.toLocaleString()}`,
+            `When: ${new Date().toUTCString()}`,
+            "",
+            "— vibvid.ai",
+          ].join("\n"),
+        );
+
+        if (metaCapiConfigured()) {
+          await sendMetaSubscribeEvent({
+            eventId: purchaseId ?? invoice.id,
+            email,
+            value: plan.amount,
+            currency: plan.currency,
+            fbp: purchaseRow?.fbp,
+            fbc: purchaseRow?.fbc,
+            clientIp: purchaseRow?.client_ip,
+            userAgent: purchaseRow?.user_agent,
+          });
+        }
       }
 
       return NextResponse.json({ ok: true, credited });
