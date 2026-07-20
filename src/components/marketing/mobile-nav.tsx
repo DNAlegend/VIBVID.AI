@@ -26,7 +26,8 @@ export function MobileNav({ appHref }: { appHref: string }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const mq = window.matchMedia("(min-width: 768px)");
+    // Matches the header's lg breakpoint — the sheet dies when the full nav returns.
+    const mq = window.matchMedia("(min-width: 1024px)");
     const onWiden = (e: MediaQueryListEvent) => e.matches && setOpen(false);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -40,7 +41,7 @@ export function MobileNav({ appHref }: { appHref: string }) {
   }, [open]);
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       <button
         type="button"
         aria-label={open ? "Close menu" : "Open menu"}

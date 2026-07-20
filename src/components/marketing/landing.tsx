@@ -108,12 +108,15 @@ function Brand() {
 /* -------------------------------- Sections ------------------------------ */
 
 export function Header() {
-  const link = "rounded-full px-3.5 py-2 transition-colors hover:bg-surface-2/80 hover:text-fg";
+  // whitespace-nowrap: a squeezed link must never wrap and fatten the pill.
+  const link = "whitespace-nowrap rounded-full px-3.5 py-2 transition-colors hover:bg-surface-2/80 hover:text-fg";
   return (
     <header className="sticky top-2 z-30 px-2 sm:top-3 sm:px-4">
       <div className="glass mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-full pl-4 pr-2 sm:pl-5">
         <Brand />
-        <nav className="hidden items-center gap-0.5 text-sm font-medium text-muted md:flex">
+        {/* Full nav needs lg — below that the signed-in chips crowd it out,
+            so the hamburger takes over. */}
+        <nav className="hidden items-center gap-0.5 text-sm font-medium text-muted lg:flex">
           <a href="/#styles" className={link}>Styles</a>
           <a href="/#how" className={link}>How it works</a>
           <a href="/#compare" className={link}>Compare</a>

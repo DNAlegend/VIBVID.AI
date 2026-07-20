@@ -34,12 +34,13 @@ export function HeaderAuth() {
         <Link
           href={APP}
           title={`Signed in as ${email}`}
-          className="flex items-center gap-2 rounded-full border border-line-2 bg-surface py-1 pl-1 pr-1 transition-colors hover:border-faint sm:pr-3"
+          className="flex items-center gap-2 rounded-full border border-line-2 bg-surface py-1 pl-1 pr-1 transition-colors hover:border-faint xl:pr-3"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
             {initial}
           </span>
-          <span className="hidden max-w-[160px] truncate text-[13px] font-medium text-muted sm:block">{email}</span>
+          {/* The address is a luxury — it only fits once the nav has room to spare. */}
+          <span className="hidden max-w-[160px] truncate text-[13px] font-medium text-muted xl:block">{email}</span>
         </Link>
       </div>
     );
