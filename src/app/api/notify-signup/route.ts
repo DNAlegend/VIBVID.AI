@@ -12,7 +12,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { email?: string; created_at?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    email?: string;
+    created_at?: string;
+    subject?: string;
+    text?: string;
+  };
+
+  // Custom subject+text (still secret-gated, still only ever TO the founder)
+  // — lets ops send test/one-off notifications through the same pipe.
+  if (body.subject && body.text) {
+    const sent = await emailFounder(String(body.subject).slice(0, 200), String(body.text).slice(0, 5000));
+    return NextResponse.json({ ok: true, sent });
+  }
+
   const email = (body.email ?? "").slice(0, 320) || "(no email on record)";
   const when = body.created_at ? new Date(body.created_at).toUTCString() : new Date().toUTCString();
 
