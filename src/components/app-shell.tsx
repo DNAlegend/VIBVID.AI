@@ -69,14 +69,27 @@ function Brand() {
   );
 }
 
+/** Each route's content rises in softly (remounts the wrapper per pathname). */
+function PageRise({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  return (
+    <div key={pathname} className="animate-rise">
+      {children}
+    </div>
+  );
+}
+
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <>
       {NAV_GROUPS.map((group, gi) => (
         <div key={group.label} className={cn("flex flex-col gap-1", gi > 0 && "mt-5")}>
-          <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-faint">
-            {group.label}
+          <div className="mb-1 flex items-center gap-2 px-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">
+              {group.label}
+            </span>
+            <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
           </div>
           {group.items.map(({ href, label, icon: Icon }) => {
             const active = isActive(href, pathname);
@@ -86,12 +99,19 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                 href={href}
                 onClick={onNavigate}
                 className={cn(
-                  "flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
+                  "relative flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
                   active
-                    ? "bg-accent-soft text-fg"
+                    ? "bg-accent-soft text-fg shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
                     : "text-muted hover:bg-surface-2 hover:text-fg",
                 )}
               >
+                {/* Glowing position marker on the active item. */}
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute left-1.5 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-accent to-[#ff5a2c] shadow-[0_0_10px_rgba(236,19,32,0.55)]"
+                  />
+                )}
                 <Icon size={18} className={active ? "text-accent-2" : ""} />
                 {label}
               </Link>
@@ -942,8 +962,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      {/* Ambient stage — two faint color fields + a fading dot grid behind
+          everything. Decoration only; content stays the hero. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute -top-32 right-[-8%] h-[440px] w-[620px] rounded-full bg-accent/[0.07] blur-[100px]" />
+        <div className="absolute left-[-12%] top-[38%] h-[380px] w-[520px] rounded-full bg-indigo-500/[0.05] blur-[110px]" />
+        <div className="dot-grid absolute inset-0" />
+      </div>
+
       {/* Sidebar (desktop) */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line bg-surface/60 px-4 py-5 backdrop-blur-md md:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-surface/55 px-4 py-5 backdrop-blur-xl md:flex">
+        {/* Gradient hairline edge instead of a hard border. */}
+        <div aria-hidden className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-line-2 to-transparent" />
         <div className="px-1">
           <Brand />
         </div>
@@ -951,7 +981,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NavLinks />
         </nav>
         <div className="mt-auto">
-          <div className="rounded-xl border border-line bg-surface-2 p-3 text-xs text-muted">
+          {/* Engine status — a quiet live signal, not a widget. */}
+          <div className="mb-2 flex select-none items-center gap-2 px-1 text-[10.5px] font-medium uppercase tracking-[0.14em] text-faint">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
+            </span>
+            Seedance 2.0 · online
+          </div>
+          <div className="rounded-2xl border border-line/70 bg-surface/70 p-3 text-xs text-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur">
             <div className="mb-1 flex items-center gap-1.5 font-medium text-fg">
               <Sparkles size={13} className="text-teal" /> {email ? "Cloud sync on" : "Demo mode"}
             </div>
@@ -1010,8 +1048,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* The whole studio is browsable; paid actions (generate, Strategist,
             Director) open the subscribe paywall for a locked account.
-            Bottom padding clears the floating dock (+ its safe-area offset). */}
-        <main className="px-4 pb-32 pt-6 sm:px-6 md:pb-10">{children}</main>
+            Bottom padding clears the floating dock (+ its safe-area offset).
+            Keyed by route so each page rises in softly. */}
+        <main className="px-4 pb-32 pt-6 sm:px-6 md:pb-10">
+          <PageRise>{children}</PageRise>
+        </main>
       </div>
 
       {/* Bottom nav (mobile) — a floating glass dock above the home indicator */}

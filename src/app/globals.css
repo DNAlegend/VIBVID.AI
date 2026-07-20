@@ -149,6 +149,15 @@ body {
   box-shadow: 0 0 0 3px rgba(236, 19, 32, 0.25);
 }
 
+/* ---- App stage — a faint engineering dot-grid behind the studio, fading
+   out from the top so content stays the hero. Pure decoration. */
+.dot-grid {
+  background-image: radial-gradient(rgba(16, 16, 20, 0.06) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(1300px 850px at 50% 0%, black 0%, transparent 78%);
+  mask-image: radial-gradient(1300px 850px at 50% 0%, black 0%, transparent 78%);
+}
+
 /* The one brand gradient — the logo's red, warmed toward a live-broadcast orange. */
 .gradient-text {
   background: linear-gradient(92deg, #d40e1a, #ec1320 45%, #ff5a2c);
