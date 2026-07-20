@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Clapperboard, Film, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
@@ -62,10 +62,22 @@ const isActive = (href: string, pathname: string) =>
     : pathname.startsWith(href);
 
 function Brand() {
+  // The wordmark is the way home — back to the landing page and the basics.
   return (
-    <Link href="/app" className="flex items-center">
+    <Link href="/" className="flex items-center" title="VIBVID home">
       <LogoWordmark />
     </Link>
+  );
+}
+
+/** The app's ambient backdrop — faint color fields + a fading dot grid. */
+function AmbientStage() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+      <div className="absolute -top-32 right-[-8%] h-[440px] w-[620px] rounded-full bg-accent/[0.07] blur-[100px]" />
+      <div className="absolute left-[-12%] top-[38%] h-[380px] w-[520px] rounded-full bg-indigo-500/[0.05] blur-[110px]" />
+      <div className="dot-grid absolute inset-0" />
+    </div>
   );
 }
 
@@ -463,7 +475,9 @@ function SignUpGate() {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="flex justify-center">
-          <LogoWordmark className="text-2xl" />
+          <Link href="/" title="VIBVID home">
+            <LogoWordmark className="text-2xl" />
+          </Link>
         </div>
 
         {step === "email" ? (
@@ -612,77 +626,110 @@ function ActivateGate({ preselect }: { preselect: BillingItem | null }) {
   }
 
   return (
-    <div className="mx-auto max-w-lg py-4">
-      <div className="text-center">
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
-          <Sparkles size={22} />
-        </span>
-        <h1 className="font-display mt-4 text-2xl font-bold tracking-tight sm:text-3xl">Activate your studio</h1>
-        <p className="mx-auto mt-2 max-w-sm text-[14.5px] text-muted">
-          Choose a plan to unlock generation. Pay for the year and get 4 months on us. Cancel anytime.
+    <div className="animate-rise mx-auto grid max-w-4xl gap-10 py-6 lg:grid-cols-[1fr_minmax(0,460px)] lg:items-center lg:gap-14">
+      {/* The pitch — what turns on when they subscribe. */}
+      <div className="mx-auto max-w-md text-center lg:mx-0 lg:text-left">
+        <div className="inline-flex select-none items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1.5 text-[10.5px] font-medium uppercase tracking-[0.14em] text-muted backdrop-blur">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-60" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal" />
+          </span>
+          Seedance 2.0 · ready
+        </div>
+        <h1 className="font-display mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          Activate your <span className="gradient-text">studio</span>.
+        </h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-muted">
+          One subscription unlocks the whole machine — your first ad renders minutes from now.
+        </p>
+        <ul className="mt-6 space-y-3 text-left text-[13.5px] text-muted">
+          {[
+            "Ten proven UGC ad styles, ready to copy",
+            "Your real product and presenter — exact, every time",
+            "Native audio · vertical 9:16 · up to 4K",
+            "Credits refresh monthly · cancel anytime",
+          ].map((line) => (
+            <li key={line} className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-2">
+                <Check size={11} strokeWidth={3} />
+              </span>
+              {line}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* The plan panel — a glass card doing the deciding. */}
+      <div className="glass rounded-[24px] p-5 sm:p-6">
+        <div className="flex justify-center">
+          <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12.5px] font-medium">
+            <button
+              onClick={() => setCycle("month")}
+              className={cn("rounded-full px-3.5 py-1.5 transition-colors", cycle === "month" ? "bg-accent text-white" : "text-muted hover:text-fg")}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setCycle("year")}
+              className={cn("rounded-full px-3.5 py-1.5 transition-colors", cycle === "year" ? "bg-accent text-white" : "text-muted hover:text-fg")}
+            >
+              Annual · 4 months on us
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2.5">
+          {PLAN_ITEMS.map((base) => {
+            const p = (cycle === "year" ? planVariant(base.id, "year") : null) ?? base;
+            const active = selectedId === base.id;
+            return (
+              <button
+                key={base.id}
+                onClick={() => setSelectedId(base.id)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-all",
+                  active
+                    ? "border-accent shadow-[0_12px_30px_-18px_rgba(236,19,32,0.55)] ring-1 ring-accent/40"
+                    : "border-line hover:border-faint",
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <span className={cn("flex h-4 w-4 items-center justify-center rounded-full border", active ? "border-accent" : "border-line-2")}>
+                    {active && <span className="h-2 w-2 rounded-full bg-accent" />}
+                  </span>
+                  <span>
+                    <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
+                      {p.label}
+                      {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
+                    </span>
+                    <span className="block text-[12.5px] text-faint">
+                      {cycle === "year" ? p.sublabel : `${p.credits.toLocaleString()} credits / mo · ${p.sublabel}`}
+                    </span>
+                  </span>
+                </span>
+                <span className="text-lg font-bold text-fg">
+                  {p.priceLabel}
+                  <span className="text-xs font-normal text-faint">{cycle === "year" ? "/yr" : "/mo"}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
+          {busy ? <Loader2 size={17} className="animate-spin" /> : <>Subscribe — {paid.priceLabel}{cycle === "year" ? "/yr" : "/mo"}</>}
+        </Button>
+        {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
+        <p className="mt-4 text-center text-[12px] text-faint">
+          Secure checkout by Stripe · charged in US dollars · renews {cycle === "year" ? "yearly" : "monthly"} · cancel anytime.
+        </p>
+        <p className="mt-2 text-center text-[12px] text-faint">
+          Not sure which plan?{" "}
+          <a href="/#support" className="font-medium text-accent-2 hover:underline">
+            Talk to us
+          </a>
         </p>
       </div>
-
-      <div className="mt-5 flex justify-center">
-        <div className="inline-flex rounded-full border border-line bg-surface p-0.5 text-[12.5px] font-medium">
-          <button
-            onClick={() => setCycle("month")}
-            className={cn("rounded-full px-3.5 py-1.5 transition-colors", cycle === "month" ? "bg-accent text-white" : "text-muted hover:text-fg")}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setCycle("year")}
-            className={cn("rounded-full px-3.5 py-1.5 transition-colors", cycle === "year" ? "bg-accent text-white" : "text-muted hover:text-fg")}
-          >
-            Annual · 4 months on us
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-3">
-        {PLAN_ITEMS.map((base) => {
-          const p = (cycle === "year" ? planVariant(base.id, "year") : null) ?? base;
-          const active = selectedId === base.id;
-          return (
-            <button
-              key={base.id}
-              onClick={() => setSelectedId(base.id)}
-              className={cn(
-                "flex w-full items-center justify-between rounded-2xl border bg-surface p-4 text-left transition-colors",
-                active ? "border-accent ring-1 ring-accent/40" : "border-line hover:border-faint",
-              )}
-            >
-              <span className="flex items-center gap-3">
-                <span className={cn("flex h-4 w-4 items-center justify-center rounded-full border", active ? "border-accent" : "border-line-2")}>
-                  {active && <span className="h-2 w-2 rounded-full bg-accent" />}
-                </span>
-                <span>
-                  <span className="flex items-center gap-2 text-[15px] font-semibold text-fg">
-                    {p.label}
-                    {"popular" in p && p.popular && <Badge tone="accent">Most popular</Badge>}
-                  </span>
-                  <span className="block text-[12.5px] text-faint">
-                    {cycle === "year" ? p.sublabel : `${p.credits.toLocaleString()} credits / mo · ${p.sublabel}`}
-                  </span>
-                </span>
-              </span>
-              <span className="text-lg font-bold text-fg">
-                {p.priceLabel}
-                <span className="text-xs font-normal text-faint">{cycle === "year" ? "/yr" : "/mo"}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <Button className="mt-4 w-full" size="lg" onClick={go} disabled={busy}>
-        {busy ? <Loader2 size={17} className="animate-spin" /> : <>Subscribe — {paid.priceLabel}{cycle === "year" ? "/yr" : "/mo"}</>}
-      </Button>
-      {error && <p className="mt-3 text-center text-sm text-danger">{error}</p>}
-      <p className="mt-4 text-center text-[12px] text-faint">
-        Secure checkout by Stripe · charged in US dollars · renews {cycle === "year" ? "yearly" : "monthly"} · cancel anytime.
-      </p>
     </div>
   );
 }
@@ -899,6 +946,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (cloudConfigured && !email) {
     return (
       <div className="min-h-screen">
+        <AmbientStage />
         <SignUpGate />
         {purchaseNote && (
           <div className="glass-strong animate-rise fixed bottom-24 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-medium text-fg md:bottom-6">
@@ -929,6 +977,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (cloudConfigured && email && subscribed === false) {
     return (
       <div className="min-h-screen">
+        <AmbientStage />
         <header className="sticky top-2 z-20 px-2 sm:top-3 sm:px-4">
           <div className="glass mx-auto flex h-14 max-w-3xl items-center justify-between gap-3 rounded-full pl-4 pr-2">
             <Brand />
@@ -962,13 +1011,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      {/* Ambient stage — two faint color fields + a fading dot grid behind
-          everything. Decoration only; content stays the hero. */}
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -top-32 right-[-8%] h-[440px] w-[620px] rounded-full bg-accent/[0.07] blur-[100px]" />
-        <div className="absolute left-[-12%] top-[38%] h-[380px] w-[520px] rounded-full bg-indigo-500/[0.05] blur-[110px]" />
-        <div className="dot-grid absolute inset-0" />
-      </div>
+      <AmbientStage />
 
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-surface/55 px-4 py-5 backdrop-blur-xl md:flex">
