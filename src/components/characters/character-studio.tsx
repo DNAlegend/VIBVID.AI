@@ -577,10 +577,10 @@ export function CharacterStudio() {
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Characters</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Presenters</h1>
         <p className="mt-1 text-sm text-muted">
-          Create a character from one photo or a description — get an 8-box reference sheet, give
-          them a voice, and cast them in any video.
+          Create a presenter from one photo or a description — get an 8-box reference sheet, give
+          them a voice, and put the same face in every ad you run.
         </p>
       </header>
 

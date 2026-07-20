@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, LayoutGrid, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clapperboard, Film, FolderOpen, LogOut, Loader2, Mail, Megaphone, Package, Coins, Shirt, UserCircle, UserRound, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { supabase, cloudConfigured } from "@/lib/supabase";
 import { PLAN_ITEMS, PLAN_ITEMS_YEARLY, billingItem, planVariant, type BillingItem } from "@/lib/billing";
@@ -16,40 +16,37 @@ import { CheckoutPanel } from "@/components/checkout/checkout-panel";
 import { AccountModal } from "@/components/account/account-modal";
 import { LogoWordmark } from "@/components/logo";
 
-// The nav reads top to bottom as the workflow: the Studio (where the magic
-// happens), the Library (everything you create from — storyboards, characters,
-// products, assets), and the produced videos at the bottom.
+// The nav reads top to bottom as the workflow: make UGC ads, the Library
+// (your products, presenters, wardrobe and uploads — what the ads are made
+// from), and the finished ads at the bottom.
 // `short` is the label used on the compact mobile bar (6 items must fit).
 const NAV_GROUPS: { label: string; items: { href: string; label: string; short?: string; icon: typeof Clapperboard }[] }[] = [
   {
-    label: "Studio",
-    items: [
-      { href: "/app", label: "Studio", icon: Clapperboard },
-      { href: "/app/ugc", label: "UGC Ads", short: "UGC", icon: Megaphone },
-    ],
+    label: "Create",
+    items: [{ href: "/app", label: "UGC Ads", short: "UGC", icon: Megaphone }],
   },
   {
     label: "Library",
     items: [
-      { href: "/app/storyboard", label: "Storyboard", short: "Board", icon: LayoutGrid },
-      { href: "/app/characters", label: "Characters", short: "Cast", icon: UserRound },
-      { href: "/app/wardrobe", label: "Wardrobe", short: "Dress", icon: Shirt },
       { href: "/app/products", label: "Products", short: "Product", icon: Package },
+      { href: "/app/characters", label: "Presenters", short: "Cast", icon: UserRound },
+      { href: "/app/wardrobe", label: "Wardrobe", short: "Dress", icon: Shirt },
       { href: "/app/assets", label: "Assets", icon: FolderOpen },
     ],
   },
   {
     label: "Results",
-    items: [{ href: "/app/videos", label: "My Videos", short: "Videos", icon: Film }],
+    items: [{ href: "/app/videos", label: "My Ads", short: "Ads", icon: Film }],
   },
 ];
 // Flat list for the mobile bar (can't show group headers) — one source of truth.
 const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
-/** The Studio is the index route — it also owns /app/make; the rest match by prefix. */
+/** UGC Ads is the index route — it also owns /app/ugc deep links (and the
+ *  power-user studio at /app/make); the rest match by prefix. */
 const isActive = (href: string, pathname: string) =>
   href === "/app"
-    ? pathname === "/app" || pathname.startsWith("/app/make")
+    ? pathname === "/app" || pathname.startsWith("/app/ugc") || pathname.startsWith("/app/make")
     : pathname.startsWith(href);
 
 function Brand() {

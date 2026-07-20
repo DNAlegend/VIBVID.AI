@@ -59,17 +59,17 @@ export function LibraryView() {
     <div className="mx-auto max-w-6xl">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Videos</h1>
+          <h1 className="text-2xl font-bold tracking-tight">My Ads</h1>
           <p className="mt-1 text-sm text-muted">
             {videos.length === 0
-              ? "Every video you generate is collected and managed here."
+              ? "Every ad you generate is collected and managed here."
               : `${done} ${done === 1 ? "video" : "videos"} generated${
                   rendering > 0 ? ` · ${rendering} rendering…` : ""
                 }${failed > 0 ? ` · ${failed} failed` : ""}.`}
           </p>
         </div>
         <Button onClick={() => (window.location.href = "/app")} className="hidden sm:inline-flex">
-          <Sparkles size={16} /> Open the Studio
+          <Sparkles size={16} /> Make an ad
         </Button>
       </header>
 
@@ -78,10 +78,10 @@ export function LibraryView() {
           icon={<Film size={24} />}
           art={[thumbFor("set-neon-tokyo"), thumbFor("cast-neon-samurai"), thumbFor("set-cloud-temple")]}
           title="Nothing here yet"
-          description="Generate in the Studio and your videos land here — each one keeping the prompt and media it was produced from."
+          description="Make an ad in UGC Ads and it lands here — each one keeping the prompt and media it was produced from."
           action={
             <Button onClick={() => (window.location.href = "/app")}>
-              <Sparkles size={16} /> Open the Studio
+              <Sparkles size={16} /> Make an ad
             </Button>
           }
         />
