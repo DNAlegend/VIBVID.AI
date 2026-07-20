@@ -1,22 +1,17 @@
 "use client";
 
-// Storyboard — the story room, two levels deep:
+// Storyboard — the story room. ONE door in: give it a story idea plus a
+// CAST — saved characters, products, any of your assets. The Story Writer
+// (Claude) plans one continuous arc as ONE storyboard (a Seedance flow whose
+// scenes sum to the clip length + a nine-panel sheet prompt). It draws its
+// sheet (cast reference photos steer identity) and can generate its VIDEO
+// right here — the sheet + the cast sheets ride as references with an
+// explicit legend, so the same faces and products carry across the clip.
+// (Older multi-part stories still open and render.)
 //
-// STORY (the master planner): give it a story idea plus a CAST — saved
-// characters, products, any of your assets. The Story Writer (Claude) plans
-// one continuous arc as ONE storyboard (a Seedance flow whose scenes sum to
-// the clip length + a nine-panel sheet prompt). It draws its sheet (cast
-// reference photos steer identity) and can generate its VIDEO right here —
-// the sheet + the cast sheets ride as references with an explicit legend, so
-// the same faces and products carry across the clip. (Older multi-part
-// stories still open and render.)
-//
-// SINGLE STORYBOARD: the classic one-off product commercial — one board,
-// one sheet, one prompt.
-//
-// Boards from either path save themselves as storyboard assets, so they all
-// work in the Studio too. Stories save as 'story' assets grouping their
-// parts. Everything is private to the creator.
+// Every board saves itself as a storyboard asset, so it also works in the
+// Studio; the story saves as a 'story' asset carrying the full recipe.
+// Everything is private to the creator.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -24,10 +19,8 @@ import {
   ArrowRight,
   BookOpen,
   Check,
-  ChevronDown,
   Clapperboard,
   Clock,
-  Coins,
   Copy,
   Film,
   LayoutGrid,
@@ -130,8 +123,6 @@ function storyDraftOf(a: Asset): StoryDraft | null {
 
 export function StoryboardStudio() {
   const router = useRouter();
-  /** Gallery first — the creation wizard opens on "Add new". */
-  const [creating, setCreating] = useState(false);
   const assets = useStore((s) => s.assets);
   const videos = useStore((s) => s.videos);
   const credits = useStore((s) => s.credits);
@@ -146,28 +137,11 @@ export function StoryboardStudio() {
   const subscribed = useStore((s) => s.subscribed);
   const setAuthOpen = useStore((s) => s.setAuthOpen);
 
-  const [productId, setProductId] = useState<string | null>(null);
-  const [brief, setBrief] = useState("");
-  const [durationSec, setDurationSec] = useState<number>(10);
-  const [title, setTitle] = useState("");
-  const [flow, setFlow] = useState("");
-  const [imagePrompt, setImagePrompt] = useState("");
-  const [showImagePrompt, setShowImagePrompt] = useState(false);
-  const [writing, setWriting] = useState(false);
-  const [writeError, setWriteError] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  /** Job ids already auto-saved — a board saves itself exactly once. */
-  const savedJobs = useRef<Set<string>>(new Set());
-  const [savedAssetId, setSavedAssetId] = useState<string | null>(null);
   /** Saved-board card whose full prompt is expanded. */
   const [openBoard, setOpenBoard] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const boards = useMemo(() => assets.filter((a) => a.class === "storyboard"), [assets]);
-  const products = useMemo(
-    () => assets.filter((a) => a.class === "product" && (a.parts?.length ?? 0) > 0),
-    [assets],
-  );
   const byId = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, a])), [assets]);
 
   /* ------------------------------ Story state ----------------------------- */
@@ -259,174 +233,9 @@ export function StoryboardStudio() {
     },
     [updateAsset, addCategory, addAsset],
   );
-  const product = productId ? products.find((p) => p.id === productId) ?? null : null;
   const needsSignIn = cloudConfigured && !cloudUser;
   // Unsubscribed: keep buttons clickable so they open the subscribe paywall.
   const locked = cloudConfigured && subscribed === false;
-
-  // The sheet renders on the 2K image model — nine legible panels need the detail.
-  const model = getModel("gpt-image-2");
-  const cost = priceFor(model, { count: 1 });
-  const canAfford = credits >= cost;
-
-  const job = jobId ? videos.find((v) => v.id === jobId) ?? null : null;
-  const rendering = job?.status === "rendering";
-  const boardUrl = job?.status === "succeeded" ? job.posterUrl : undefined;
-
-  /** The Storyboard Artist: product + idea + length → { title, flow, imagePrompt }. */
-  async function onWrite() {
-    const idea = brief.trim();
-    if ((!idea && !product) || writing) return;
-    if (needsSignIn) {
-      setAuthOpen(true);
-      return;
-    }
-    // Browsing is free; the writer isn't — prompt subscribe if locked.
-    if (useStore.getState().blockIfLocked()) return;
-    setWriting(true);
-    setWriteError(null);
-    try {
-      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
-      if (!token) throw new Error("Please sign in first");
-      const res = await fetch("/api/storyboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          brief: idea || `A premium commercial for ${product!.name}.`,
-          durationSec,
-          product: product
-            ? { name: product.name, look: product.promptFragment ?? "" }
-            : null,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.flow) throw new Error(data.error ?? "The storyboard writer is unavailable");
-      setTitle((data.title as string) || product?.name || idea.slice(0, 40));
-      setFlow(data.flow as string);
-      setImagePrompt(data.imagePrompt as string);
-      setJobId(null);
-      setSavedAssetId(null);
-    } catch (e) {
-      setWriteError(e instanceof Error ? e.message : "The storyboard writer is unavailable");
-    } finally {
-      setWriting(false);
-    }
-  }
-
-  /** Fallback sheet prompt when the creator wrote/edited the flow by hand. */
-  const composedImagePrompt =
-    imagePrompt.trim() ||
-    `A professional product-storyboard sheet: a 3×3 grid of nine vertical frames on a clean white background with thin gutters; each cell carries exactly ONE small grey numeral in its bottom-left corner, numbered in reading order, and no other text anywhere. The nine panels are the key frames of this commercial in story order, the exact same product identical in every panel: ${flow.trim()} Ultra realistic product photography, studio lighting.`;
-
-  function onGenerate() {
-    if (rendering) return;
-    if (needsSignIn) {
-      setAuthOpen(true);
-      return;
-    }
-    if (locked) {
-      useStore.getState().blockIfLocked(); // opens the subscribe paywall
-      return;
-    }
-    if (!flow.trim() || !canAfford) return;
-    const refs = product ? productPhotoUrls(product) : [];
-    const id = generate({
-      prompt: composedImagePrompt,
-      tier: "standard",
-      durationSec: 5,
-      aspectRatio: "1:1",
-      audio: false,
-      modelId: model.id,
-      modality: "image",
-      direction: title.trim() || brief.trim(),
-      refImageUrls: refs.length ? refs : undefined,
-    });
-    setJobId(id);
-    // Safety net: if they navigate away mid-render, the next visit restores
-    // this state and the auto-save still lands the paid board.
-    setPendingSheet("storyboard", {
-      jobId: id,
-      data: { productId, brief, durationSec, title, flow, imagePrompt },
-    });
-  }
-
-  // A finished board saves itself: one storyboard asset carrying the sheet,
-  // the Seedance prompt and the video length — nothing for the creator to do.
-  // A redraw of the same board REFRESHES that asset; it never mints a second.
-  useEffect(() => {
-    if (!job || job.status !== "succeeded" || !job.posterUrl) return;
-    if (savedJobs.current.has(job.id)) return;
-    savedJobs.current.add(job.id);
-    const name = title.trim() || product?.name || brief.trim().slice(0, 40) || "New storyboard";
-    const sheetParts = [
-      { role: "primary", kind: "image", url: job.posterUrl, posterUrl: job.posterUrl, label: "Storyboard sheet" },
-      // The video length, machine-readable for Make.
-      { role: "reference", kind: "prompt", url: String(durationSec), label: `Video length: ${durationSec}s` },
-    ] as Asset["parts"];
-    const existing = savedAssetId
-      ? useStore.getState().assets.find((a) => a.id === savedAssetId)
-      : null;
-    if (existing) {
-      updateAsset(existing.id, {
-        name,
-        url: job.posterUrl,
-        posterUrl: job.posterUrl,
-        promptFragment: flow.trim(),
-        parts: sheetParts,
-      });
-    } else {
-      const col = addCategory(`${name} — storyboard`);
-      const asset = addAsset({
-        name,
-        kind: "image",
-        url: job.posterUrl,
-        posterUrl: job.posterUrl,
-        categoryId: col.id,
-        source: "generation",
-        class: "storyboard",
-        // The Seedance prompt rides along as the asset's prompt.
-        promptFragment: flow.trim(),
-        parts: sheetParts,
-      } as Omit<Asset, "id" | "createdAt">);
-      setSavedAssetId(asset.id);
-    }
-    clearPendingSheet("storyboard");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job?.status, job?.posterUrl]);
-
-  // Restore an in-flight (or finished-but-unsaved) render from a previous
-  // visit, so navigating away mid-render never loses the paid board.
-  useEffect(() => {
-    if (!hydrated || jobId) return;
-    const pending = getPendingSheet<{
-      productId: string | null;
-      brief: string;
-      durationSec: number;
-      title: string;
-      flow: string;
-      imagePrompt: string;
-    }>("storyboard");
-    if (!pending) return;
-    const pendingJob = useStore.getState().videos.find((v) => v.id === pending.jobId);
-    // Not in the store YET may just mean cloud videos haven't hydrated —
-    // keep the marker and try again on the next hydration; only a job we can
-    // SEE failed is truly dead.
-    if (!pendingJob) return;
-    if (pendingJob.status === "failed") {
-      clearPendingSheet("storyboard");
-      return;
-    }
-    const d = pending.data;
-    setProductId(d.productId);
-    setBrief(d.brief);
-    setDurationSec(d.durationSec);
-    setTitle(d.title);
-    setFlow(d.flow);
-    setImagePrompt(d.imagePrompt);
-    setJobId(pending.jobId);
-    setCreating(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
 
   /** Shoot it: the sheet becomes a reference, the prompt the script, the length the clip. */
   function useInMake(board: Asset) {
@@ -697,10 +506,6 @@ export function StoryboardStudio() {
     }
   }
 
-  const canWrite = hydrated && (brief.trim().length > 3 || !!product);
-  const canGenerate = hydrated && flow.trim().length > 0 && canAfford;
-  const savedBoard = savedAssetId ? boards.find((b) => b.id === savedAssetId) ?? null : null;
-
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-6">
@@ -712,8 +517,9 @@ export function StoryboardStudio() {
         </p>
       </header>
 
-      {/* Gallery first — creation hides behind the buttons. */}
-      {!creating && !storyView && (
+      {/* Gallery first — creation hides behind the button. One door in: a
+          story IS a single board, so there's nothing separate to offer. */}
+      {!storyView && (
         <div className="mb-5 flex flex-wrap gap-2">
           <Button
             size="lg"
@@ -725,14 +531,11 @@ export function StoryboardStudio() {
           >
             <BookOpen size={17} /> New story
           </Button>
-          <Button size="lg" variant="soft" onClick={() => setCreating(true)}>
-            <Plus size={17} /> Single storyboard
-          </Button>
         </div>
       )}
 
       {/* ---------------------------- Saved stories --------------------------- */}
-      {!creating && !storyView && stories.length > 0 && (
+      {!storyView && stories.length > 0 && (
         <>
           <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-faint">Stories</h2>
           <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -785,7 +588,7 @@ export function StoryboardStudio() {
         </>
       )}
 
-      {!creating && !storyView && boards.length === 0 && stories.length === 0 && (
+      {!storyView && boards.length === 0 && stories.length === 0 && (
         <EmptyState
           icon={<Plus size={24} />}
           art={[thumbFor("art-product-reveal"), thumbFor("prod-coffee"), thumbFor("set-desert-highway")]}
@@ -795,10 +598,10 @@ export function StoryboardStudio() {
       )}
 
       {/* ------------------------- Saved storyboards ------------------------- */}
-      {!creating && !storyView && boards.length > 0 && (
+      {!storyView && boards.length > 0 && (
         <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-faint">Storyboards</h2>
       )}
-      {!creating && !storyView && boards.length > 0 && (
+      {!storyView && boards.length > 0 && (
         <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {boards.map((b) => {
             const dur = storyboardDurationSec(b);
@@ -1253,274 +1056,6 @@ export function StoryboardStudio() {
               })}
             </div>
           )}
-        </>
-      )}
-
-      {creating && (
-        <>
-          <button
-            onClick={() => setCreating(false)}
-            className="mb-4 text-[13px] font-medium text-muted transition-colors hover:text-fg"
-          >
-            ← All storyboards
-          </button>
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,400px)_1fr]">
-        {/* ------------------------------ Brief ------------------------------ */}
-        <Card className="h-fit p-5">
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-2">
-            <LayoutGrid size={14} /> New storyboard
-          </div>
-
-          {/* The hero product — a saved Product steers the sheet with its photos. */}
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint">
-            Product <span className="normal-case">(the hero of every frame)</span>
-          </label>
-          {products.length === 0 ? (
-            <button
-              onClick={() => router.push("/app/products")}
-              className="flex w-full items-center gap-2 rounded-xl border border-dashed border-line-2 px-3 py-2 text-left text-[12.5px] text-muted transition-colors hover:border-accent/50 hover:text-fg"
-            >
-              <Package size={14} className="text-accent-2" /> Save a product first — or just describe it below
-            </button>
-          ) : (
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-              {products.map((p) => {
-                const on = productId === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setProductId(on ? null : p.id)}
-                    title={on ? `Deselect ${p.name}` : `Star ${p.name}`}
-                    className={cn(
-                      "flex shrink-0 items-center gap-2 rounded-xl border py-1.5 pl-1.5 pr-3 text-[12px] font-medium transition-colors",
-                      on ? "border-accent bg-accent-soft text-fg" : "border-line text-muted hover:border-line-2",
-                    )}
-                  >
-                    <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-surface-2">
-                      {p.posterUrl || p.url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.posterUrl ?? p.url} alt={p.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <Package size={14} className="m-auto text-faint" />
-                      )}
-                      {on && (
-                        <span className="absolute inset-0 flex items-center justify-center bg-accent/70 text-white">
-                          <Check size={13} />
-                        </span>
-                      )}
-                    </span>
-                    {p.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <label className="mb-1.5 mt-4 block text-xs font-medium uppercase tracking-wide text-faint">
-            The commercial
-          </label>
-          <textarea
-            value={brief}
-            onChange={(e) => setBrief(e.target.value)}
-            rows={4}
-            placeholder="A premium spot for a pink strawberry kefir bottle: macro crown splashes of white kefir, strawberries falling in slow motion, the bottle rising from swirling liquid…"
-            className={textareaCls}
-          />
-
-          <label className="mb-1.5 mt-4 block text-xs font-medium uppercase tracking-wide text-faint">
-            Video length
-          </label>
-          {/* Any second in Seedance's 4–15 range. */}
-          <div className="flex flex-wrap gap-1.5">
-            {DURATIONS.map((d) => (
-              <button
-                key={d}
-                onClick={() => setDurationSec(d)}
-                className={cn(
-                  "rounded-lg border px-2.5 py-1 text-[12px] font-medium tabular-nums transition-colors",
-                  durationSec === d
-                    ? "border-accent bg-accent-soft text-fg"
-                    : "border-line text-muted hover:border-line-2",
-                )}
-              >
-                {d}s
-              </button>
-            ))}
-          </div>
-
-          {needsSignIn ? (
-            <Button size="lg" className="mt-5 w-full" onClick={() => setAuthOpen(true)}>
-              <PenLine size={17} /> Sign in to write
-            </Button>
-          ) : (
-            <Button size="lg" className="mt-5 w-full" disabled={writing || (!locked && !canWrite)} onClick={onWrite}>
-              {writing ? (
-                <>
-                  <Loader2 size={17} className="animate-spin" /> Writing the board…
-                </>
-              ) : locked ? (
-                <>
-                  <PenLine size={17} /> Subscribe to write
-                </>
-              ) : flow ? (
-                <>
-                  <PenLine size={17} /> Rewrite storyboard
-                </>
-              ) : (
-                <>
-                  <PenLine size={17} /> Write storyboard
-                </>
-              )}
-            </Button>
-          )}
-          {writeError && <p className="mt-2 text-xs text-danger">{writeError}</p>}
-          <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
-            The writer directs a {durationSec}-second commercial scene by scene — the Seedance
-            prompt — and one prompt that draws its nine key frames as a single 3×3 sheet
-            {product ? `, locked to ${product.name}'s photos` : ""}.
-          </p>
-        </Card>
-
-        {/* ------------------------ Prompt + the sheet ------------------------ */}
-        <div className="space-y-4">
-          {flow ? (
-            <Card className="p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-2">
-                  <PenLine size={14} /> Seedance prompt
-                </div>
-                <span className="flex items-center gap-1.5">
-                  <Badge tone="neutral">
-                    <Clock size={10} /> {durationSec}s
-                  </Badge>
-                  {title && <Badge tone="neutral">{title}</Badge>}
-                </span>
-              </div>
-              <textarea
-                value={flow}
-                onChange={(e) => setFlow(e.target.value)}
-                rows={12}
-                className={textareaCls}
-              />
-              <button
-                onClick={() => setShowImagePrompt((v) => !v)}
-                className="mt-3 flex items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-fg"
-              >
-                <ChevronDown
-                  size={13}
-                  className={showImagePrompt ? "rotate-180 transition-transform" : "transition-transform"}
-                />
-                Board image prompt
-              </button>
-              {showImagePrompt && (
-                <textarea
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                  rows={6}
-                  placeholder="How the sheet itself is drawn — filled in by the writer, editable here."
-                  className={`${textareaCls} mt-2`}
-                />
-              )}
-
-              <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-sm">
-                <span className="text-muted">Model</span>
-                <span className="font-medium">
-                  {model.glyph} {model.name}
-                </span>
-              </div>
-              <div className="mt-1.5 flex items-center justify-between text-sm">
-                <span className="text-muted">Board render cost</span>
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <Coins size={15} className="text-warn" /> {cost} credits
-                </span>
-              </div>
-              <Button
-                size="lg"
-                className="mt-3 w-full"
-                disabled={rendering || (!locked && !canGenerate)}
-                onClick={onGenerate}
-              >
-                {rendering ? (
-                  <>
-                    <Loader2 size={17} className="animate-spin" /> Drawing the board…
-                  </>
-                ) : locked ? (
-                  <>
-                    <Sparkles size={17} /> Subscribe to generate
-                  </>
-                ) : boardUrl ? (
-                  <>
-                    <Sparkles size={17} /> Redraw storyboard
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={17} /> Generate storyboard
-                  </>
-                )}
-              </Button>
-              {hydrated && !needsSignIn && !locked && !canAfford && (
-                <p className="mt-2 text-center text-xs text-danger">
-                  Not enough credits — you need {cost - credits} more.
-                </p>
-              )}
-            </Card>
-          ) : (
-            <Card className="flex min-h-[320px] flex-col items-center justify-center p-8 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent-2">
-                <LayoutGrid size={22} />
-              </span>
-              <p className="mt-3 max-w-sm text-sm text-muted">
-                Your storyboard appears here — the Seedance prompt written scene by scene, and one
-                image holding all nine key frames of the commercial. Finished boards save
-                themselves.
-              </p>
-            </Card>
-          )}
-
-          {job && (
-            <Card className="overflow-hidden">
-              <div className="relative aspect-square w-full bg-surface-2">
-                {job.status === "rendering" ? (
-                  <div className="shimmer flex h-full flex-col items-center justify-center">
-                    <Loader2 size={20} className="animate-spin text-accent-2" />
-                    <div className="mt-3 w-32">
-                      <Progress value={job.progress} />
-                    </div>
-                  </div>
-                ) : boardUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={boardUrl} alt="Storyboard sheet" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center p-4 text-center text-xs text-danger">
-                    {job.error ?? "Failed"}
-                  </div>
-                )}
-                <span className="absolute left-2 top-2">
-                  <Badge tone="neutral" className="border-white/20 bg-black/55 text-white backdrop-blur-sm">
-                    9-panel storyboard · {durationSec}s
-                  </Badge>
-                </span>
-              </div>
-            </Card>
-          )}
-
-          {!!boardUrl && !rendering && (
-            <Card className="flex flex-wrap items-center gap-2 p-4">
-              <span className="flex items-center gap-1.5 text-[13px] font-medium text-teal">
-                <Check size={15} /> Saved to your storyboards
-              </span>
-              <Button
-                size="sm"
-                className="ml-auto"
-                onClick={() => savedBoard && useInMake(savedBoard)}
-                disabled={!savedBoard}
-              >
-                Use in Studio <ArrowRight size={15} />
-              </Button>
-            </Card>
-          )}
-        </div>
-      </div>
         </>
       )}
 
