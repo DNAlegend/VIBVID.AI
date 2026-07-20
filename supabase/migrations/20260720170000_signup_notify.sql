@@ -12,8 +12,10 @@ set search_path = ''
 as $$
 begin
   begin
+    -- www is the canonical host — the apex 308-redirects and pg_net's POST
+    -- would not survive the hop.
     perform net.http_post(
-      url := 'https://vibvid.ai/api/notify-signup',
+      url := 'https://www.vibvid.ai/api/notify-signup',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'x-signup-secret', '59bc2afff7b56cd9b62b46b1870dae2e4e2f19e8e109e343'
